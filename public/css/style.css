@@ -711,9 +711,26 @@ code {
   /* Show active tab only */
   .left-pane.mobile-active {
     display: flex;
+    height: calc(100vh - 48px - 44px);
   }
   .right-pane.mobile-active {
     display: flex;
+    height: calc(100vh - 48px - 44px);
+  }
+
+  /* Fix input area on mobile */
+  .left-pane .input-area {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    z-index: 5;
+  }
+
+  /* Fix chat area scroll on mobile */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Mobile tab bar */
