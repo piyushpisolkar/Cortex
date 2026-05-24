@@ -40,6 +40,23 @@
 
     <!-- MAIN WORKSPACE -->
     <div class="workspace">
+      <!-- MOBILE TAB BAR -->
+      <div class="mobile-tabs" id="mobileTabs">
+        <button
+          class="mobile-tab active"
+          id="chatTab"
+          onclick="switchTab('chat')"
+        >
+          💬 Chat
+        </button>
+        <button
+          class="mobile-tab canvas-tab"
+          id="canvasTab"
+          onclick="switchTab('canvas')"
+        >
+          ⬡ Canvas
+        </button>
+      </div>
       <!-- LEFT PANE: CHAT -->
       <div class="left-pane">
         <div class="pane-header">

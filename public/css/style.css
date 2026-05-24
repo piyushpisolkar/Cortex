@@ -652,3 +652,153 @@ code {
   color: #fff;
   box-shadow: 0 0 12px var(--teal);
 }
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 768px) {
+  body {
+    overflow: hidden;
+  }
+
+  /* Hide grid on mobile for performance */
+  body::before {
+    display: none;
+  }
+
+  /* Topbar */
+  .topbar {
+    padding: 0 12px;
+    height: 48px;
+  }
+
+  .logo-sub {
+    display: none;
+  }
+
+  .status-text {
+    display: none;
+  }
+
+  .topbar-right {
+    gap: 8px;
+  }
+
+  .panic-btn,
+  .viva-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  /* Workspace becomes vertical */
+  .workspace {
+    flex-direction: column;
+    height: calc(100vh - 48px);
+  }
+
+  /* Both panes take full width */
+  .left-pane {
+    width: 100%;
+    border-right: none;
+    border-bottom: none;
+    display: none;
+    height: calc(100vh - 48px);
+  }
+
+  .right-pane {
+    width: 100%;
+    display: none;
+    height: calc(100vh - 48px);
+  }
+
+  /* Show active tab only */
+  .left-pane.mobile-active {
+    display: flex;
+  }
+  .right-pane.mobile-active {
+    display: flex;
+  }
+
+  /* Mobile tab bar */
+  .mobile-tabs {
+    display: flex !important;
+    height: 44px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .mobile-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-hint);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .mobile-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .mobile-tab.canvas-tab.active {
+    color: var(--teal);
+    border-bottom-color: var(--teal);
+  }
+
+  /* Hide pane headers on mobile since tabs replace them */
+  .left-pane .pane-header {
+    display: none;
+  }
+  .right-pane .pane-header {
+    display: none;
+  }
+
+  /* Bigger touch targets for messages */
+  .msg {
+    max-width: 95%;
+    font-size: 14px;
+  }
+
+  /* Action buttons wrap on mobile */
+  .msg-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Input area */
+  .input-area {
+    padding: 8px;
+  }
+
+  .chat-input {
+    font-size: 14px;
+  }
+
+  /* Canvas cards */
+  .canvas-card {
+    padding: 10px 12px;
+  }
+
+  .flashcard-q,
+  .flashcard-a {
+    font-size: 13px;
+  }
+
+  /* Tooltips off on mobile */
+  [data-tooltip]::after,
+  [data-tooltip]::before {
+    display: none;
+  }
+}
+
+/* Hide mobile tabs on desktop */
+.mobile-tabs {
+  display: none;
+}

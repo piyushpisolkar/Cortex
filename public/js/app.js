@@ -184,6 +184,7 @@ function pushToCanvas(text) {
 
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
+  if (isMobile()) switchTab("canvas");
 }
 
 // ── FORMAT MESSAGE ──
@@ -327,6 +328,7 @@ function pushFlashcardsToCanvas(flashcards) {
 
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
+  if (isMobile()) switchTab("canvas");
 }
 
 // ── DRAG & DROP FILE ──
@@ -367,3 +369,31 @@ dropZone.addEventListener("drop", (e) => {
   };
   reader.readAsText(file);
 });
+// ── MOBILE TABS ──
+function switchTab(tab) {
+  const leftPane = document.querySelector(".left-pane");
+  const rightPane = document.querySelector(".right-pane");
+  const chatTab = document.getElementById("chatTab");
+  const canvasTab = document.getElementById("canvasTab");
+
+  if (tab === "chat") {
+    leftPane.classList.add("mobile-active");
+    rightPane.classList.remove("mobile-active");
+    chatTab.classList.add("active");
+    canvasTab.classList.remove("active");
+  } else {
+    rightPane.classList.add("mobile-active");
+    leftPane.classList.remove("mobile-active");
+    canvasTab.classList.add("active");
+    chatTab.classList.remove("active");
+  }
+}
+
+// Auto-switch to canvas when content is pushed there on mobile
+function isMobile() {
+  return window.innerWidth <= 768;
+}
+// Set initial mobile state
+if (isMobile()) {
+  document.querySelector(".left-pane").classList.add("mobile-active");
+}
