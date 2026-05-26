@@ -404,9 +404,27 @@ async function loadUser() {
     const user = await res.json();
     document.getElementById("userPhoto").src = user.photo;
     document.getElementById("userName").textContent = user.name.split(" ")[0];
+    document.getElementById("dropdownPhoto").src = user.photo;
+    document.getElementById("dropdownName").textContent = user.name;
+    document.getElementById("dropdownEmail").textContent = user.email;
   } catch (err) {
     console.error("Could not load user:", err);
   }
 }
 
 loadUser();
+
+// ── PROFILE DROPDOWN TOGGLE ──
+function toggleProfileMenu() {
+  const dropdown = document.getElementById("profileDropdown");
+  dropdown.classList.toggle("open");
+}
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  const profile = document.getElementById("userProfile");
+  const dropdown = document.getElementById("profileDropdown");
+  if (!profile.contains(e.target)) {
+    dropdown.classList.remove("open");
+  }
+});

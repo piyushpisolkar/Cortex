@@ -845,17 +845,76 @@ code {
   white-space: nowrap;
 }
 
-.logout-btn {
-  font-size: 11px;
-  color: var(--text-hint);
-  text-decoration: none;
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  transition: all 0.2s;
+/* ── PROFILE DROPDOWN ── */
+.user-profile {
+  position: relative;
+  cursor: pointer;
 }
 
-.logout-btn:hover {
-  border-color: var(--panic);
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 220px;
+  z-index: 999;
+  animation: fadeIn 0.2s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.profile-dropdown.open {
+  display: block;
+}
+
+.profile-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dropdown-photo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+}
+
+.dropdown-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+}
+
+.dropdown-email {
+  font-size: 11px;
+  color: var(--text-hint);
+  margin: 0;
+}
+
+.dropdown-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+
+.dropdown-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
   color: var(--panic-light);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.dropdown-logout:hover {
+  background: rgba(153, 60, 29, 0.2);
 }

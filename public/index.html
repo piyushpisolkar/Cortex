@@ -143,12 +143,24 @@
         >
           ⚡ Panic Mode
         </button>
-        <div class="user-profile" id="userProfile">
+        <div
+          class="user-profile"
+          id="userProfile"
+          onclick="toggleProfileMenu()"
+        >
           <img class="user-photo" id="userPhoto" src="" alt="" />
           <span class="user-name" id="userName"></span>
-          <a href="/logout" class="logout-btn" data-tooltip="Sign out of Cortex"
-            >↩ Logout</a
-          >
+          <div class="profile-dropdown" id="profileDropdown">
+            <div class="profile-dropdown-header">
+              <img class="dropdown-photo" id="dropdownPhoto" src="" alt="" />
+              <div>
+                <p class="dropdown-name" id="dropdownName"></p>
+                <p class="dropdown-email" id="dropdownEmail"></p>
+              </div>
+            </div>
+            <hr class="dropdown-divider" />
+            <a href="/logout" class="dropdown-logout">↩ Sign out</a>
+          </div>
         </div>
       </div>
     </div>
