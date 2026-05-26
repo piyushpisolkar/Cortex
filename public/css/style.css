@@ -819,3 +819,43 @@ code {
 .mobile-tabs {
   display: none;
 }
+
+/* ── USER PROFILE ── */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.user-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+}
+
+.user-name {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  font-size: 11px;
+  color: var(--text-hint);
+  text-decoration: none;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  border-color: var(--panic);
+  color: var(--panic-light);
+}

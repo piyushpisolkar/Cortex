@@ -397,3 +397,16 @@ function isMobile() {
 if (isMobile()) {
   document.querySelector(".left-pane").classList.add("mobile-active");
 }
+// ── LOAD USER INFO ──
+async function loadUser() {
+  try {
+    const res = await fetch("/api/user");
+    const user = await res.json();
+    document.getElementById("userPhoto").src = user.photo;
+    document.getElementById("userName").textContent = user.name.split(" ")[0];
+  } catch (err) {
+    console.error("Could not load user:", err);
+  }
+}
+
+loadUser();
