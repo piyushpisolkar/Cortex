@@ -12,6 +12,13 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── MIDDLEWARE ──
 app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; img-src 'self' https://lh3.googleusercontent.com https://*.googleusercontent.com data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'",
+  );
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── SESSION ──
