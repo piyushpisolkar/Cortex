@@ -8,6 +8,26 @@
   ],
   "routes": [
     {
+      "src": "/icons/(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/css/(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "server.js"
+    },
+    {
+      "src": "/service-worker.js",
+      "dest": "server.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "server.js"
     }
