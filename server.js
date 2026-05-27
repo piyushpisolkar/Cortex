@@ -41,16 +41,15 @@ passport.deserializeUser((user, done) => done(null, user));
 
 app.use(express.json());
 
+// ── STATIC FILES (login page is public) ──
+app.use(express.static(path.join(__dirname, "public")));
+
 // ── AUTH MIDDLEWARE ──
 function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.redirect("/login");
 }
 
-// ── STATIC FILES (login page is public) ──
-app.use("/css", express.static(path.join(__dirname, "public/css")));
-app.use("/js", express.static(path.join(__dirname, "public/js")));
-app.use("/icons", express.static(path.join(__dirname, "public/icons")));
 // ── AUTH ROUTES ──
 app.get(
   "/auth/google",
