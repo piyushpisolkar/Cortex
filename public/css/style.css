@@ -834,6 +834,8 @@ code {
   height: 28px;
   border-radius: 50%;
   border: 1px solid var(--accent);
+  object-fit: cover;
+  background: var(--surface);
 }
 
 .user-name {

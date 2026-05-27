@@ -156,10 +156,13 @@ app.get("/", isLoggedIn, (req, res) => {
 
 // ── USER INFO API ──
 app.get("/api/user", isLoggedIn, (req, res) => {
+  let photo = req.user.photos[0].value;
+  // Remove size restrictions from Google photo URL
+  photo = photo.replace("=s96-c", "=s200-c");
   res.json({
     name: req.user.displayName,
     email: req.user.emails[0].value,
-    photo: req.user.photos[0].value,
+    photo: photo,
   });
 });
 
