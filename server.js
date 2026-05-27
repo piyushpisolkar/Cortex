@@ -1,3 +1,18 @@
+const fs = require("fs");
+
+// ── SERVE ICONS EXPLICITLY ──
+app.get("/icons/icon-192.png", (req, res) => {
+  const iconPath = path.join(__dirname, "public", "icons", "icon-192.png");
+  res.setHeader("Content-Type", "image/png");
+  res.sendFile(iconPath);
+});
+
+app.get("/icons/icon-512.png", (req, res) => {
+  const iconPath = path.join(__dirname, "public", "icons", "icon-512.png");
+  res.setHeader("Content-Type", "image/png");
+  res.sendFile(iconPath);
+});
+
 require("dotenv").config();
 const express = require("express");
 const Groq = require("groq-sdk");
