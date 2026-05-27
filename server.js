@@ -1,26 +1,18 @@
-// ── SERVE ICONS EXPLICITLY ──
-app.get("/icons/icon-192.png", (req, res) => {
-  const iconPath = path.join(__dirname, "public", "icons", "icon-192.png");
-  res.setHeader("Content-Type", "image/png");
-  res.sendFile(iconPath);
-});
-
-app.get("/icons/icon-512.png", (req, res) => {
-  const iconPath = path.join(__dirname, "public", "icons", "icon-512.png");
-  res.setHeader("Content-Type", "image/png");
-  res.sendFile(iconPath);
-});
-
 require("dotenv").config();
 const express = require("express");
-const Groq = require("groq-sdk");
 const path = require("path");
+const Groq = require("groq-sdk");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const session = require("express-session");
 
+// ── INIT ──
 const app = express();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// ── MIDDLEWARE ──
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
 // ── SESSION ──
 app.use(
@@ -41,7 +33,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "https://cortex-drab-one.vercel.app/auth/google/callback",
+      callbackURL: "/auth/google/callback",
     },
     (accessToken, refreshToken, profile, done) => {
       return done(null, profile);
@@ -52,16 +44,21 @@ passport.use(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
-app.use(express.json());
-
-// ── STATIC FILES (login page is public) ──
-app.use(express.static(path.join(__dirname, "public")));
-
 // ── AUTH MIDDLEWARE ──
 function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.redirect("/login");
 }
+
+// ── PWA FILES ──
+app.get("/manifest.json", (req, res) => {
+  res.sendFile(path.join(__dirname, "manifest.json"));
+});
+
+app.get("/service-worker.js", (req, res) => {
+  res.setHeader("Content-Type", "application/javascript");
+  res.sendFile(path.join(__dirname, "service-worker.js"));
+});
 
 // ── AUTH ROUTES ──
 app.get(
@@ -126,7 +123,7 @@ Rules:
 - Start by asking: "Ready for your viva? Tell me the topic you want to be examined on."
 - Keep feedback short and sharp — max 2 sentences`;
 
-// ── CHAT API (protected) ──
+// ── CHAT API ──
 app.post("/api/chat", isLoggedIn, async (req, res) => {
   const { message, history, mode } = req.body;
   try {
@@ -156,7 +153,7 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
   }
 });
 
-// ── FLASHCARD API (protected) ──
+// ── FLASHCARD API ──
 app.post("/api/flashcard", isLoggedIn, async (req, res) => {
   const { text } = req.body;
   try {
@@ -188,7 +185,7 @@ app.post("/api/flashcard", isLoggedIn, async (req, res) => {
   }
 });
 
-// ── SUMMARIZE API (protected) ──
+// ── SUMMARIZE API ──
 app.post("/api/summarize", isLoggedIn, async (req, res) => {
   const { text, type } = req.body;
   try {
@@ -213,15 +210,8 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
   }
 });
 
+// ── START SERVER ──
 const PORT = 3000;
-// ── PWA FILES ──
-app.get("/manifest.json", (req, res) => {
-  res.sendFile(path.join(__dirname, "manifest.json"));
-});
-
-app.get("/service-worker.js", (req, res) => {
-  res.sendFile(path.join(__dirname, "service-worker.js"));
-});
 app.listen(PORT, () => {
   console.log(`Cortex is running at http://localhost:${PORT}`);
 });
