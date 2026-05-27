@@ -50,7 +50,7 @@ function isLoggedIn(req, res, next) {
 // ── STATIC FILES (login page is public) ──
 app.use("/css", express.static(path.join(__dirname, "public/css")));
 app.use("/js", express.static(path.join(__dirname, "public/js")));
-
+app.use("/icons", express.static(path.join(__dirname, "public/icons")));
 // ── AUTH ROUTES ──
 app.get(
   "/auth/google",
