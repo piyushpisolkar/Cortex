@@ -202,6 +202,14 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
 });
 
 const PORT = 3000;
+// ── PWA FILES ──
+app.get("/manifest.json", (req, res) => {
+  res.sendFile(path.join(__dirname, "manifest.json"));
+});
+
+app.get("/service-worker.js", (req, res) => {
+  res.sendFile(path.join(__dirname, "service-worker.js"));
+});
 app.listen(PORT, () => {
   console.log(`Cortex is running at http://localhost:${PORT}`);
 });

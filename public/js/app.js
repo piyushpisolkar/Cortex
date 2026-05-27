@@ -428,3 +428,12 @@ document.addEventListener("click", (e) => {
     dropdown.classList.remove("open");
   }
 });
+// ── REGISTER SERVICE WORKER ──
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then(() => console.log("Cortex PWA ready"))
+      .catch((err) => console.log("SW error:", err));
+  });
+}
