@@ -401,17 +401,23 @@ if (isMobile()) {
 async function loadUser() {
   try {
     const res = await fetch("/api/user");
+    if (!res.ok) return;
     const user = await res.json();
-    document.getElementById("userPhoto").src = user.photo;
-    document.getElementById("userName").textContent = user.name.split(" ")[0];
-    document.getElementById("dropdownPhoto").src = user.photo;
-    document.getElementById("dropdownName").textContent = user.name;
-    document.getElementById("dropdownEmail").textContent = user.email;
+    const photo = document.getElementById("userPhoto");
+    const name = document.getElementById("userName");
+    const dropdownPhoto = document.getElementById("dropdownPhoto");
+    const dropdownName = document.getElementById("dropdownName");
+    const dropdownEmail = document.getElementById("dropdownEmail");
+
+    if (photo) photo.src = user.photo + "?sz=64";
+    if (name) name.textContent = user.name.split(" ")[0];
+    if (dropdownPhoto) dropdownPhoto.src = user.photo + "?sz=64";
+    if (dropdownName) dropdownName.textContent = user.name;
+    if (dropdownEmail) dropdownEmail.textContent = user.email;
   } catch (err) {
     console.error("Could not load user:", err);
   }
 }
-
 loadUser();
 
 // ── PROFILE DROPDOWN TOGGLE ──

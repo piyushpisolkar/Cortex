@@ -125,7 +125,12 @@ app.get(
 );
 
 app.get("/logout", (req, res) => {
-  req.logout(() => res.redirect("/login"));
+  req.logout(() => {
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.redirect("/login");
+    });
+  });
 });
 
 // ── LOGIN PAGE ──
