@@ -1,5 +1,3 @@
-const fs = require("fs");
-
 // ── SERVE ICONS EXPLICITLY ──
 app.get("/icons/icon-192.png", (req, res) => {
   const iconPath = path.join(__dirname, "public", "icons", "icon-192.png");
