@@ -33,7 +33,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
+      callbackURL: "https://cortex-drab-one.vercel.app/auth/google/callback",
     },
     (accessToken, refreshToken, profile, done) => {
       return done(null, profile);
@@ -113,13 +113,13 @@ app.get("/service-worker.js", (req, res) => {
 });
 
 // ── AUTH ROUTES ──
-app.get(
-  "/auth/google",
+app.get("/auth/google", (req, res, next) => {
   passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account",
-  }),
-);
+    access_type: "online",
+  })(req, res, next);
+});
 
 app.get(
   "/auth/google/callback",

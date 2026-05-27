@@ -409,9 +409,9 @@ async function loadUser() {
     const dropdownName = document.getElementById("dropdownName");
     const dropdownEmail = document.getElementById("dropdownEmail");
 
-    if (photo) photo.src = user.photo + "?sz=64";
+    if (photo) photo.src = user.photo;
     if (name) name.textContent = user.name.split(" ")[0];
-    if (dropdownPhoto) dropdownPhoto.src = user.photo + "?sz=64";
+    if (dropdownPhoto) dropdownPhoto.src = user.photo;
     if (dropdownName) dropdownName.textContent = user.name;
     if (dropdownEmail) dropdownEmail.textContent = user.email;
   } catch (err) {
