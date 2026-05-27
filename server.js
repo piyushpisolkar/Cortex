@@ -115,7 +115,10 @@ app.get("/service-worker.js", (req, res) => {
 // ── AUTH ROUTES ──
 app.get(
   "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] }),
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  }),
 );
 
 app.get(
