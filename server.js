@@ -64,56 +64,52 @@ app.get("/manifest.json", (req, res) => {
 
 // ── SERVE ICONS AS BASE64 ──
 app.get("/icons/icon-192.png", (req, res) => {
-  const base64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAF";
-  // Redirect to inline SVG instead
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="192" height="192" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-    <rect width="80" height="80" fill="#0d0d14"/>
+  res.send(`<svg width="192" height="192" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#0d0d14"/>
     <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7F77DD"/><stop offset="100%" style="stop-color:#3C3489"/></linearGradient></defs>
-    <polygon points="40,4 72,22 72,58 40,76 8,58 8,22" fill="none" stroke="url(#g)" stroke-width="1.5"/>
-    <polygon points="40,12 65,26 65,54 40,68 15,54 15,26" fill="#141420" stroke="#3a3660" stroke-width="0.8"/>
-    <path d="M28,38 C28,30 33,26 38,27 C38,27 37,32 36,35 C35,38 34,42 36,45 C37,47 38,48 38,48" fill="none" stroke="#7F77DD" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M52,38 C52,30 47,26 42,27 C42,27 43,32 44,35 C45,38 46,42 44,45 C43,47 42,48 42,48" fill="none" stroke="#7F77DD" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="40" y1="27" x2="40" y2="48" stroke="#5550a0" stroke-width="1" stroke-dasharray="2,2"/>
-    <path d="M36,45 C37,50 43,50 44,45" fill="none" stroke="#7F77DD" stroke-width="1.8" stroke-linecap="round"/>
-    <circle cx="40" cy="27" r="2" fill="#7F77DD"/>
-    <circle cx="40" cy="48" r="2" fill="#7F77DD"/>
-    <line x1="15" y1="40" x2="24" y2="40" stroke="#3a3660" stroke-width="1"/>
-    <line x1="65" y1="40" x2="56" y2="40" stroke="#3a3660" stroke-width="1"/>
-    <circle cx="24" cy="40" r="1.5" fill="#3C3489"/>
-    <circle cx="56" cy="40" r="1.5" fill="#3C3489"/>
-    <line x1="40" y1="12" x2="40" y2="19" stroke="#3a3660" stroke-width="1"/>
-    <circle cx="40" cy="19" r="1.5" fill="#3C3489"/>
-    <line x1="40" y1="61" x2="40" y2="68" stroke="#3a3660" stroke-width="1"/>
-    <circle cx="40" cy="61" r="1.5" fill="#3C3489"/>
+    <polygon points="50,8 82,26 82,64 50,82 18,64 18,26" fill="none" stroke="url(#g)" stroke-width="2"/>
+    <polygon points="50,16 74,29 74,59 50,72 26,59 26,29" fill="#141420" stroke="#3a3660" stroke-width="1"/>
+    <path d="M38,45 C38,37 43,33 48,34 C48,34 47,39 46,42 C45,45 44,49 46,52 C47,54 48,55 48,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <path d="M62,45 C62,37 57,33 52,34 C52,34 53,39 54,42 C55,45 56,49 54,52 C53,54 52,55 52,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <line x1="50" y1="34" x2="50" y2="55" stroke="#5550a0" stroke-width="1" stroke-dasharray="2,2"/>
+    <path d="M46,52 C47,57 53,57 54,52" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="50" cy="34" r="2.5" fill="#7F77DD"/>
+    <circle cx="50" cy="55" r="2.5" fill="#7F77DD"/>
+    <line x1="26" y1="47" x2="34" y2="47" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="34" cy="47" r="2" fill="#3C3489"/>
+    <line x1="74" y1="47" x2="66" y2="47" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="66" cy="47" r="2" fill="#3C3489"/>
+    <line x1="50" y1="16" x2="50" y2="24" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="50" cy="24" r="2" fill="#3C3489"/>
+    <line x1="50" y1="72" x2="50" y2="80" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="50" cy="76" r="2" fill="#3C3489"/>
   </svg>`);
 });
 
 app.get("/icons/icon-512.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="512" height="512" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-    <rect width="80" height="80" fill="#0d0d14"/>
+  res.send(`<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#0d0d14"/>
     <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7F77DD"/><stop offset="100%" style="stop-color:#3C3489"/></linearGradient></defs>
-    <polygon points="40,4 72,22 72,58 40,76 8,58 8,22" fill="none" stroke="url(#g)" stroke-width="1.5"/>
-    <polygon points="40,12 65,26 65,54 40,68 15,54 15,26" fill="#141420" stroke="#3a3660" stroke-width="0.8"/>
-    <path d="M28,38 C28,30 33,26 38,27 C38,27 37,32 36,35 C35,38 34,42 36,45 C37,47 38,48 38,48" fill="none" stroke="#7F77DD" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M52,38 C52,30 47,26 42,27 C42,27 43,32 44,35 C45,38 46,42 44,45 C43,47 42,48 42,48" fill="none" stroke="#7F77DD" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="40" y1="27" x2="40" y2="48" stroke="#5550a0" stroke-width="1" stroke-dasharray="2,2"/>
-    <path d="M36,45 C37,50 43,50 44,45" fill="none" stroke="#7F77DD" stroke-width="1.8" stroke-linecap="round"/>
-    <circle cx="40" cy="27" r="2" fill="#7F77DD"/>
-    <circle cx="40" cy="48" r="2" fill="#7F77DD"/>
-    <line x1="15" y1="40" x2="24" y2="40" stroke="#3a3660" stroke-width="1"/>
-    <line x1="65" y1="40" x2="56" y2="40" stroke="#3a3660" stroke-width="1"/>
-    <circle cx="24" cy="40" r="1.5" fill="#3C3489"/>
-    <circle cx="56" cy="40" r="1.5" fill="#3C3489"/>
-    <line x1="40" y1="12" x2="40" y2="19" stroke="#3a3660" stroke-width="1"/>
-    <circle cx="40" cy="19" r="1.5" fill="#3C3489"/>
-    <line x1="40" y1="61" x2="40" y2="68" stroke="#3a3660" stroke-width="1"/>
-    <circle cx="40" cy="61" r="1.5" fill="#3C3489"/>
+    <polygon points="50,8 82,26 82,64 50,82 18,64 18,26" fill="none" stroke="url(#g)" stroke-width="2"/>
+    <polygon points="50,16 74,29 74,59 50,72 26,59 26,29" fill="#141420" stroke="#3a3660" stroke-width="1"/>
+    <path d="M38,45 C38,37 43,33 48,34 C48,34 47,39 46,42 C45,45 44,49 46,52 C47,54 48,55 48,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <path d="M62,45 C62,37 57,33 52,34 C52,34 53,39 54,42 C55,45 56,49 54,52 C53,54 52,55 52,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <line x1="50" y1="34" x2="50" y2="55" stroke="#5550a0" stroke-width="1" stroke-dasharray="2,2"/>
+    <path d="M46,52 C47,57 53,57 54,52" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="50" cy="34" r="2.5" fill="#7F77DD"/>
+    <circle cx="50" cy="55" r="2.5" fill="#7F77DD"/>
+    <line x1="26" y1="47" x2="34" y2="47" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="34" cy="47" r="2" fill="#3C3489"/>
+    <line x1="74" y1="47" x2="66" y2="47" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="66" cy="47" r="2" fill="#3C3489"/>
+    <line x1="50" y1="16" x2="50" y2="24" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="50" cy="24" r="2" fill="#3C3489"/>
+    <line x1="50" y1="72" x2="50" y2="80" stroke="#3a3660" stroke-width="1.5"/>
+    <circle cx="50" cy="76" r="2" fill="#3C3489"/>
   </svg>`);
 });
-
 app.get("/service-worker.js", (req, res) => {
   res.setHeader("Content-Type", "application/javascript");
   res.sendFile(path.join(__dirname, "service-worker.js"));
