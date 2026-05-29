@@ -5,29 +5,38 @@ const Groq = require("groq-sdk");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
+const mongoose = require("mongoose");
 
 // ── INIT ──
 const app = express();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// ── CONNECT MONGODB ──
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB error:", err));
+
 // ── MIDDLEWARE ──
 app.use(express.json());
-app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' https://lh3.googleusercontent.com https://*.googleusercontent.com data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'",
-  );
-  next();
-});
 app.use(express.static(path.join(__dirname, "public")));
 
-// ── SESSION ──
+// ── SESSION WITH MONGODB ──
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false },
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      ttl: 24 * 60 * 60,
+    }),
+    cookie: {
+      secure: true,
+      sameSite: "none",
+      maxAge: 24 * 60 * 60 * 1000,
+    },
   }),
 );
 
@@ -62,7 +71,12 @@ app.get("/manifest.json", (req, res) => {
   res.sendFile(path.join(__dirname, "manifest.json"));
 });
 
-// ── SERVE ICONS AS BASE64 ──
+app.get("/service-worker.js", (req, res) => {
+  res.setHeader("Content-Type", "application/javascript");
+  res.sendFile(path.join(__dirname, "service-worker.js"));
+});
+
+// ── ICONS ──
 app.get("/icons/icon-192.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.send(`<svg width="192" height="192" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -110,17 +124,12 @@ app.get("/icons/icon-512.png", (req, res) => {
     <circle cx="50" cy="76" r="2" fill="#3C3489"/>
   </svg>`);
 });
-app.get("/service-worker.js", (req, res) => {
-  res.setHeader("Content-Type", "application/javascript");
-  res.sendFile(path.join(__dirname, "service-worker.js"));
-});
 
 // ── AUTH ROUTES ──
 app.get("/auth/google", (req, res, next) => {
   passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account",
-    access_type: "online",
   })(req, res, next);
 });
 
@@ -145,15 +154,14 @@ app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public/login.html"));
 });
 
-// ── MAIN APP (protected) ──
+// ── MAIN APP ──
 app.get("/", isLoggedIn, (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-// ── USER INFO API ──
+// ── USER API ──
 app.get("/api/user", isLoggedIn, (req, res) => {
   let photo = req.user.photos[0].value;
-  // Remove size restrictions from Google photo URL
   photo = photo.replace("=s96-c", "=s200-c");
   res.json({
     name: req.user.displayName,
@@ -164,12 +172,12 @@ app.get("/api/user", isLoggedIn, (req, res) => {
 
 // ── SYSTEM PROMPTS ──
 const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built specifically for engineering students.
-Your personality: sharp, clear, and intelligent — like a brilliant senior student helping a junior.
+Your personality: sharp, clear, and intelligent — like a friendly brilliant senior student helping a junior.
 Rules:
-- Keep responses SHORT and focused — max 3-4 sentences for simple questions
+- Keep responses SHORT, simple to understand and focused — max 3-4 sentences for simple questions
 - Only give long responses when the question genuinely requires detail
 - For code requests, always use proper code blocks with backticks
-- For concepts, give a clear 2-3 line explanation first, then bullet points only if needed
+- For concepts, give a clear 2-3 line explanation in simple words first, then bullet points only if needed
 - Never add unnecessary padding or filler sentences`;
 
 const PANIC_PROMPT = `You are Cortex in PANIC MODE. The student has an exam in 2 hours.
@@ -276,7 +284,7 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
   }
 });
 
-// ── START SERVER ──
+// ── START ──
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Cortex is running at http://localhost:${PORT}`);
