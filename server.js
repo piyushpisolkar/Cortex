@@ -5,7 +5,7 @@ const Groq = require("groq-sdk");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const session = require("express-session");
-const MongoStore = require("connect-mongo");
+const MongoStore = require("connect-mongo").default || require("connect-mongo");
 const mongoose = require("mongoose");
 
 // ── INIT ──
@@ -31,6 +31,7 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
       ttl: 24 * 60 * 60,
+      autoRemove: "native",
     }),
     cookie: {
       secure: true,
