@@ -401,7 +401,11 @@ if (isMobile()) {
 async function loadUser() {
   try {
     const res = await fetch("/api/user");
-    if (!res.ok) return;
+    if (!res.ok) {
+      // Not authenticated — redirect to login
+      window.location.href = "/login";
+      return;
+    }
     const user = await res.json();
     const photo = document.getElementById("userPhoto");
     const name = document.getElementById("userName");
@@ -416,8 +420,10 @@ async function loadUser() {
     if (dropdownEmail) dropdownEmail.textContent = user.email;
   } catch (err) {
     console.error("Could not load user:", err);
+    window.location.href = "/login";
   }
 }
+
 loadUser();
 
 // ── PROFILE DROPDOWN TOGGLE ──

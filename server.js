@@ -34,18 +34,17 @@ const sessionStore = MongoStore.create({
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
-    resave: false,
+    resave: true,
     saveUninitialized: false,
     store: sessionStore,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 24 * 60 * 60 * 1000,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
     },
   }),
 );
-
 // ── PASSPORT ──
 app.use(passport.initialize());
 app.use(passport.session());
