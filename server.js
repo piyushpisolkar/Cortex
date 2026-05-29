@@ -23,19 +23,22 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── SESSION WITH MONGODB ──
+const sessionStore = MongoStore.create({
+  mongoUrl: process.env.MONGODB_URI,
+  ttl: 24 * 60 * 60,
+  autoRemove: "native",
+  touchAfter: 24 * 3600,
+});
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGODB_URI,
-      ttl: 24 * 60 * 60,
-      autoRemove: "native",
-    }),
+    store: sessionStore,
     cookie: {
-      secure: true,
-      sameSite: "none",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   }),
