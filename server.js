@@ -290,7 +290,7 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
 });
 
 // ── START ──
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Cortex is running at http://localhost:${PORT}`);
 });
