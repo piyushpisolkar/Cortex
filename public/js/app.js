@@ -1,3 +1,244 @@
+// ── SPLASH SCREEN ──
+(function () {
+  const splash = document.getElementById("splashScreen");
+  const canvas = document.getElementById("splashCanvas");
+  if (!splash || !canvas || typeof THREE === "undefined") {
+    setTimeout(() => {
+      if (splash) splash.style.opacity = "0";
+      setTimeout(() => {
+        if (splash) splash.style.display = "none";
+      }, 1000);
+    }, 3000);
+    return;
+  }
+
+  const size = Math.min(window.innerWidth * 0.65, 240);
+  canvas.width = size;
+  canvas.height = size;
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: true,
+  });
+  renderer.setSize(size, size);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  cam.position.set(0, 0, 5);
+
+  // Lights — no center spotlight
+  scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+  const pl1 = new THREE.PointLight(0x7f77dd, 2.5, 20);
+  pl1.position.set(4, 4, 4);
+  scene.add(pl1);
+  const pl2 = new THREE.PointLight(0x1d9e75, 1.5, 20);
+  pl2.position.set(-4, -3, 3);
+  scene.add(pl2);
+  const pl3 = new THREE.PointLight(0x7f77dd, 1, 15);
+  pl3.position.set(0, 0, 6);
+  scene.add(pl3);
+
+  function hexShape(r) {
+    const s = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 6;
+      i === 0
+        ? s.moveTo(r * Math.cos(a), r * Math.sin(a))
+        : s.lineTo(r * Math.cos(a), r * Math.sin(a));
+    }
+    s.closePath();
+    return s;
+  }
+
+  // Outer hex ring
+  const outerS = hexShape(1.5);
+  outerS.holes.push(hexShape(1.2));
+  const outerHex = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(outerS, {
+      depth: 0.2,
+      bevelEnabled: true,
+      bevelThickness: 0.05,
+      bevelSize: 0.05,
+      bevelSegments: 6,
+    }),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x7f77dd,
+      metalness: 0.95,
+      roughness: 0.05,
+      clearcoat: 1,
+      clearcoatRoughness: 0.05,
+      emissive: 0x3c3489,
+      emissiveIntensity: 0.2,
+    }),
+  );
+  outerHex.position.z = -0.1;
+
+  // Inner hex panel
+  const innerHex = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(hexShape(1.15), {
+      depth: 0.1,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.02,
+      bevelSegments: 4,
+    }),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x0d0d14,
+      metalness: 0.5,
+      roughness: 0.4,
+    }),
+  );
+  innerHex.position.z = -0.05;
+
+  // Brain lobes — matching original SVG exactly
+  function brainTube(pts, r) {
+    return new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(pts),
+        40,
+        r || 0.042,
+        8,
+        false,
+      ),
+      new THREE.MeshPhysicalMaterial({
+        color: 0x7f77dd,
+        metalness: 0.5,
+        roughness: 0.3,
+        emissive: 0x5550a0,
+        emissiveIntensity: 0.4,
+        clearcoat: 0.8,
+      }),
+    );
+  }
+
+  // Left lobe — matches SVG path M28,38 C28,30 33,26 38,27...
+  const leftLobe = brainTube([
+    new THREE.Vector3(-0.08, 0.52, 0.12),
+    new THREE.Vector3(-0.38, 0.48, 0.16),
+    new THREE.Vector3(-0.52, 0.18, 0.18),
+    new THREE.Vector3(-0.48, -0.08, 0.16),
+    new THREE.Vector3(-0.32, -0.28, 0.13),
+    new THREE.Vector3(-0.08, -0.32, 0.11),
+  ]);
+
+  // Right lobe — matches SVG path M52,38...
+  const rightLobe = brainTube([
+    new THREE.Vector3(0.08, 0.52, 0.12),
+    new THREE.Vector3(0.38, 0.48, 0.16),
+    new THREE.Vector3(0.52, 0.18, 0.18),
+    new THREE.Vector3(0.48, -0.08, 0.16),
+    new THREE.Vector3(0.32, -0.28, 0.13),
+    new THREE.Vector3(0.08, -0.32, 0.11),
+  ]);
+
+  // Bottom curve — matches SVG M36,45 C37,50 43,50 44,45
+  const bottomCurve = brainTube([
+    new THREE.Vector3(-0.08, -0.32, 0.11),
+    new THREE.Vector3(0, -0.46, 0.12),
+    new THREE.Vector3(0.08, -0.32, 0.11),
+  ]);
+
+  // Center dashed line — small cylinders
+  for (let i = 0; i < 5; i++) {
+    const cyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.018, 0.018, 0.1, 6),
+      new THREE.MeshPhysicalMaterial({
+        color: 0x5550a0,
+        emissive: 0x5550a0,
+        emissiveIntensity: 0.3,
+      }),
+    );
+    cyl.position.set(0, 0.44 - i * 0.19, 0.12);
+    cyl.rotation.z = Math.PI / 2;
+    cyl.rotation.x = Math.PI / 2;
+    scene.add(cyl);
+  }
+
+  // Circuit nodes
+  function node(x, y, z, r, c) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 12, 12),
+      new THREE.MeshPhysicalMaterial({
+        color: c,
+        emissive: c,
+        emissiveIntensity: 0.9,
+        metalness: 0.8,
+        roughness: 0.1,
+      }),
+    );
+    m.position.set(x, y, z);
+    return m;
+  }
+
+  // Circuit traces
+  function trace(p1, p2, c) {
+    const pts = [new THREE.Vector3(...p1), new THREE.Vector3(...p2)];
+    return new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(pts),
+        6,
+        0.018,
+        6,
+        false,
+      ),
+      new THREE.MeshPhysicalMaterial({
+        color: c,
+        emissive: c,
+        emissiveIntensity: 0.2,
+      }),
+    );
+  }
+
+  // Glow ring
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.55, 0.018, 8, 64),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x7f77dd,
+      emissive: 0x7f77dd,
+      emissiveIntensity: 0.6,
+      metalness: 0.5,
+    }),
+  );
+  ring.position.z = 0.04;
+
+  const group = new THREE.Group();
+  group.add(outerHex, innerHex, leftLobe, rightLobe, bottomCurve, ring);
+  group.add(node(0, 0.52, 0.13, 0.055, 0x7f77dd));
+  group.add(node(0, -0.32, 0.11, 0.055, 0x7f77dd));
+  group.add(node(-1.12, 0, 0.04, 0.048, 0x3c3489));
+  group.add(node(1.12, 0, 0.04, 0.048, 0x3c3489));
+  group.add(node(0, 1.1, 0.03, 0.048, 0x3c3489));
+  group.add(node(0, -1.1, 0.03, 0.048, 0x3c3489));
+  group.add(trace([-1.08, 0, 0.04], [-0.72, 0, 0.07], 0x3a3660));
+  group.add(trace([1.08, 0, 0.04], [0.72, 0, 0.07], 0x3a3660));
+  group.add(trace([0, 1.06, 0.03], [0, 0.76, 0.08], 0x3a3660));
+  group.add(trace([0, -1.06, 0.03], [0, -0.76, 0.08], 0x3a3660));
+  scene.add(group);
+
+  let t = 0,
+    animId;
+  function animate() {
+    animId = requestAnimationFrame(animate);
+    t += 0.012;
+    group.rotation.y = t;
+    group.rotation.x = Math.sin(t * 0.4) * 0.15;
+    pl1.intensity = 2.5 + Math.sin(t * 1.5) * 0.3;
+    renderer.render(scene, cam);
+  }
+  animate();
+
+  // Dismiss after 3.2 seconds
+  setTimeout(() => {
+    splash.style.opacity = "0";
+    setTimeout(() => {
+      splash.style.display = "none";
+      cancelAnimationFrame(animId);
+      renderer.dispose();
+    }, 1000);
+  }, 3200);
+})();
 // ── STATE ──
 let chatHistory = [];
 let panicMode = false;

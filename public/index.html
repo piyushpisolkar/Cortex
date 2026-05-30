@@ -29,6 +29,18 @@
     <meta name="apple-mobile-web-app-title" content="Cortex" />
   </head>
   <body>
+    <!-- SPLASH SCREEN -->
+<div id="splashScreen" style="position:fixed;inset:0;background:#0d0d14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s ease;">
+  <canvas id="splashCanvas"></canvas>
+  <p style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;letter-spacing:.2em;color:#e8e8f0;margin-top:16px;text-shadow:0 0 30px rgba(127,119,221,0.8);">CORTEX</p>
+  <p style="font-size:11px;letter-spacing:.15em;color:#6666aa;margin-top:6px;text-transform:uppercase;">Study Intelligence</p>
+  <div style="width:200px;height:2px;background:#1e1e2a;border-radius:2px;overflow:hidden;margin-top:16px;">
+    <div style="height:100%;width:0%;background:linear-gradient(90deg,#3C3489,#7F77DD,#1D9E75);border-radius:2px;animation:loadBar 2.8s ease forwards;"></div>
+  </div>
+</div>
+<style>
+@keyframes loadBar { 0%{width:0%} 60%{width:80%} 100%{width:100%} }
+</style>
     
     <!-- TOP BAR -->
     <div class="topbar">
@@ -278,6 +290,7 @@
         <p class="scan-text">Cortex is reading your file...</p>
       </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>
