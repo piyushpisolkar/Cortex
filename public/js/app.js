@@ -449,3 +449,17 @@ if ("serviceWorker" in navigator) {
       .catch((err) => console.log("SW error:", err));
   });
 }
+// ── PROFILE DROPDOWN TOGGLE ──
+function toggleProfileMenu() {
+  const dropdown = document.getElementById("profileDropdown");
+  dropdown.classList.toggle("open");
+}
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  const profile = document.getElementById("userProfile");
+  const dropdown = document.getElementById("profileDropdown");
+  if (profile && dropdown && !profile.contains(e.target)) {
+    dropdown.classList.remove("open");
+  }
+});
