@@ -21,7 +21,7 @@ userInput.addEventListener("input", () => {
   userInput.style.height = userInput.scrollHeight + "px";
 });
 
-// ── SEND ON ENTER (Shift+Enter for new line) ──
+// ── SEND ON ENTER ──
 userInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -36,7 +36,6 @@ panicBtn.addEventListener("click", () => {
   panicMode = !panicMode;
   panicBtn.classList.toggle("active", panicMode);
   panicBtn.textContent = panicMode ? "⚡ Panic ON" : "⚡ Panic Mode";
-
   const notice = document.createElement("div");
   notice.className = "msg msg-ai";
   notice.innerHTML = panicMode
@@ -51,9 +50,7 @@ vivaBtn.addEventListener("click", () => {
   vivaMode = !vivaMode;
   vivaBtn.classList.toggle("active", vivaMode);
   vivaBtn.textContent = vivaMode ? "🎓 Viva ON" : "🎓 Viva Mode";
-
   if (vivaMode) {
-    // Reset chat history for fresh viva session
     chatHistory = [];
     const notice = document.createElement("div");
     notice.className = "msg msg-ai";
@@ -128,12 +125,10 @@ function appendAIMessage(text) {
 
   if (isLongContent) {
     pushToCanvas(text);
-
     const div = document.createElement("div");
     div.className = "msg msg-ai";
     div.innerHTML = `<span class="msg-label">Cortex</span>I've pushed the detailed response to your <strong style="color:var(--teal)">Canvas →</strong>`;
     chatArea.appendChild(div);
-
     const actions = document.createElement("div");
     actions.className = "msg-actions";
     actions.dataset.fullText = text;
@@ -148,7 +143,6 @@ function appendAIMessage(text) {
     div.className = "msg msg-ai";
     div.innerHTML = `<span class="msg-label">Cortex</span>${formatMessage(text)}`;
     chatArea.appendChild(div);
-
     const actions = document.createElement("div");
     actions.className = "msg-actions";
     actions.dataset.fullText = text;
@@ -159,32 +153,26 @@ function appendAIMessage(text) {
     `;
     chatArea.appendChild(actions);
   }
-
   scrollChat();
 }
 
 // ── PUSH LONG CONTENT TO CANVAS ──
 function pushToCanvas(text) {
   canvasEmpty.style.display = "none";
-
   const card = document.createElement("div");
   card.className = "canvas-card";
-
   const title = document.createElement("div");
   title.className = "canvas-card-title";
   title.textContent = "▸ Study note — " + new Date().toLocaleTimeString();
   card.appendChild(title);
-
   const body = document.createElement("div");
   body.style.fontSize = "14px";
   body.style.lineHeight = "1.7";
   body.style.color = "var(--text-muted)";
   body.innerHTML = formatMessage(text);
   card.appendChild(body);
-
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  if (isMobile()) switchTab("canvas");
 }
 
 // ── FORMAT MESSAGE ──
@@ -245,25 +233,19 @@ async function summarize(btn, type) {
   const actionsDiv = btn.parentElement;
   const originalText =
     actionsDiv.dataset.fullText || actionsDiv.previousElementSibling.innerText;
-
   btn.textContent = "...";
   btn.disabled = true;
-
   try {
     const res = await fetch("/api/summarize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: originalText, type }),
     });
-
     const data = await res.json();
-    if (data.reply) {
-      pushToCanvas(data.reply);
-    }
+    if (data.reply) pushToCanvas(data.reply);
   } catch (err) {
     console.error(err);
   }
-
   btn.textContent = type === "shorter" ? "Shorter" : "More detail";
   btn.disabled = false;
 }
@@ -273,25 +255,19 @@ async function makeFlashcard(btn) {
   const actionsDiv = btn.parentElement;
   const text =
     actionsDiv.dataset.fullText || actionsDiv.previousElementSibling.innerText;
-
   btn.textContent = "Generating...";
   btn.disabled = true;
-
   try {
     const res = await fetch("/api/flashcard", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
-
     const data = await res.json();
-    if (data.flashcards) {
-      pushFlashcardsToCanvas(data.flashcards);
-    }
+    if (data.flashcards) pushFlashcardsToCanvas(data.flashcards);
   } catch (err) {
     console.error(err);
   }
-
   btn.textContent = "⊞ Flashcard";
   btn.disabled = false;
 }
@@ -299,15 +275,12 @@ async function makeFlashcard(btn) {
 // ── PUSH FLASHCARDS TO CANVAS ──
 function pushFlashcardsToCanvas(flashcards) {
   canvasEmpty.style.display = "none";
-
   const card = document.createElement("div");
   card.className = "canvas-card";
-
   const title = document.createElement("div");
   title.className = "canvas-card-title";
   title.textContent = "▸ Flashcard deck — " + new Date().toLocaleTimeString();
   card.appendChild(title);
-
   flashcards.forEach((fc) => {
     const fcDiv = document.createElement("div");
     fcDiv.className = "flashcard";
@@ -325,10 +298,8 @@ function pushFlashcardsToCanvas(flashcards) {
     });
     card.appendChild(fcDiv);
   });
-
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  if (isMobile()) switchTab("canvas");
 }
 
 // ── DRAG & DROP FILE ──
@@ -336,27 +307,21 @@ dropZone.addEventListener("dragover", (e) => {
   e.preventDefault();
   dropZone.classList.add("dragover");
 });
-
 dropZone.addEventListener("dragleave", () => {
   dropZone.classList.remove("dragover");
 });
-
 dropZone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropZone.classList.remove("dragover");
-
   const file = e.dataTransfer.files[0];
   if (!file) return;
-
   if (!file.name.endsWith(".txt")) {
     appendAIMessage(
       "Currently only .txt files are supported. PDF support coming in v2!",
     );
     return;
   }
-
   scanOverlay.classList.add("active");
-
   const reader = new FileReader();
   reader.onload = async (ev) => {
     const content = ev.target.result;
@@ -369,13 +334,13 @@ dropZone.addEventListener("drop", (e) => {
   };
   reader.readAsText(file);
 });
+
 // ── MOBILE TABS ──
 function switchTab(tab) {
   const leftPane = document.querySelector(".left-pane");
   const rightPane = document.querySelector(".right-pane");
   const chatTab = document.getElementById("chatTab");
   const canvasTab = document.getElementById("canvasTab");
-
   if (tab === "chat") {
     leftPane.classList.add("mobile-active");
     rightPane.classList.remove("mobile-active");
@@ -389,20 +354,33 @@ function switchTab(tab) {
   }
 }
 
-// Auto-switch to canvas when content is pushed there on mobile
 function isMobile() {
   return window.innerWidth <= 768;
 }
-// Set initial mobile state
+
 if (isMobile()) {
   document.querySelector(".left-pane").classList.add("mobile-active");
 }
+
+// ── PROFILE DROPDOWN ──
+function toggleProfileMenu() {
+  const dropdown = document.getElementById("profileDropdown");
+  if (dropdown) dropdown.classList.toggle("open");
+}
+
+document.addEventListener("click", (e) => {
+  const profile = document.getElementById("userProfile");
+  const dropdown = document.getElementById("profileDropdown");
+  if (profile && dropdown && !profile.contains(e.target)) {
+    dropdown.classList.remove("open");
+  }
+});
+
 // ── LOAD USER INFO ──
 async function loadUser() {
   try {
     const res = await fetch("/api/user");
     if (!res.ok) {
-      // Not authenticated — redirect to login
       window.location.href = "/login";
       return;
     }
@@ -412,35 +390,19 @@ async function loadUser() {
     const dropdownPhoto = document.getElementById("dropdownPhoto");
     const dropdownName = document.getElementById("dropdownName");
     const dropdownEmail = document.getElementById("dropdownEmail");
-
     if (photo) photo.src = user.photo;
     if (name) name.textContent = user.name.split(" ")[0];
     if (dropdownPhoto) dropdownPhoto.src = user.photo;
     if (dropdownName) dropdownName.textContent = user.name;
     if (dropdownEmail) dropdownEmail.textContent = user.email;
   } catch (err) {
-    console.error("Could not load user:", err);
     window.location.href = "/login";
   }
 }
 
 loadUser();
 
-// ── PROFILE DROPDOWN TOGGLE ──
-function toggleProfileMenu() {
-  const dropdown = document.getElementById("profileDropdown");
-  dropdown.classList.toggle("open");
-}
-
-// Close dropdown when clicking outside
-document.addEventListener("click", (e) => {
-  const profile = document.getElementById("userProfile");
-  const dropdown = document.getElementById("profileDropdown");
-  if (!profile.contains(e.target)) {
-    dropdown.classList.remove("open");
-  }
-});
-// ── REGISTER SERVICE WORKER ──
+// ── SERVICE WORKER ──
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
@@ -449,17 +411,3 @@ if ("serviceWorker" in navigator) {
       .catch((err) => console.log("SW error:", err));
   });
 }
-// ── PROFILE DROPDOWN TOGGLE ──
-function toggleProfileMenu() {
-  const dropdown = document.getElementById("profileDropdown");
-  dropdown.classList.toggle("open");
-}
-
-// Close dropdown when clicking outside
-document.addEventListener("click", (e) => {
-  const profile = document.getElementById("userProfile");
-  const dropdown = document.getElementById("profileDropdown");
-  if (profile && dropdown && !profile.contains(e.target)) {
-    dropdown.classList.remove("open");
-  }
-});
