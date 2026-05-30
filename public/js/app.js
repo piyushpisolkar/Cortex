@@ -1,33 +1,32 @@
-// ── SPLASH SCREEN 3D LOGO ──
-(function () {
+// ── SPLASH SCREEN ──
+(function initSplash() {
   const splash = document.getElementById("splashScreen");
-  const splashCanvas = document.getElementById("splashCanvas");
-  const size = Math.min(window.innerWidth, 300);
-  splashCanvas.width = size;
-  splashCanvas.height = size;
+  if (!splash) return;
 
-  const renderer = new THREE.WebGLRenderer({
+  const splashCanvas = document.getElementById("splashCanvas");
+  const size = Math.min(window.innerWidth * 0.7, 280);
+  renderer3d = new THREE.WebGLRenderer({
     canvas: splashCanvas,
     antialias: true,
     alpha: true,
   });
-  renderer.setSize(size, size);
-  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer3d.setSize(size, size);
+  renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(0, 0, 5);
+  const scene3d = new THREE.Scene();
+  const cam3d = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  cam3d.position.set(0, 0, 5);
 
-  // Lights
-  scene.add(new THREE.AmbientLight(0x7f77dd, 0.5));
+  scene3d.add(new THREE.AmbientLight(0x7f77dd, 0.5));
   const pl1 = new THREE.PointLight(0x7f77dd, 3, 20);
   pl1.position.set(3, 3, 3);
-  scene.add(pl1);
-  const pl2 = new THREE.PointLight(0x1d9e75, 2, 20);
-  pl2.position.set(-3, -2, 2);
-  scene.add(pl2);
+  scene3d.add(pl1);
+  scene3d.add(
+    Object.assign(new THREE.PointLight(0x1d9e75, 2, 20), {
+      position: new THREE.Vector3(-3, -2, 2),
+    }),
+  );
 
-  // Hex shape
   function hexShape(r) {
     const s = new THREE.Shape();
     for (let i = 0; i < 6; i++) {
@@ -42,99 +41,62 @@
 
   const outerS = hexShape(1.5);
   outerS.holes.push(hexShape(1.15));
-  const outerGeo = new THREE.ExtrudeGeometry(outerS, {
-    depth: 0.25,
-    bevelEnabled: true,
-    bevelThickness: 0.04,
-    bevelSize: 0.04,
-    bevelSegments: 8,
-  });
-  const outerMat = new THREE.MeshPhysicalMaterial({
-    color: 0x7f77dd,
-    metalness: 0.9,
-    roughness: 0.1,
-    clearcoat: 1,
-    emissive: 0x3c3489,
-    emissiveIntensity: 0.3,
-  });
-  const outerHex = new THREE.Mesh(outerGeo, outerMat);
+  const outerHex = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(outerS, {
+      depth: 0.25,
+      bevelEnabled: true,
+      bevelThickness: 0.04,
+      bevelSize: 0.04,
+      bevelSegments: 8,
+    }),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x7f77dd,
+      metalness: 0.9,
+      roughness: 0.1,
+      clearcoat: 1,
+      emissive: 0x3c3489,
+      emissiveIntensity: 0.3,
+    }),
+  );
   outerHex.position.z = -0.125;
 
-  const innerGeo = new THREE.ExtrudeGeometry(hexShape(1.1), {
-    depth: 0.15,
-    bevelEnabled: true,
-    bevelThickness: 0.02,
-    bevelSize: 0.02,
-    bevelSegments: 4,
-  });
-  const innerMat = new THREE.MeshPhysicalMaterial({
-    color: 0x141420,
-    metalness: 0.7,
-    roughness: 0.3,
-    clearcoat: 0.8,
-  });
-  const innerHex = new THREE.Mesh(innerGeo, innerMat);
+  const innerHex = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(hexShape(1.1), {
+      depth: 0.15,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.02,
+      bevelSegments: 4,
+    }),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x141420,
+      metalness: 0.7,
+      roughness: 0.3,
+      clearcoat: 0.8,
+    }),
+  );
   innerHex.position.z = -0.075;
 
-  // Brain lobes
   function brainTube(pts) {
-    const geo = new THREE.TubeGeometry(
-      new THREE.CatmullRomCurve3(pts),
-      30,
-      0.045,
-      8,
-      false,
-    );
-    const mat = new THREE.MeshPhysicalMaterial({
-      color: 0x7f77dd,
-      metalness: 0.6,
-      roughness: 0.2,
-      emissive: 0x7f77dd,
-      emissiveIntensity: 0.5,
-      clearcoat: 1,
-    });
-    return new THREE.Mesh(geo, mat);
-  }
-
-  const leftLobe = brainTube([
-    new THREE.Vector3(-0.1, 0.55, 0.15),
-    new THREE.Vector3(-0.45, 0.5, 0.18),
-    new THREE.Vector3(-0.55, 0.2, 0.2),
-    new THREE.Vector3(-0.5, -0.1, 0.18),
-    new THREE.Vector3(-0.35, -0.3, 0.15),
-    new THREE.Vector3(-0.1, -0.35, 0.12),
-  ]);
-  const rightLobe = brainTube([
-    new THREE.Vector3(0.1, 0.55, 0.15),
-    new THREE.Vector3(0.45, 0.5, 0.18),
-    new THREE.Vector3(0.55, 0.2, 0.2),
-    new THREE.Vector3(0.5, -0.1, 0.18),
-    new THREE.Vector3(0.35, -0.3, 0.15),
-    new THREE.Vector3(0.1, -0.35, 0.12),
-  ]);
-  const bottomCurve = brainTube([
-    new THREE.Vector3(-0.1, -0.35, 0.12),
-    new THREE.Vector3(0, -0.5, 0.13),
-    new THREE.Vector3(0.1, -0.35, 0.12),
-  ]);
-
-  // Nodes
-  function node(x, y, z, r, c) {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(r, 16, 16),
+    return new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(pts),
+        30,
+        0.045,
+        8,
+        false,
+      ),
       new THREE.MeshPhysicalMaterial({
-        color: c,
-        emissive: c,
-        emissiveIntensity: 0.8,
-        metalness: 0.8,
-        roughness: 0.1,
+        color: 0x7f77dd,
+        metalness: 0.6,
+        roughness: 0.2,
+        emissive: 0x7f77dd,
+        emissiveIntensity: 0.5,
+        clearcoat: 1,
       }),
     );
-    m.position.set(x, y, z);
-    return m;
   }
 
-  // Glow ring
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(1.6, 0.015, 8, 60),
     new THREE.MeshPhysicalMaterial({
@@ -145,38 +107,63 @@
   );
   ring.position.z = 0.05;
 
-  const group = new THREE.Group();
-  group.add(outerHex, innerHex, leftLobe, rightLobe, bottomCurve, ring);
-  group.add(node(0, 1.1, 0.05, 0.07, 0x7f77dd));
-  group.add(node(0, -1.1, 0.05, 0.07, 0x7f77dd));
-  group.add(node(-1.1, 0, 0.05, 0.06, 0x3c3489));
-  group.add(node(1.1, 0, 0.05, 0.06, 0x3c3489));
-  scene.add(group);
+  const group3d = new THREE.Group();
+  group3d.add(outerHex, innerHex, ring);
+  group3d.add(
+    brainTube([
+      new THREE.Vector3(-0.1, 0.55, 0.15),
+      new THREE.Vector3(-0.45, 0.5, 0.18),
+      new THREE.Vector3(-0.55, 0.2, 0.2),
+      new THREE.Vector3(-0.5, -0.1, 0.18),
+      new THREE.Vector3(-0.35, -0.3, 0.15),
+      new THREE.Vector3(-0.1, -0.35, 0.12),
+    ]),
+  );
+  group3d.add(
+    brainTube([
+      new THREE.Vector3(0.1, 0.55, 0.15),
+      new THREE.Vector3(0.45, 0.5, 0.18),
+      new THREE.Vector3(0.55, 0.2, 0.2),
+      new THREE.Vector3(0.5, -0.1, 0.18),
+      new THREE.Vector3(0.35, -0.3, 0.15),
+      new THREE.Vector3(0.1, -0.35, 0.12),
+    ]),
+  );
+  group3d.add(
+    brainTube([
+      new THREE.Vector3(-0.1, -0.35, 0.12),
+      new THREE.Vector3(0, -0.5, 0.13),
+      new THREE.Vector3(0.1, -0.35, 0.12),
+    ]),
+  );
+  scene3d.add(group3d);
 
-  let t = 0;
-  let animId;
+  let t3d = 0;
+  let animId3d;
+
   function animateSplash() {
-    animId = requestAnimationFrame(animateSplash);
-    t += 0.015;
-    group.rotation.y = t;
-    group.rotation.x = Math.sin(t * 0.5) * 0.2;
-    pl1.intensity = 3 + Math.sin(t * 2) * 0.5;
-    renderer.render(scene, camera);
+    animId3d = requestAnimationFrame(animateSplash);
+    t3d += 0.015;
+    group3d.rotation.y = t3d;
+    group3d.rotation.x = Math.sin(t3d * 0.5) * 0.2;
+    pl1.intensity = 3 + Math.sin(t3d * 2) * 0.5;
+    renderer3d.render(scene3d, cam3d);
   }
+
   animateSplash();
 
-  // Hide splash after 3 seconds
+  // Dismiss after 3 seconds
   setTimeout(() => {
-    const wrapper = document.getElementById("workspaceWrapper");
     splash.classList.add("fade-out");
-    if (wrapper) wrapper.classList.add("visible");
     setTimeout(() => {
       splash.classList.add("hidden");
-      cancelAnimationFrame(animId);
-      renderer.dispose();
-    }, 800);
+      cancelAnimationFrame(animId3d);
+      renderer3d.dispose();
+    }, 1000);
   }, 3000);
 })();
+
+let renderer3d; // declared before IIFE uses it
 // ── STATE ──
 let chatHistory = [];
 let panicMode = false;
