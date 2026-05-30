@@ -1,31 +1,41 @@
-// ── SPLASH SCREEN ──
-(function initSplash() {
+/// ── SPLASH SCREEN ──
+let splashAnimId;
+let splashRenderer;
+
+function initSplash() {
   const splash = document.getElementById("splashScreen");
   if (!splash) return;
 
   const splashCanvas = document.getElementById("splashCanvas");
-  const size = Math.min(window.innerWidth * 0.7, 280);
-  renderer3d = new THREE.WebGLRenderer({
+  if (!splashCanvas || typeof THREE === "undefined") {
+    // Three.js not loaded yet — just dismiss after delay
+    setTimeout(() => dismissSplash(splash), 3000);
+    return;
+  }
+
+  const size = Math.min(window.innerWidth * 0.7, 260);
+  splashCanvas.width = size;
+  splashCanvas.height = size;
+
+  splashRenderer = new THREE.WebGLRenderer({
     canvas: splashCanvas,
     antialias: true,
     alpha: true,
   });
-  renderer3d.setSize(size, size);
-  renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  splashRenderer.setSize(size, size);
+  splashRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  const scene3d = new THREE.Scene();
-  const cam3d = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  cam3d.position.set(0, 0, 5);
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  cam.position.set(0, 0, 5);
 
-  scene3d.add(new THREE.AmbientLight(0x7f77dd, 0.5));
+  scene.add(new THREE.AmbientLight(0x7f77dd, 0.5));
   const pl1 = new THREE.PointLight(0x7f77dd, 3, 20);
   pl1.position.set(3, 3, 3);
-  scene3d.add(pl1);
-  scene3d.add(
-    Object.assign(new THREE.PointLight(0x1d9e75, 2, 20), {
-      position: new THREE.Vector3(-3, -2, 2),
-    }),
-  );
+  scene.add(pl1);
+  const pl2 = new THREE.PointLight(0x1d9e75, 2, 20);
+  pl2.position.set(-3, -2, 2);
+  scene.add(pl2);
 
   function hexShape(r) {
     const s = new THREE.Shape();
@@ -72,7 +82,6 @@
       color: 0x141420,
       metalness: 0.7,
       roughness: 0.3,
-      clearcoat: 0.8,
     }),
   );
   innerHex.position.z = -0.075;
@@ -88,11 +97,10 @@
       ),
       new THREE.MeshPhysicalMaterial({
         color: 0x7f77dd,
-        metalness: 0.6,
-        roughness: 0.2,
         emissive: 0x7f77dd,
         emissiveIntensity: 0.5,
-        clearcoat: 1,
+        metalness: 0.6,
+        roughness: 0.2,
       }),
     );
   }
@@ -107,9 +115,9 @@
   );
   ring.position.z = 0.05;
 
-  const group3d = new THREE.Group();
-  group3d.add(outerHex, innerHex, ring);
-  group3d.add(
+  const group = new THREE.Group();
+  group.add(outerHex, innerHex, ring);
+  group.add(
     brainTube([
       new THREE.Vector3(-0.1, 0.55, 0.15),
       new THREE.Vector3(-0.45, 0.5, 0.18),
@@ -119,7 +127,7 @@
       new THREE.Vector3(-0.1, -0.35, 0.12),
     ]),
   );
-  group3d.add(
+  group.add(
     brainTube([
       new THREE.Vector3(0.1, 0.55, 0.15),
       new THREE.Vector3(0.45, 0.5, 0.18),
@@ -129,41 +137,44 @@
       new THREE.Vector3(0.1, -0.35, 0.12),
     ]),
   );
-  group3d.add(
+  group.add(
     brainTube([
       new THREE.Vector3(-0.1, -0.35, 0.12),
       new THREE.Vector3(0, -0.5, 0.13),
       new THREE.Vector3(0.1, -0.35, 0.12),
     ]),
   );
-  scene3d.add(group3d);
+  scene.add(group);
 
-  let t3d = 0;
-  let animId3d;
-
-  function animateSplash() {
-    animId3d = requestAnimationFrame(animateSplash);
-    t3d += 0.015;
-    group3d.rotation.y = t3d;
-    group3d.rotation.x = Math.sin(t3d * 0.5) * 0.2;
-    pl1.intensity = 3 + Math.sin(t3d * 2) * 0.5;
-    renderer3d.render(scene3d, cam3d);
+  let t = 0;
+  function animate() {
+    splashAnimId = requestAnimationFrame(animate);
+    t += 0.015;
+    group.rotation.y = t;
+    group.rotation.x = Math.sin(t * 0.5) * 0.2;
+    pl1.intensity = 3 + Math.sin(t * 2) * 0.5;
+    splashRenderer.render(scene, cam);
   }
+  animate();
 
-  animateSplash();
+  setTimeout(() => dismissSplash(splash), 3200);
+}
 
-  // Dismiss after 3 seconds
+function dismissSplash(splash) {
+  splash.classList.add("fade-out");
   setTimeout(() => {
-    splash.classList.add("fade-out");
-    setTimeout(() => {
-      splash.classList.add("hidden");
-      cancelAnimationFrame(animId3d);
-      renderer3d.dispose();
-    }, 1000);
-  }, 3000);
-})();
+    splash.classList.add("hidden");
+    if (splashAnimId) cancelAnimationFrame(splashAnimId);
+    if (splashRenderer) splashRenderer.dispose();
+  }, 1000);
+}
 
-let renderer3d; // declared before IIFE uses it
+// Wait for Three.js to load then init splash
+if (typeof THREE !== "undefined") {
+  initSplash();
+} else {
+  window.addEventListener("load", initSplash);
+}
 // ── STATE ──
 let chatHistory = [];
 let panicMode = false;
