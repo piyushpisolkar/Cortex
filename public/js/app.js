@@ -167,8 +167,9 @@
 
   // Hide splash after 3 seconds
   setTimeout(() => {
+    const wrapper = document.getElementById("workspaceWrapper");
     splash.classList.add("fade-out");
-    document.getElementById("workspaceWrapper").classList.add("visible");
+    if (wrapper) wrapper.classList.add("visible");
     setTimeout(() => {
       splash.classList.add("hidden");
       cancelAnimationFrame(animId);
