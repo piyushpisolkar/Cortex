@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <meta
       http-equiv="Content-Security-Policy"
       content="img-src 'self' https://lh3.googleusercontent.com https://*.googleusercontent.com data: blob:;"
@@ -29,6 +30,19 @@
     <meta name="apple-mobile-web-app-title" content="Cortex" />
   </head>
   <body>
+    <!-- SPLASH SCREEN -->
+    <div class="splash-screen" id="splashScreen">
+      <div class="splash-content">
+        <canvas id="splashCanvas"></canvas>
+        <div class="splash-text">
+          <p class="splash-name">CORTEX</p>
+          <p class="splash-sub">Study Intelligence</p>
+        </div>
+        <div class="splash-loader">
+          <div class="splash-loader-bar"></div>
+        </div>
+      </div>
+    </div>
     <!-- TOP BAR -->
     <div class="topbar">
       <div class="topbar-left">
@@ -179,7 +193,8 @@
     </div>
 
     <!-- MAIN WORKSPACE -->
-    <div class="workspace">
+  <div class="workspace-wrapper" id="workspaceWrapper">
+  <div class="workspace">
       <!-- MOBILE TAB BAR -->
       <div class="mobile-tabs" id="mobileTabs">
         <button
@@ -197,7 +212,8 @@
           ⬡ Canvas
         </button>
       </div>
-
+</div><!-- end workspace -->
+</div><!-- end workspace-wrapper -->
       <!-- LEFT PANE: CHAT -->
       <div class="left-pane">
         <div class="pane-header">

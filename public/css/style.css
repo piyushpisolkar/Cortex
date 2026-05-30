@@ -920,3 +920,109 @@ code {
 .dropdown-logout:hover {
   background: rgba(153, 60, 29, 0.2);
 }
+/* ── SPLASH SCREEN ── */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  background: #0d0d14;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.8s ease,
+    transform 0.8s ease;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  transform: scale(1.05);
+  pointer-events: none;
+}
+
+.splash-screen.hidden {
+  display: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+#splashCanvas {
+  display: block;
+}
+
+.splash-name {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: #e8e8f0;
+  text-shadow: 0 0 30px rgba(127, 119, 221, 0.8);
+  animation: splashGlow 2s ease infinite;
+}
+
+@keyframes splashGlow {
+  0%,
+  100% {
+    text-shadow: 0 0 20px rgba(127, 119, 221, 0.6);
+  }
+  50% {
+    text-shadow:
+      0 0 40px rgba(127, 119, 221, 1),
+      0 0 80px rgba(127, 119, 221, 0.4);
+  }
+}
+
+.splash-sub {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  color: #6666aa;
+  text-transform: uppercase;
+}
+
+.splash-loader {
+  width: 200px;
+  height: 2px;
+  background: #1e1e2a;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.splash-loader-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3c3489, #7f77dd, #1d9e75);
+  border-radius: 2px;
+  animation: loadBar 2.5s ease forwards;
+}
+
+@keyframes loadBar {
+  0% {
+    width: 0%;
+  }
+  60% {
+    width: 80%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* Main workspace hidden initially */
+.workspace-wrapper {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.8s ease,
+    transform 0.8s ease;
+}
+
+.workspace-wrapper.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
