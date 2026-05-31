@@ -1,244 +1,236 @@
-// ── SPLASH SCREEN ──
-(function () {
-  const splash = document.getElementById("splashScreen");
-  const canvas = document.getElementById("splashCanvas");
-  if (!splash || !canvas || typeof THREE === "undefined") {
-    setTimeout(() => {
-      if (splash) splash.style.opacity = "0";
-      setTimeout(() => {
-        if (splash) splash.style.display = "none";
-      }, 1000);
-    }, 3000);
-    return;
-  }
-
-  const size = Math.min(window.innerWidth * 0.65, 240);
-  canvas.width = size;
-  canvas.height = size;
-
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    alpha: true,
-  });
-  renderer.setSize(size, size);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  const scene = new THREE.Scene();
-  const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  cam.position.set(0, 0, 5);
-
-  // Lights — no center spotlight
-  scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-  const pl1 = new THREE.PointLight(0x7f77dd, 2.5, 20);
-  pl1.position.set(4, 4, 4);
-  scene.add(pl1);
-  const pl2 = new THREE.PointLight(0x1d9e75, 1.5, 20);
-  pl2.position.set(-4, -3, 3);
-  scene.add(pl2);
-  const pl3 = new THREE.PointLight(0x7f77dd, 1, 15);
-  pl3.position.set(0, 0, 6);
-  scene.add(pl3);
-
-  function hexShape(r) {
-    const s = new THREE.Shape();
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 3) * i - Math.PI / 6;
-      i === 0
-        ? s.moveTo(r * Math.cos(a), r * Math.sin(a))
-        : s.lineTo(r * Math.cos(a), r * Math.sin(a));
-    }
-    s.closePath();
-    return s;
-  }
-
-  // Outer hex ring
-  const outerS = hexShape(1.5);
-  outerS.holes.push(hexShape(1.2));
-  const outerHex = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(outerS, {
-      depth: 0.2,
-      bevelEnabled: true,
-      bevelThickness: 0.05,
-      bevelSize: 0.05,
-      bevelSegments: 6,
-    }),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x7f77dd,
-      metalness: 0.95,
-      roughness: 0.05,
-      clearcoat: 1,
-      clearcoatRoughness: 0.05,
-      emissive: 0x3c3489,
-      emissiveIntensity: 0.2,
-    }),
-  );
-  outerHex.position.z = -0.1;
-
-  // Inner hex panel
-  const innerHex = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(hexShape(1.15), {
-      depth: 0.1,
-      bevelEnabled: true,
-      bevelThickness: 0.02,
-      bevelSize: 0.02,
-      bevelSegments: 4,
-    }),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x0d0d14,
-      metalness: 0.5,
-      roughness: 0.4,
-    }),
-  );
-  innerHex.position.z = -0.05;
-
-  // Brain lobes — matching original SVG exactly
-  function brainTube(pts, r) {
+// ── FLAT BRAIN SHAPE (matching new logo) ──
+function svgBrainToMesh() {
+  // Left hemisphere outer
+  function tube(pts, r) {
     return new THREE.Mesh(
-      new THREE.TubeGeometry(
-        new THREE.CatmullRomCurve3(pts),
-        40,
-        r || 0.042,
-        8,
-        false,
-      ),
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 50, r, 8, false),
       new THREE.MeshPhysicalMaterial({
         color: 0x7f77dd,
-        metalness: 0.5,
-        roughness: 0.3,
-        emissive: 0x5550a0,
-        emissiveIntensity: 0.4,
-        clearcoat: 0.8,
+        metalness: 0.8,
+        roughness: 0.2,
+        emissive: 0x4444aa,
+        emissiveIntensity: 0.3,
+        clearcoat: 1,
       }),
     );
   }
 
-  // Left lobe — matches SVG path M28,38 C28,30 33,26 38,27...
-  const leftLobe = brainTube([
-    new THREE.Vector3(-0.08, 0.52, 0.12),
-    new THREE.Vector3(-0.38, 0.48, 0.16),
-    new THREE.Vector3(-0.52, 0.18, 0.18),
-    new THREE.Vector3(-0.48, -0.08, 0.16),
-    new THREE.Vector3(-0.32, -0.28, 0.13),
-    new THREE.Vector3(-0.08, -0.32, 0.11),
-  ]);
+  const brainGroup = new THREE.Group();
 
-  // Right lobe — matches SVG path M52,38...
-  const rightLobe = brainTube([
-    new THREE.Vector3(0.08, 0.52, 0.12),
-    new THREE.Vector3(0.38, 0.48, 0.16),
-    new THREE.Vector3(0.52, 0.18, 0.18),
-    new THREE.Vector3(0.48, -0.08, 0.16),
-    new THREE.Vector3(0.32, -0.28, 0.13),
-    new THREE.Vector3(0.08, -0.32, 0.11),
-  ]);
+  // Left outer
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(-0.04, 0.55, 0.1),
+        new THREE.Vector3(-0.24, 0.55, 0.1),
+        new THREE.Vector3(-0.42, 0.42, 0.1),
+        new THREE.Vector3(-0.5, 0.2, 0.1),
+        new THREE.Vector3(-0.48, -0.02, 0.1),
+        new THREE.Vector3(-0.36, -0.22, 0.1),
+        new THREE.Vector3(-0.18, -0.32, 0.1),
+        new THREE.Vector3(-0.04, -0.32, 0.1),
+      ],
+      0.044,
+    ),
+  );
 
-  // Bottom curve — matches SVG M36,45 C37,50 43,50 44,45
-  const bottomCurve = brainTube([
-    new THREE.Vector3(-0.08, -0.32, 0.11),
-    new THREE.Vector3(0, -0.46, 0.12),
-    new THREE.Vector3(0.08, -0.32, 0.11),
-  ]);
+  // Left gyrus 1
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(-0.04, 0.28, 0.1),
+        new THREE.Vector3(-0.22, 0.28, 0.1),
+        new THREE.Vector3(-0.36, 0.14, 0.1),
+        new THREE.Vector3(-0.38, -0.04, 0.1),
+        new THREE.Vector3(-0.28, -0.16, 0.1),
+      ],
+      0.034,
+    ),
+  );
 
-  // Center dashed line — small cylinders
+  // Left gyrus 2
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(-0.04, -0.04, 0.1),
+        new THREE.Vector3(-0.18, -0.04, 0.1),
+        new THREE.Vector3(-0.26, 0.06, 0.1),
+        new THREE.Vector3(-0.24, 0.18, 0.1),
+      ],
+      0.028,
+    ),
+  );
+
+  // Right outer
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(0.04, 0.55, 0.1),
+        new THREE.Vector3(0.24, 0.55, 0.1),
+        new THREE.Vector3(0.42, 0.42, 0.1),
+        new THREE.Vector3(0.5, 0.2, 0.1),
+        new THREE.Vector3(0.48, -0.02, 0.1),
+        new THREE.Vector3(0.36, -0.22, 0.1),
+        new THREE.Vector3(0.18, -0.32, 0.1),
+        new THREE.Vector3(0.04, -0.32, 0.1),
+      ],
+      0.044,
+    ),
+  );
+
+  // Right gyrus 1
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(0.04, 0.28, 0.1),
+        new THREE.Vector3(0.22, 0.28, 0.1),
+        new THREE.Vector3(0.36, 0.14, 0.1),
+        new THREE.Vector3(0.38, -0.04, 0.1),
+        new THREE.Vector3(0.28, -0.16, 0.1),
+      ],
+      0.034,
+    ),
+  );
+
+  // Right gyrus 2
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(0.04, -0.04, 0.1),
+        new THREE.Vector3(0.18, -0.04, 0.1),
+        new THREE.Vector3(0.26, 0.06, 0.1),
+        new THREE.Vector3(0.24, 0.18, 0.1),
+      ],
+      0.028,
+    ),
+  );
+
+  // Bottom curve
+  brainGroup.add(
+    tube(
+      [
+        new THREE.Vector3(-0.04, -0.32, 0.1),
+        new THREE.Vector3(0, -0.42, 0.1),
+        new THREE.Vector3(0.04, -0.32, 0.1),
+      ],
+      0.044,
+    ),
+  );
+
+  // Center line
   for (let i = 0; i < 5; i++) {
     const cyl = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.018, 0.018, 0.1, 6),
+      new THREE.CylinderGeometry(0.016, 0.016, 0.08, 6),
       new THREE.MeshPhysicalMaterial({
         color: 0x5550a0,
-        emissive: 0x5550a0,
+        emissive: 0x333388,
         emissiveIntensity: 0.3,
       }),
     );
-    cyl.position.set(0, 0.44 - i * 0.19, 0.12);
-    cyl.rotation.z = Math.PI / 2;
-    cyl.rotation.x = Math.PI / 2;
-    scene.add(cyl);
+    cyl.position.set(0, 0.44 - i * 0.19, 0.1);
+    brainGroup.add(cyl);
   }
 
-  // Circuit nodes
-  function node(x, y, z, r, c) {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(r, 12, 12),
-      new THREE.MeshPhysicalMaterial({
-        color: c,
-        emissive: c,
-        emissiveIntensity: 0.9,
-        metalness: 0.8,
-        roughness: 0.1,
-      }),
-    );
-    m.position.set(x, y, z);
-    return m;
-  }
+  return brainGroup;
+}
 
-  // Circuit traces
-  function trace(p1, p2, c) {
-    const pts = [new THREE.Vector3(...p1), new THREE.Vector3(...p2)];
-    return new THREE.Mesh(
-      new THREE.TubeGeometry(
-        new THREE.CatmullRomCurve3(pts),
-        6,
-        0.018,
-        6,
-        false,
-      ),
-      new THREE.MeshPhysicalMaterial({
-        color: c,
-        emissive: c,
-        emissiveIntensity: 0.2,
-      }),
-    );
-  }
+// Static brain (doesn't rotate)
+const brainGroup = svgBrainToMesh();
+scene.add(brainGroup);
 
-  // Glow ring
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1.55, 0.018, 8, 64),
+// Spinning hex ring (2D clockwise rotation)
+function hexShape(rad) {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    i === 0
+      ? s.moveTo(rad * Math.cos(a), rad * Math.sin(a))
+      : s.lineTo(rad * Math.cos(a), rad * Math.sin(a));
+  }
+  s.closePath();
+  return s;
+}
+
+const outerS = hexShape(1.52);
+outerS.holes.push(hexShape(1.22));
+const spinHex = new THREE.Mesh(
+  new THREE.ExtrudeGeometry(outerS, {
+    depth: 0.18,
+    bevelEnabled: true,
+    bevelThickness: 0.05,
+    bevelSize: 0.05,
+    bevelSegments: 8,
+  }),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x6060bb,
+    metalness: 1.0,
+    roughness: 0.06,
+    clearcoat: 1.0,
+    emissive: 0x222266,
+    emissiveIntensity: 0.15,
+  }),
+);
+spinHex.position.z = -0.09;
+
+const innerPanel = new THREE.Mesh(
+  new THREE.ExtrudeGeometry(hexShape(1.18), {
+    depth: 0.08,
+    bevelEnabled: true,
+    bevelThickness: 0.02,
+    bevelSize: 0.02,
+    bevelSegments: 4,
+  }),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x070710,
+    metalness: 0.2,
+    roughness: 0.7,
+  }),
+);
+innerPanel.position.z = -0.04;
+
+const hexGroup = new THREE.Group();
+hexGroup.add(spinHex, innerPanel);
+scene.add(hexGroup);
+
+// Circuit nodes on hex
+function node(x, y, z) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 12, 12),
     new THREE.MeshPhysicalMaterial({
-      color: 0x7f77dd,
-      emissive: 0x7f77dd,
-      emissiveIntensity: 0.6,
-      metalness: 0.5,
+      color: 0x9999ff,
+      metalness: 1.0,
+      roughness: 0.04,
+      emissive: 0x4444bb,
+      emissiveIntensity: 0.5,
     }),
   );
-  ring.position.z = 0.04;
+  m.position.set(x, y, z);
+  return m;
+}
 
-  const group = new THREE.Group();
-  group.add(outerHex, innerHex, leftLobe, rightLobe, bottomCurve, ring);
-  group.add(node(0, 0.52, 0.13, 0.055, 0x7f77dd));
-  group.add(node(0, -0.32, 0.11, 0.055, 0x7f77dd));
-  group.add(node(-1.12, 0, 0.04, 0.048, 0x3c3489));
-  group.add(node(1.12, 0, 0.04, 0.048, 0x3c3489));
-  group.add(node(0, 1.1, 0.03, 0.048, 0x3c3489));
-  group.add(node(0, -1.1, 0.03, 0.048, 0x3c3489));
-  group.add(trace([-1.08, 0, 0.04], [-0.72, 0, 0.07], 0x3a3660));
-  group.add(trace([1.08, 0, 0.04], [0.72, 0, 0.07], 0x3a3660));
-  group.add(trace([0, 1.06, 0.03], [0, 0.76, 0.08], 0x3a3660));
-  group.add(trace([0, -1.06, 0.03], [0, -0.76, 0.08], 0x3a3660));
-  scene.add(group);
+const nodesGroup = new THREE.Group();
+nodesGroup.add(node(0, 1.58, 0.04));
+nodesGroup.add(node(0, -1.58, 0.04));
+nodesGroup.add(node(1.37, 0.79, 0.04));
+nodesGroup.add(node(-1.37, 0.79, 0.04));
+nodesGroup.add(node(1.37, -0.79, 0.04));
+nodesGroup.add(node(-1.37, -0.79, 0.04));
+scene.add(nodesGroup);
 
-  let t = 0,
-    animId;
-  function animate() {
-    animId = requestAnimationFrame(animate);
-    t += 0.012;
-    group.rotation.y = t;
-    group.rotation.x = Math.sin(t * 0.4) * 0.15;
-    pl1.intensity = 2.5 + Math.sin(t * 1.5) * 0.3;
-    renderer.render(scene, cam);
-  }
-  animate();
-
-  // Dismiss after 3.2 seconds
-  setTimeout(() => {
-    splash.style.opacity = "0";
-    setTimeout(() => {
-      splash.style.display = "none";
-      cancelAnimationFrame(animId);
-      renderer.dispose();
-    }, 1000);
-  }, 3200);
-})();
+let t = 0,
+  animId;
+function animate() {
+  animId = requestAnimationFrame(animate);
+  t += 0.012;
+  // Only hex ring spins clockwise in Z axis (2D spin)
+  hexGroup.rotation.z = -t;
+  nodesGroup.rotation.z = -t;
+  // Brain stays still — just subtle float
+  brainGroup.position.y = Math.sin(t * 0.8) * 0.02;
+  pl1.intensity = 2.5 + Math.sin(t * 1.5) * 0.3;
+  renderer.render(scene, cam);
+}
+animate();
 // ── STATE ──
 let chatHistory = [];
 let panicMode = false;
@@ -594,7 +586,6 @@ function switchTab(tab) {
     chatTab.classList.remove("active");
   }
 }
-
 function isMobile() {
   return window.innerWidth <= 768;
 }
