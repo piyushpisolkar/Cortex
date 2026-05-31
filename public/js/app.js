@@ -652,3 +652,36 @@ if ("serviceWorker" in navigator) {
       .catch((err) => console.log("SW error:", err));
   });
 }
+// ── SWIPE GESTURE FOR MOBILE ──
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener(
+  "touchstart",
+  (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  },
+  { passive: true },
+);
+
+document.addEventListener(
+  "touchend",
+  (e) => {
+    if (!isMobile()) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+
+    // Only horizontal swipes (dx > dy means horizontal)
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+
+    if (dx < 0) {
+      // Swipe left → go to Canvas
+      switchTab("canvas");
+    } else {
+      // Swipe right → go to Chat
+      switchTab("chat");
+    }
+  },
+  { passive: true },
+);

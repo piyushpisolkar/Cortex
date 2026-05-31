@@ -695,7 +695,26 @@ code {
     flex-direction: column;
     height: calc(100vh - 48px);
   }
+  /* Smooth slide animation */
+  .left-pane, .right-pane {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
 
+  .left-pane.mobile-active,
+  .right-pane.mobile-active {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .left-pane:not(.mobile-active) {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+
+  .right-pane:not(.mobile-active) {
+    transform: translateX(20px);
+    opacity: 0;
+  } 
   /* Both panes take full width */
   .left-pane {
     width: 100%;
