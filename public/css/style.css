@@ -280,6 +280,7 @@ body::before {
   font-size: 15px;
   line-height: 1.7;
   animation: fadeIn 0.25s ease;
+  font-weight: 500;
 }
 
 @keyframes fadeIn {
@@ -296,15 +297,17 @@ body::before {
 .msg-user {
   background: var(--user-msg-bg);
   border: 1px solid var(--user-msg-border);
-  color: #c8c5f0;
+  color: #e0dcff;
   align-self: flex-end;
+  font-weight: 500;
 }
 
 .msg-ai {
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--text-muted);
+  color: #d0d0e8;
   align-self: flex-start;
+  font-weight: 500;
 }
 
 .msg-label {

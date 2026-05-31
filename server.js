@@ -45,6 +45,7 @@ app.use(
     },
   }),
 );
+
 // ── PASSPORT ──
 app.use(passport.initialize());
 app.use(passport.session());
@@ -86,48 +87,102 @@ app.get("/service-worker.js", (req, res) => {
 app.get("/icons/icon-192.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.send(`<svg width="192" height="192" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100" height="100" fill="#0d0d14"/>
-    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7F77DD"/><stop offset="100%" style="stop-color:#3C3489"/></linearGradient></defs>
-    <polygon points="50,8 82,26 82,64 50,82 18,64 18,26" fill="none" stroke="url(#g)" stroke-width="2"/>
-    <polygon points="50,16 74,29 74,59 50,72 26,59 26,29" fill="#141420" stroke="#3a3660" stroke-width="1"/>
-    <path d="M38,45 C38,37 43,33 48,34 C48,34 47,39 46,42 C45,45 44,49 46,52 C47,54 48,55 48,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
-    <path d="M62,45 C62,37 57,33 52,34 C52,34 53,39 54,42 C55,45 56,49 54,52 C53,54 52,55 52,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <defs>
+      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" style="stop-color:#1a1a2e"/>
+        <stop offset="100%" style="stop-color:#0d0d14"/>
+      </radialGradient>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#9d97e8"/>
+        <stop offset="100%" style="stop-color:#5550a0"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="softglow">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <rect width="100" height="100" fill="url(#bg)"/>
+    <!-- Outer glow ring -->
+    <polygon points="50,6 83,24 83,62 50,80 17,62 17,24" fill="none" stroke="#7F77DD" stroke-width="0.5" opacity="0.3" filter="url(#softglow)"/>
+    <!-- Outer Hexagon -->
+    <polygon points="50,8 82,26 82,64 50,82 18,64 18,26" fill="none" stroke="url(#g)" stroke-width="2" filter="url(#glow)"/>
+    <!-- Inner Hexagon -->
+    <polygon points="50,16 74,29 74,59 50,72 26,59 26,29" fill="#0d0d14" stroke="#3a3660" stroke-width="0.8"/>
+    <!-- Brain left lobe -->
+    <path d="M38,45 C38,37 43,33 48,34 C48,34 47,39 46,42 C45,45 44,49 46,52 C47,54 48,55 48,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Brain right lobe -->
+    <path d="M62,45 C62,37 57,33 52,34 C52,34 53,39 54,42 C55,45 56,49 54,52 C53,54 52,55 52,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Brain center dashed -->
     <line x1="50" y1="34" x2="50" y2="55" stroke="#5550a0" stroke-width="1" stroke-dasharray="2,2"/>
-    <path d="M46,52 C47,57 53,57 54,52" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="50" cy="34" r="2.5" fill="#7F77DD"/>
-    <circle cx="50" cy="55" r="2.5" fill="#7F77DD"/>
-    <line x1="26" y1="47" x2="34" y2="47" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="34" cy="47" r="2" fill="#3C3489"/>
-    <line x1="74" y1="47" x2="66" y2="47" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="66" cy="47" r="2" fill="#3C3489"/>
-    <line x1="50" y1="16" x2="50" y2="24" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="50" cy="24" r="2" fill="#3C3489"/>
-    <line x1="50" y1="72" x2="50" y2="80" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="50" cy="76" r="2" fill="#3C3489"/>
+    <!-- Brain bottom curve -->
+    <path d="M46,52 C47,57 53,57 54,52" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Brain nodes -->
+    <circle cx="50" cy="34" r="2.5" fill="#7F77DD" filter="url(#glow)"/>
+    <circle cx="50" cy="55" r="2.5" fill="#7F77DD" filter="url(#glow)"/>
+    <!-- Circuit traces -->
+    <line x1="26" y1="47" x2="34" y2="47" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="34" cy="47" r="2" fill="#3C3489" filter="url(#glow)"/>
+    <line x1="74" y1="47" x2="66" y2="47" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="66" cy="47" r="2" fill="#3C3489" filter="url(#glow)"/>
+    <line x1="50" y1="16" x2="50" y2="24" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="50" cy="24" r="2" fill="#3C3489" filter="url(#glow)"/>
+    <line x1="50" y1="72" x2="50" y2="80" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="50" cy="76" r="2" fill="#3C3489" filter="url(#glow)"/>
   </svg>`);
 });
 
 app.get("/icons/icon-512.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.send(`<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100" height="100" fill="#0d0d14"/>
-    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7F77DD"/><stop offset="100%" style="stop-color:#3C3489"/></linearGradient></defs>
-    <polygon points="50,8 82,26 82,64 50,82 18,64 18,26" fill="none" stroke="url(#g)" stroke-width="2"/>
-    <polygon points="50,16 74,29 74,59 50,72 26,59 26,29" fill="#141420" stroke="#3a3660" stroke-width="1"/>
-    <path d="M38,45 C38,37 43,33 48,34 C48,34 47,39 46,42 C45,45 44,49 46,52 C47,54 48,55 48,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
-    <path d="M62,45 C62,37 57,33 52,34 C52,34 53,39 54,42 C55,45 56,49 54,52 C53,54 52,55 52,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
+    <defs>
+      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" style="stop-color:#1a1a2e"/>
+        <stop offset="100%" style="stop-color:#0d0d14"/>
+      </radialGradient>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#9d97e8"/>
+        <stop offset="100%" style="stop-color:#5550a0"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="softglow">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <rect width="100" height="100" fill="url(#bg)"/>
+    <!-- Outer glow ring -->
+    <polygon points="50,6 83,24 83,62 50,80 17,62 17,24" fill="none" stroke="#7F77DD" stroke-width="0.5" opacity="0.3" filter="url(#softglow)"/>
+    <!-- Outer Hexagon -->
+    <polygon points="50,8 82,26 82,64 50,82 18,64 18,26" fill="none" stroke="url(#g)" stroke-width="2" filter="url(#glow)"/>
+    <!-- Inner Hexagon -->
+    <polygon points="50,16 74,29 74,59 50,72 26,59 26,29" fill="#0d0d14" stroke="#3a3660" stroke-width="0.8"/>
+    <!-- Brain left lobe -->
+    <path d="M38,45 C38,37 43,33 48,34 C48,34 47,39 46,42 C45,45 44,49 46,52 C47,54 48,55 48,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Brain right lobe -->
+    <path d="M62,45 C62,37 57,33 52,34 C52,34 53,39 54,42 C55,45 56,49 54,52 C53,54 52,55 52,55" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Brain center dashed -->
     <line x1="50" y1="34" x2="50" y2="55" stroke="#5550a0" stroke-width="1" stroke-dasharray="2,2"/>
-    <path d="M46,52 C47,57 53,57 54,52" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="50" cy="34" r="2.5" fill="#7F77DD"/>
-    <circle cx="50" cy="55" r="2.5" fill="#7F77DD"/>
-    <line x1="26" y1="47" x2="34" y2="47" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="34" cy="47" r="2" fill="#3C3489"/>
-    <line x1="74" y1="47" x2="66" y2="47" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="66" cy="47" r="2" fill="#3C3489"/>
-    <line x1="50" y1="16" x2="50" y2="24" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="50" cy="24" r="2" fill="#3C3489"/>
-    <line x1="50" y1="72" x2="50" y2="80" stroke="#3a3660" stroke-width="1.5"/>
-    <circle cx="50" cy="76" r="2" fill="#3C3489"/>
+    <!-- Brain bottom curve -->
+    <path d="M46,52 C47,57 53,57 54,52" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Brain nodes -->
+    <circle cx="50" cy="34" r="2.5" fill="#7F77DD" filter="url(#glow)"/>
+    <circle cx="50" cy="55" r="2.5" fill="#7F77DD" filter="url(#glow)"/>
+    <!-- Circuit traces -->
+    <line x1="26" y1="47" x2="34" y2="47" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="34" cy="47" r="2" fill="#3C3489" filter="url(#glow)"/>
+    <line x1="74" y1="47" x2="66" y2="47" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="66" cy="47" r="2" fill="#3C3489" filter="url(#glow)"/>
+    <line x1="50" y1="16" x2="50" y2="24" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="50" cy="24" r="2" fill="#3C3489" filter="url(#glow)"/>
+    <line x1="50" y1="72" x2="50" y2="80" stroke="#3a3660" stroke-width="1.2"/>
+    <circle cx="50" cy="76" r="2" fill="#3C3489" filter="url(#glow)"/>
   </svg>`);
 });
 
