@@ -696,8 +696,11 @@ code {
     height: calc(100vh - 48px);
   }
   /* Smooth slide animation */
-  .left-pane, .right-pane {
-    transition: transform 0.3s ease, opacity 0.3s ease;
+  .left-pane,
+  .right-pane {
+    transition:
+      transform 0.3s ease,
+      opacity 0.3s ease;
   }
 
   .left-pane.mobile-active,
@@ -714,7 +717,7 @@ code {
   .right-pane:not(.mobile-active) {
     transform: translateX(20px);
     opacity: 0;
-  } 
+  }
   /* Both panes take full width */
   .left-pane {
     width: 100%;
@@ -941,4 +944,14 @@ code {
 
 .dropdown-logout:hover {
   background: rgba(153, 60, 29, 0.2);
+}
+/* ── VOICE BUTTON ── */
+#voiceBtn {
+  transition: all 0.2s;
+}
+#voiceBtn.listening {
+  background: var(--panic);
+  border-color: var(--panic);
+  color: #fff;
+  box-shadow: 0 0 10px var(--panic);
 }
