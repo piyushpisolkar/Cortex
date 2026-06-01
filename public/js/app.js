@@ -93,9 +93,13 @@
     return new THREE.Mesh(
       new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, r, 8, false),
       new THREE.MeshPhysicalMaterial({
-        color, metalness: 0.85, roughness: 0.1,
-        emissive: color, emissiveIntensity: 0.2, clearcoat: 1
-      })
+        color,
+        metalness: 0.85,
+        roughness: 0.1,
+        emissive: color,
+        emissiveIntensity: 0.2,
+        clearcoat: 1,
+      }),
     );
   }
 
@@ -103,77 +107,123 @@
   const brainGroup = new THREE.Group();
 
   // Left outer hemisphere
-  brainGroup.add(makePath([
-    new THREE.Vector3(-0.02, 0.56, 0.08),
-    new THREE.Vector3(-0.20, 0.56, 0.09),
-    new THREE.Vector3(-0.40, 0.44, 0.10),
-    new THREE.Vector3(-0.52, 0.22, 0.10),
-    new THREE.Vector3(-0.50, -0.02, 0.10),
-    new THREE.Vector3(-0.40, -0.22, 0.09),
-    new THREE.Vector3(-0.22, -0.34, 0.08),
-    new THREE.Vector3(-0.02, -0.34, 0.08),
-  ], 0.046, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(-0.02, 0.56, 0.08),
+        new THREE.Vector3(-0.2, 0.56, 0.09),
+        new THREE.Vector3(-0.4, 0.44, 0.1),
+        new THREE.Vector3(-0.52, 0.22, 0.1),
+        new THREE.Vector3(-0.5, -0.02, 0.1),
+        new THREE.Vector3(-0.4, -0.22, 0.09),
+        new THREE.Vector3(-0.22, -0.34, 0.08),
+        new THREE.Vector3(-0.02, -0.34, 0.08),
+      ],
+      0.046,
+      brainColor,
+    ),
+  );
 
   // Left inner gyrus 1
-  brainGroup.add(makePath([
-    new THREE.Vector3(-0.02, 0.26, 0.09),
-    new THREE.Vector3(-0.22, 0.30, 0.10),
-    new THREE.Vector3(-0.36, 0.16, 0.10),
-    new THREE.Vector3(-0.38, -0.02, 0.10),
-    new THREE.Vector3(-0.28, -0.16, 0.09),
-    new THREE.Vector3(-0.12, -0.20, 0.09),
-  ], 0.036, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(-0.02, 0.26, 0.09),
+        new THREE.Vector3(-0.22, 0.3, 0.1),
+        new THREE.Vector3(-0.36, 0.16, 0.1),
+        new THREE.Vector3(-0.38, -0.02, 0.1),
+        new THREE.Vector3(-0.28, -0.16, 0.09),
+        new THREE.Vector3(-0.12, -0.2, 0.09),
+      ],
+      0.036,
+      brainColor,
+    ),
+  );
 
   // Left inner gyrus 2 (bottom)
-  brainGroup.add(makePath([
-    new THREE.Vector3(-0.02, -0.06, 0.09),
-    new THREE.Vector3(-0.16, -0.04, 0.09),
-    new THREE.Vector3(-0.24, 0.06, 0.10),
-    new THREE.Vector3(-0.22, 0.18, 0.10),
-  ], 0.028, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(-0.02, -0.06, 0.09),
+        new THREE.Vector3(-0.16, -0.04, 0.09),
+        new THREE.Vector3(-0.24, 0.06, 0.1),
+        new THREE.Vector3(-0.22, 0.18, 0.1),
+      ],
+      0.028,
+      brainColor,
+    ),
+  );
 
   // Right outer hemisphere
-  brainGroup.add(makePath([
-    new THREE.Vector3(0.02, 0.56, 0.08),
-    new THREE.Vector3(0.20, 0.56, 0.09),
-    new THREE.Vector3(0.40, 0.44, 0.10),
-    new THREE.Vector3(0.52, 0.22, 0.10),
-    new THREE.Vector3(0.50, -0.02, 0.10),
-    new THREE.Vector3(0.40, -0.22, 0.09),
-    new THREE.Vector3(0.22, -0.34, 0.08),
-    new THREE.Vector3(0.02, -0.34, 0.08),
-  ], 0.046, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(0.02, 0.56, 0.08),
+        new THREE.Vector3(0.2, 0.56, 0.09),
+        new THREE.Vector3(0.4, 0.44, 0.1),
+        new THREE.Vector3(0.52, 0.22, 0.1),
+        new THREE.Vector3(0.5, -0.02, 0.1),
+        new THREE.Vector3(0.4, -0.22, 0.09),
+        new THREE.Vector3(0.22, -0.34, 0.08),
+        new THREE.Vector3(0.02, -0.34, 0.08),
+      ],
+      0.046,
+      brainColor,
+    ),
+  );
 
   // Right inner gyrus 1
-  brainGroup.add(makePath([
-    new THREE.Vector3(0.02, 0.26, 0.09),
-    new THREE.Vector3(0.22, 0.30, 0.10),
-    new THREE.Vector3(0.36, 0.16, 0.10),
-    new THREE.Vector3(0.38, -0.02, 0.10),
-    new THREE.Vector3(0.28, -0.16, 0.09),
-    new THREE.Vector3(0.12, -0.20, 0.09),
-  ], 0.036, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(0.02, 0.26, 0.09),
+        new THREE.Vector3(0.22, 0.3, 0.1),
+        new THREE.Vector3(0.36, 0.16, 0.1),
+        new THREE.Vector3(0.38, -0.02, 0.1),
+        new THREE.Vector3(0.28, -0.16, 0.09),
+        new THREE.Vector3(0.12, -0.2, 0.09),
+      ],
+      0.036,
+      brainColor,
+    ),
+  );
 
   // Right inner gyrus 2
-  brainGroup.add(makePath([
-    new THREE.Vector3(0.02, -0.06, 0.09),
-    new THREE.Vector3(0.16, -0.04, 0.09),
-    new THREE.Vector3(0.24, 0.06, 0.10),
-    new THREE.Vector3(0.22, 0.18, 0.10),
-  ], 0.028, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(0.02, -0.06, 0.09),
+        new THREE.Vector3(0.16, -0.04, 0.09),
+        new THREE.Vector3(0.24, 0.06, 0.1),
+        new THREE.Vector3(0.22, 0.18, 0.1),
+      ],
+      0.028,
+      brainColor,
+    ),
+  );
 
   // Bottom brain stem curve
-  brainGroup.add(makePath([
-    new THREE.Vector3(-0.02, -0.34, 0.08),
-    new THREE.Vector3(0, -0.44, 0.08),
-    new THREE.Vector3(0.02, -0.34, 0.08),
-  ], 0.046, brainColor));
+  brainGroup.add(
+    makePath(
+      [
+        new THREE.Vector3(-0.02, -0.34, 0.08),
+        new THREE.Vector3(0, -0.44, 0.08),
+        new THREE.Vector3(0.02, -0.34, 0.08),
+      ],
+      0.046,
+      brainColor,
+    ),
+  );
 
   // Center dashed divider
   for (let i = 0; i < 6; i++) {
     const d = new THREE.Mesh(
       new THREE.CylinderGeometry(0.016, 0.016, 0.07, 6),
-      new THREE.MeshPhysicalMaterial({ color: 0x5550a0, emissive: 0x333388, emissiveIntensity: 0.4 })
+      new THREE.MeshPhysicalMaterial({
+        color: 0x5550a0,
+        emissive: 0x333388,
+        emissiveIntensity: 0.4,
+      }),
     );
     d.position.set(0, 0.46 - i * 0.16, 0.09);
     brainGroup.add(d);
@@ -186,31 +236,48 @@
     const s = new THREE.Shape();
     for (let i = 0; i < 6; i++) {
       const a = (Math.PI / 3) * i - Math.PI / 6;
-      i === 0 ? s.moveTo(rad*Math.cos(a), rad*Math.sin(a)) : s.lineTo(rad*Math.cos(a), rad*Math.sin(a));
+      i === 0
+        ? s.moveTo(rad * Math.cos(a), rad * Math.sin(a))
+        : s.lineTo(rad * Math.cos(a), rad * Math.sin(a));
     }
-    s.closePath(); return s;
+    s.closePath();
+    return s;
   }
 
   const os = hexShape(1.52);
-  os.holes.push(hexShape(1.20));
+  os.holes.push(hexShape(1.2));
   const spinHex = new THREE.Mesh(
     new THREE.ExtrudeGeometry(os, {
-      depth: 0.20, bevelEnabled: true,
-      bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 10
+      depth: 0.2,
+      bevelEnabled: true,
+      bevelThickness: 0.06,
+      bevelSize: 0.06,
+      bevelSegments: 10,
     }),
     new THREE.MeshPhysicalMaterial({
-      color: 0x5555bb, metalness: 1.0, roughness: 0.06,
-      clearcoat: 1.0, emissive: 0x222266, emissiveIntensity: 0.15
-    })
+      color: 0x5555bb,
+      metalness: 1.0,
+      roughness: 0.06,
+      clearcoat: 1.0,
+      emissive: 0x222266,
+      emissiveIntensity: 0.15,
+    }),
   );
-  spinHex.position.z = -0.10;
+  spinHex.position.z = -0.1;
 
   const innerPanel = new THREE.Mesh(
     new THREE.ExtrudeGeometry(hexShape(1.16), {
-      depth: 0.08, bevelEnabled: true,
-      bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 4
+      depth: 0.08,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.02,
+      bevelSegments: 4,
     }),
-    new THREE.MeshPhysicalMaterial({ color: 0x070710, metalness: 0.2, roughness: 0.7 })
+    new THREE.MeshPhysicalMaterial({
+      color: 0x070710,
+      metalness: 0.2,
+      roughness: 0.7,
+    }),
   );
   innerPanel.position.z = -0.04;
 
@@ -225,16 +292,20 @@
     const nm = new THREE.Mesh(
       new THREE.SphereGeometry(0.052, 12, 12),
       new THREE.MeshPhysicalMaterial({
-        color: 0x9999ff, metalness: 1.0, roughness: 0.04,
-        emissive: 0x4444bb, emissiveIntensity: 0.5
-      })
+        color: 0x9999ff,
+        metalness: 1.0,
+        roughness: 0.04,
+        emissive: 0x4444bb,
+        emissiveIntensity: 0.5,
+      }),
     );
-    nm.position.set(1.58*Math.cos(a), 1.58*Math.sin(a), 0.04);
+    nm.position.set(1.58 * Math.cos(a), 1.58 * Math.sin(a), 0.04);
     nodesGroup.add(nm);
   }
   splashScene.add(nodesGroup);
 
-  let splashT = 0, splashAnimId;
+  let splashT = 0,
+    splashAnimId;
   function animateSplash() {
     splashAnimId = requestAnimationFrame(animateSplash);
     splashT += 0.012;
@@ -249,13 +320,15 @@
   animateSplash();
 
   setTimeout(() => {
-    splash.style.opacity = '0';
+    splash.style.opacity = "0";
     setTimeout(() => {
-      splash.style.display = 'none';
+      splash.style.display = "none";
       cancelAnimationFrame(splashAnimId);
       splashRenderer.dispose();
     }, 1000);
   }, 3200);
+})();
+
 // ══════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════
