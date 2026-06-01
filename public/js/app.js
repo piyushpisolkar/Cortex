@@ -495,22 +495,48 @@ function pushToCanvas(text) {
 
 // ── FORMAT MESSAGE ──
 function formatMessage(text) {
+  // Code blocks
   text = text.replace(
     /```(\w+)?\n([\s\S]*?)```/g,
     (_, lang, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`,
   );
+  // Inline code
   text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Headers — make bold and larger
+  text = text.replace(
+    /^### (.+)$/gm,
+    '<p style="font-weight:600;font-size:15px;color:var(--text);margin:10px 0 4px">$1</p>',
+  );
+  text = text.replace(
+    /^## (.+)$/gm,
+    '<p style="font-weight:600;font-size:16px;color:var(--text);margin:10px 0 4px">$1</p>',
+  );
+  text = text.replace(
+    /^# (.+)$/gm,
+    '<p style="font-weight:700;font-size:17px;color:var(--accent);margin:10px 0 4px">$1</p>',
+  );
+  // Bold
   text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // Italic
+  text = text.replace(
+    /\*(.*?)\*/g,
+    '<em style="color:var(--text-muted)">$1</em>',
+  );
+  // Numbered list
+  text = text.replace(
+    /^\d+\.\s+(.+)$/gm,
+    (_, content) => `<div class="numbered-item">${content}</div>`,
+  );
+  // Bullet points
   text = text
     .split("\n")
     .map((line) =>
       line.match(/^\s*[\*\-]\s+/)
-        ? '<div class="bullet">• ' +
-          line.replace(/^\s*[\*\-]\s+/, "") +
-          "</div>"
+        ? '<div class="bullet">' + line.replace(/^\s*[\*\-]\s+/, "") + "</div>"
         : line,
     )
     .join("\n");
+  // Line breaks
   text = text.replace(/\n/g, "<br>");
   return text;
 }
