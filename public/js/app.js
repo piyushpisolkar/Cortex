@@ -49,17 +49,13 @@
   const pl1 = new THREE.PointLight(0x8877ff, 3, 18);
   pl1.position.set(4, 2, 4);
   splashScene.add(pl1);
-  splashScene.add(
-    Object.assign(new THREE.PointLight(0x4444ff, 1.5, 14), {
-      position: new THREE.Vector3(-3, 3, 2),
-    }),
-  );
-  splashScene.add(
-    Object.assign(new THREE.PointLight(0xffffff, 1.2, 12), {
-      position: new THREE.Vector3(0, 4, 3),
-    }),
-  );
+  const pl2 = new THREE.PointLight(0x4444ff, 1.5, 14);
+  pl2.position.set(-3, 3, 2);
+  splashScene.add(pl2);
 
+  const pl3 = new THREE.PointLight(0xffffff, 1.2, 12);
+  pl3.position.set(0, 4, 3);
+  splashScene.add(pl3);
   // ── BRAIN (flat, exactly matching the logo) ──
   const bc = 0x7777dd;
   function bt(pts, r) {
