@@ -116,6 +116,14 @@ body::before {
   box-shadow: 0 0 8px var(--accent);
 }
 
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 0 14px rgba(127, 119, 221, 0.28);
+}
+
 .logo-text {
   font-size: 15px;
   font-weight: 600;

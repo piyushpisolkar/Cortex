@@ -8,15 +8,24 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo").default || require("connect-mongo");
 const mongoose = require("mongoose");
 
+const isProduction =
+  process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+
 // ── INIT ──
 const app = express();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── CONNECT MONGODB ──
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB error:", err));
+if (process.env.MONGODB_URI) {
+  mongoose
+    .connect(process.env.MONGODB_URI)
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) =>
+      console.error("MongoDB unavailable, continuing locally:", err.message),
+    );
+} else {
+  console.log("MONGODB_URI missing, continuing with local-only sessions");
+}
 
 // ── MIDDLEWARE ──
 app.use(express.json());
@@ -24,22 +33,27 @@ app.set("trust proxy", 1);
 app.use(express.static(path.join(__dirname, "public")));
 
 // ── SESSION WITH MONGODB ──
-const sessionStore = MongoStore.create({
-  mongoUrl: process.env.MONGODB_URI,
-  ttl: 24 * 60 * 60,
-  autoRemove: "native",
-  touchAfter: 24 * 3600,
-});
+let sessionStore;
+if (isProduction && process.env.MONGODB_URI) {
+  sessionStore = MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    ttl: 24 * 60 * 60,
+    autoRemove: "native",
+    touchAfter: 24 * 3600,
+  });
+} else {
+  console.log("Using in-memory sessions for local development");
+}
 
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: true,
     saveUninitialized: false,
-    store: sessionStore,
+    ...(sessionStore ? { store: sessionStore } : {}),
     cookie: {
-      secure: true,
-      sameSite: "none",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
     },
@@ -81,6 +95,10 @@ app.get("/manifest.json", (req, res) => {
 app.get("/service-worker.js", (req, res) => {
   res.setHeader("Content-Type", "application/javascript");
   res.sendFile(path.join(__dirname, "service-worker.js"));
+});
+
+app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public/icons/cortex-logo.svg"));
 });
 
 // ── ICONS ──
@@ -185,11 +203,11 @@ app.get("/", isLoggedIn, (req, res) => {
 
 // ── USER API ──
 app.get("/api/user", isLoggedIn, (req, res) => {
-  let photo = req.user.photos[0].value;
+  let photo = req.user.photos?.[0]?.value || "/icons/cortex-logo.svg";
   photo = photo.replace("=s96-c", "=s200-c");
   res.json({
-    name: req.user.displayName,
-    email: req.user.emails[0].value,
+    name: req.user.displayName || "Student",
+    email: req.user.emails?.[0]?.value || "",
     photo: photo,
   });
 });

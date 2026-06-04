@@ -1,5 +1,11 @@
-const CACHE_NAME = "cortex-v1";
-const ASSETS = ["/", "/css/style.css", "/js/app.js", "/manifest.json"];
+const CACHE_NAME = "cortex-v2";
+const ASSETS = [
+  "/",
+  "/css/style.css",
+  "/js/app.js",
+  "/manifest.json",
+  "/icons/cortex-logo.svg",
+];
 
 // Install — cache core assets
 self.addEventListener("install", (e) => {

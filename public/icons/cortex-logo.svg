@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#030711"/>
+  <defs>
+    <linearGradient id="cortex-stroke" x1="160" y1="58" x2="352" y2="454" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#82B8FF"/>
+      <stop offset="0.52" stop-color="#738BFF"/>
+      <stop offset="1" stop-color="#6937CB"/>
+    </linearGradient>
+    <filter id="soft-glow" x="70" y="46" width="372" height="420" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#soft-glow)" stroke="url(#cortex-stroke)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 82 406 169v174L256 430 106 343V169L256 82Z"/>
+    <path d="M247 152c-23 0-44 12-64 35-26 29-43 65-35 96-17 13-27 31-27 53 0 24 12 46 33 58 0 35 18 61 52 76l34 20c6 3 13 5 20 5 19 0 34-16 34-35V186c0-19-16-34-35-34h-12Z"/>
+    <path d="M265 152c23 0 44 12 64 35 26 29 43 65 35 96 17 13 27 31 27 53 0 24-12 46-33 58 0 35-18 61-52 76l-34 20c-6 3-13 5-20 5-19 0-34-16-34-35V186c0-19 16-34 35-34h12Z"/>
+    <path d="M212 196c-18 0-31 12-31 30 0 16 11 26 25 34"/>
+    <path d="M162 270c35-18 72-18 105 7"/>
+    <path d="M171 340c28 5 47 18 48 45"/>
+    <path d="M190 407c2 20 17 34 38 38"/>
+    <path d="M150 381c-17-3-30-8-41-17"/>
+    <path d="M300 196c18 0 31 12 31 30 0 16-11 26-25 34"/>
+    <path d="M350 270c-35-18-72-18-105 7"/>
+    <path d="M341 340c-28 5-47 18-48 45"/>
+    <path d="M322 407c-2 20-17 34-38 38"/>
+    <path d="M362 381c17-3 30-8 41-17"/>
+  </g>
+</svg>

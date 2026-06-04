@@ -88,136 +88,116 @@
   const brainGroup = new THREE.Group();
   const bc = 0x7777dd;
 
-  // ── BRAIN PATHS (matching new logo exactly) ──
-  function makePath(pts, r, color) {
-    return new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, r, 8, false),
-      new THREE.MeshPhysicalMaterial({
-        color,
-        metalness: 0.85,
-        roughness: 0.1,
-        emissive: color,
-        emissiveIntensity: 0.2,
-        clearcoat: 1,
-      }),
-    );
-  }
-
-  const brainColor = 0x7777dd;
-  const brainGroup = new THREE.Group();
-
-  // Left outer hemisphere
+  // Left outer
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(-0.02, 0.56, 0.08),
-        new THREE.Vector3(-0.2, 0.56, 0.09),
-        new THREE.Vector3(-0.4, 0.44, 0.1),
-        new THREE.Vector3(-0.52, 0.22, 0.1),
-        new THREE.Vector3(-0.5, -0.02, 0.1),
-        new THREE.Vector3(-0.4, -0.22, 0.09),
-        new THREE.Vector3(-0.22, -0.34, 0.08),
-        new THREE.Vector3(-0.02, -0.34, 0.08),
+        new THREE.Vector3(-0.04, 0.54, 0.1),
+        new THREE.Vector3(-0.22, 0.54, 0.1),
+        new THREE.Vector3(-0.42, 0.4, 0.1),
+        new THREE.Vector3(-0.5, 0.18, 0.1),
+        new THREE.Vector3(-0.46, -0.04, 0.1),
+        new THREE.Vector3(-0.34, -0.22, 0.1),
+        new THREE.Vector3(-0.16, -0.3, 0.1),
+        new THREE.Vector3(-0.04, -0.3, 0.1),
       ],
-      0.046,
-      brainColor,
+      0.044,
+      bc,
     ),
   );
 
-  // Left inner gyrus 1
+  // Left gyrus 1
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(-0.02, 0.26, 0.09),
-        new THREE.Vector3(-0.22, 0.3, 0.1),
-        new THREE.Vector3(-0.36, 0.16, 0.1),
-        new THREE.Vector3(-0.38, -0.02, 0.1),
-        new THREE.Vector3(-0.28, -0.16, 0.09),
-        new THREE.Vector3(-0.12, -0.2, 0.09),
+        new THREE.Vector3(-0.04, 0.26, 0.1),
+        new THREE.Vector3(-0.2, 0.26, 0.1),
+        new THREE.Vector3(-0.34, 0.12, 0.1),
+        new THREE.Vector3(-0.36, -0.06, 0.1),
+        new THREE.Vector3(-0.26, -0.16, 0.1),
       ],
-      0.036,
-      brainColor,
+      0.034,
+      bc,
     ),
   );
 
-  // Left inner gyrus 2 (bottom)
+  // Left gyrus 2
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(-0.02, -0.06, 0.09),
-        new THREE.Vector3(-0.16, -0.04, 0.09),
-        new THREE.Vector3(-0.24, 0.06, 0.1),
+        new THREE.Vector3(-0.04, -0.04, 0.1),
+        new THREE.Vector3(-0.16, -0.04, 0.1),
+        new THREE.Vector3(-0.24, 0.08, 0.1),
         new THREE.Vector3(-0.22, 0.18, 0.1),
       ],
-      0.028,
-      brainColor,
+      0.026,
+      bc,
     ),
   );
 
-  // Right outer hemisphere
+  // Right outer
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(0.02, 0.56, 0.08),
-        new THREE.Vector3(0.2, 0.56, 0.09),
-        new THREE.Vector3(0.4, 0.44, 0.1),
-        new THREE.Vector3(0.52, 0.22, 0.1),
-        new THREE.Vector3(0.5, -0.02, 0.1),
-        new THREE.Vector3(0.4, -0.22, 0.09),
-        new THREE.Vector3(0.22, -0.34, 0.08),
-        new THREE.Vector3(0.02, -0.34, 0.08),
+        new THREE.Vector3(0.04, 0.54, 0.1),
+        new THREE.Vector3(0.22, 0.54, 0.1),
+        new THREE.Vector3(0.42, 0.4, 0.1),
+        new THREE.Vector3(0.5, 0.18, 0.1),
+        new THREE.Vector3(0.46, -0.04, 0.1),
+        new THREE.Vector3(0.34, -0.22, 0.1),
+        new THREE.Vector3(0.16, -0.3, 0.1),
+        new THREE.Vector3(0.04, -0.3, 0.1),
       ],
-      0.046,
-      brainColor,
+      0.044,
+      bc,
     ),
   );
 
-  // Right inner gyrus 1
+  // Right gyrus 1
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(0.02, 0.26, 0.09),
-        new THREE.Vector3(0.22, 0.3, 0.1),
-        new THREE.Vector3(0.36, 0.16, 0.1),
-        new THREE.Vector3(0.38, -0.02, 0.1),
-        new THREE.Vector3(0.28, -0.16, 0.09),
-        new THREE.Vector3(0.12, -0.2, 0.09),
+        new THREE.Vector3(0.04, 0.26, 0.1),
+        new THREE.Vector3(0.2, 0.26, 0.1),
+        new THREE.Vector3(0.34, 0.12, 0.1),
+        new THREE.Vector3(0.36, -0.06, 0.1),
+        new THREE.Vector3(0.26, -0.16, 0.1),
       ],
-      0.036,
-      brainColor,
+      0.034,
+      bc,
     ),
   );
 
-  // Right inner gyrus 2
+  // Right gyrus 2
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(0.02, -0.06, 0.09),
-        new THREE.Vector3(0.16, -0.04, 0.09),
-        new THREE.Vector3(0.24, 0.06, 0.1),
+        new THREE.Vector3(0.04, -0.04, 0.1),
+        new THREE.Vector3(0.16, -0.04, 0.1),
+        new THREE.Vector3(0.24, 0.08, 0.1),
         new THREE.Vector3(0.22, 0.18, 0.1),
       ],
-      0.028,
-      brainColor,
+      0.026,
+      bc,
     ),
   );
 
-  // Bottom brain stem curve
+  // Bottom connect
   brainGroup.add(
-    makePath(
+    makeTube(
       [
-        new THREE.Vector3(-0.02, -0.34, 0.08),
-        new THREE.Vector3(0, -0.44, 0.08),
-        new THREE.Vector3(0.02, -0.34, 0.08),
+        new THREE.Vector3(-0.04, -0.3, 0.1),
+        new THREE.Vector3(0, -0.4, 0.1),
+        new THREE.Vector3(0.04, -0.3, 0.1),
       ],
-      0.046,
-      brainColor,
+      0.044,
+      bc,
     ),
   );
 
-  // Center dashed divider
-  for (let i = 0; i < 6; i++) {
-    const d = new THREE.Mesh(
+  // Center dashes
+  for (let i = 0; i < 5; i++) {
+    const c = new THREE.Mesh(
       new THREE.CylinderGeometry(0.016, 0.016, 0.07, 6),
       new THREE.MeshPhysicalMaterial({
         color: 0x5550a0,
@@ -225,25 +205,13 @@
         emissiveIntensity: 0.4,
       }),
     );
-    d.position.set(0, 0.46 - i * 0.16, 0.09);
-    brainGroup.add(d);
+    c.position.set(0, 0.42 - i * 0.18, 0.1);
+    brainGroup.add(c);
   }
 
   splashScene.add(brainGroup);
 
-  // ── SPINNING HEX (clockwise 2D rotation only) ──
-  function hexShape(rad) {
-    const s = new THREE.Shape();
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 3) * i - Math.PI / 6;
-      i === 0
-        ? s.moveTo(rad * Math.cos(a), rad * Math.sin(a))
-        : s.lineTo(rad * Math.cos(a), rad * Math.sin(a));
-    }
-    s.closePath();
-    return s;
-  }
-
+  // ── SPINNING HEX (clockwise 2D) ──
   const os = hexShape(1.52);
   os.holes.push(hexShape(1.2));
   const spinHex = new THREE.Mesh(
@@ -285,11 +253,9 @@
   hexGroup.add(spinHex, innerPanel);
   splashScene.add(hexGroup);
 
-  // Nodes at hex corners
-  const nodesGroup = new THREE.Group();
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 3) * i - Math.PI / 6;
-    const nm = new THREE.Mesh(
+  // Nodes on hex corners
+  function splashNode(x, y, z) {
+    const m = new THREE.Mesh(
       new THREE.SphereGeometry(0.052, 12, 12),
       new THREE.MeshPhysicalMaterial({
         color: 0x9999ff,
@@ -299,8 +265,15 @@
         emissiveIntensity: 0.5,
       }),
     );
-    nm.position.set(1.58 * Math.cos(a), 1.58 * Math.sin(a), 0.04);
-    nodesGroup.add(nm);
+    m.position.set(x, y, z);
+    return m;
+  }
+
+  const nodesGroup = new THREE.Group();
+  const nr = 1.58;
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    nodesGroup.add(splashNode(nr * Math.cos(a), nr * Math.sin(a), 0.04));
   }
   splashScene.add(nodesGroup);
 
@@ -309,11 +282,11 @@
   function animateSplash() {
     splashAnimId = requestAnimationFrame(animateSplash);
     splashT += 0.012;
-    // ONLY hex and nodes rotate — brain stays perfectly still
+    // Hex spins clockwise in Z (2D)
     hexGroup.rotation.z = -splashT;
     nodesGroup.rotation.z = -splashT;
-    // Brain gently floats up/down
-    brainGroup.position.y = Math.sin(splashT * 0.7) * 0.015;
+    // Brain floats gently
+    brainGroup.position.y = Math.sin(splashT * 0.8) * 0.018;
     pl1.intensity = 3 + Math.sin(splashT * 1.5) * 0.4;
     splashRenderer.render(splashScene, splashCam);
   }
@@ -522,48 +495,22 @@ function pushToCanvas(text) {
 
 // ── FORMAT MESSAGE ──
 function formatMessage(text) {
-  // Code blocks
   text = text.replace(
     /```(\w+)?\n([\s\S]*?)```/g,
     (_, lang, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`,
   );
-  // Inline code
   text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-  // Headers — make bold and larger
-  text = text.replace(
-    /^### (.+)$/gm,
-    '<p style="font-weight:600;font-size:15px;color:var(--text);margin:10px 0 4px">$1</p>',
-  );
-  text = text.replace(
-    /^## (.+)$/gm,
-    '<p style="font-weight:600;font-size:16px;color:var(--text);margin:10px 0 4px">$1</p>',
-  );
-  text = text.replace(
-    /^# (.+)$/gm,
-    '<p style="font-weight:700;font-size:17px;color:var(--accent);margin:10px 0 4px">$1</p>',
-  );
-  // Bold
   text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  // Italic
-  text = text.replace(
-    /\*(.*?)\*/g,
-    '<em style="color:var(--text-muted)">$1</em>',
-  );
-  // Numbered list
-  text = text.replace(
-    /^\d+\.\s+(.+)$/gm,
-    (_, content) => `<div class="numbered-item">${content}</div>`,
-  );
-  // Bullet points
   text = text
     .split("\n")
     .map((line) =>
       line.match(/^\s*[\*\-]\s+/)
-        ? '<div class="bullet">' + line.replace(/^\s*[\*\-]\s+/, "") + "</div>"
+        ? '<div class="bullet">• ' +
+          line.replace(/^\s*[\*\-]\s+/, "") +
+          "</div>"
         : line,
     )
     .join("\n");
-  // Line breaks
   text = text.replace(/\n/g, "<br>");
   return text;
 }
