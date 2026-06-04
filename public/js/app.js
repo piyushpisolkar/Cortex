@@ -3,11 +3,10 @@
 // ══════════════════════════════════════════
 
 // ── SPLASH SCREEN ──
+
 (function () {
   const splash = document.getElementById("splashScreen");
   if (!splash) return;
-
-  // If Three.js not loaded, just dismiss
   if (typeof THREE === "undefined") {
     setTimeout(() => {
       splash.style.opacity = "0";
@@ -17,7 +16,6 @@
     }, 2500);
     return;
   }
-
   const canvas = document.getElementById("splashCanvas");
   if (!canvas) {
     setTimeout(() => {
@@ -47,179 +45,178 @@
   splashCam.lookAt(0, 0, 0);
 
   // Lights
-  splashScene.add(new THREE.AmbientLight(0xffffff, 0.15));
+  splashScene.add(new THREE.AmbientLight(0xffffff, 0.2));
   const pl1 = new THREE.PointLight(0x8877ff, 3, 18);
   pl1.position.set(4, 2, 4);
   splashScene.add(pl1);
-  const pl2 = new THREE.PointLight(0x00ffcc, 1.2, 14);
-  pl2.position.set(-3, 3, -2);
-  splashScene.add(pl2);
-  const pl3 = new THREE.PointLight(0xffffff, 1.5, 12);
-  pl3.position.set(0, 4, 3);
-  splashScene.add(pl3);
+  splashScene.add(
+    Object.assign(new THREE.PointLight(0x4444ff, 1.5, 14), {
+      position: new THREE.Vector3(-3, 3, 2),
+    }),
+  );
+  splashScene.add(
+    Object.assign(new THREE.PointLight(0xffffff, 1.2, 12), {
+      position: new THREE.Vector3(0, 4, 3),
+    }),
+  );
 
-  function hexShape(rad) {
-    const s = new THREE.Shape();
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 3) * i - Math.PI / 6;
-      i === 0
-        ? s.moveTo(rad * Math.cos(a), rad * Math.sin(a))
-        : s.lineTo(rad * Math.cos(a), rad * Math.sin(a));
-    }
-    s.closePath();
-    return s;
-  }
-
-  function makeTube(pts, r, color) {
+  // ── BRAIN (flat, exactly matching the logo) ──
+  const bc = 0x7777dd;
+  function bt(pts, r) {
     return new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 50, r, 8, false),
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, r, 8, false),
       new THREE.MeshPhysicalMaterial({
-        color,
+        color: bc,
         metalness: 0.85,
         roughness: 0.1,
-        emissive: color,
-        emissiveIntensity: 0.15,
+        emissive: bc,
+        emissiveIntensity: 0.18,
         clearcoat: 1,
       }),
     );
   }
 
-  // ── BRAIN (static, matches new logo) ──
-  const brainGroup = new THREE.Group();
-  const bc = 0x7777dd;
+  const brain = new THREE.Group();
 
   // Left outer
-  brainGroup.add(
-    makeTube(
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(-0.04, 0.54, 0.1),
-        new THREE.Vector3(-0.22, 0.54, 0.1),
-        new THREE.Vector3(-0.42, 0.4, 0.1),
-        new THREE.Vector3(-0.5, 0.18, 0.1),
-        new THREE.Vector3(-0.46, -0.04, 0.1),
-        new THREE.Vector3(-0.34, -0.22, 0.1),
-        new THREE.Vector3(-0.16, -0.3, 0.1),
-        new THREE.Vector3(-0.04, -0.3, 0.1),
+        new THREE.Vector3(-0.02, 0.54, 0.08),
+        new THREE.Vector3(-0.2, 0.54, 0.09),
+        new THREE.Vector3(-0.4, 0.42, 0.1),
+        new THREE.Vector3(-0.5, 0.2, 0.1),
+        new THREE.Vector3(-0.48, -0.04, 0.1),
+        new THREE.Vector3(-0.38, -0.22, 0.09),
+        new THREE.Vector3(-0.2, -0.32, 0.08),
+        new THREE.Vector3(-0.02, -0.32, 0.08),
       ],
-      0.044,
-      bc,
+      0.046,
     ),
   );
 
   // Left gyrus 1
-  brainGroup.add(
-    makeTube(
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(-0.04, 0.26, 0.1),
-        new THREE.Vector3(-0.2, 0.26, 0.1),
-        new THREE.Vector3(-0.34, 0.12, 0.1),
-        new THREE.Vector3(-0.36, -0.06, 0.1),
-        new THREE.Vector3(-0.26, -0.16, 0.1),
+        new THREE.Vector3(-0.02, 0.24, 0.09),
+        new THREE.Vector3(-0.2, 0.28, 0.1),
+        new THREE.Vector3(-0.34, 0.14, 0.1),
+        new THREE.Vector3(-0.36, -0.04, 0.1),
+        new THREE.Vector3(-0.26, -0.14, 0.09),
+        new THREE.Vector3(-0.1, -0.18, 0.09),
       ],
-      0.034,
-      bc,
+      0.036,
     ),
   );
 
   // Left gyrus 2
-  brainGroup.add(
-    makeTube(
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(-0.04, -0.04, 0.1),
-        new THREE.Vector3(-0.16, -0.04, 0.1),
-        new THREE.Vector3(-0.24, 0.08, 0.1),
-        new THREE.Vector3(-0.22, 0.18, 0.1),
+        new THREE.Vector3(-0.02, -0.06, 0.09),
+        new THREE.Vector3(-0.14, -0.04, 0.09),
+        new THREE.Vector3(-0.22, 0.06, 0.1),
+        new THREE.Vector3(-0.2, 0.16, 0.1),
       ],
       0.026,
-      bc,
     ),
   );
 
   // Right outer
-  brainGroup.add(
-    makeTube(
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(0.04, 0.54, 0.1),
-        new THREE.Vector3(0.22, 0.54, 0.1),
-        new THREE.Vector3(0.42, 0.4, 0.1),
-        new THREE.Vector3(0.5, 0.18, 0.1),
-        new THREE.Vector3(0.46, -0.04, 0.1),
-        new THREE.Vector3(0.34, -0.22, 0.1),
-        new THREE.Vector3(0.16, -0.3, 0.1),
-        new THREE.Vector3(0.04, -0.3, 0.1),
+        new THREE.Vector3(0.02, 0.54, 0.08),
+        new THREE.Vector3(0.2, 0.54, 0.09),
+        new THREE.Vector3(0.4, 0.42, 0.1),
+        new THREE.Vector3(0.5, 0.2, 0.1),
+        new THREE.Vector3(0.48, -0.04, 0.1),
+        new THREE.Vector3(0.38, -0.22, 0.09),
+        new THREE.Vector3(0.2, -0.32, 0.08),
+        new THREE.Vector3(0.02, -0.32, 0.08),
       ],
-      0.044,
-      bc,
+      0.046,
     ),
   );
 
   // Right gyrus 1
-  brainGroup.add(
-    makeTube(
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(0.04, 0.26, 0.1),
-        new THREE.Vector3(0.2, 0.26, 0.1),
-        new THREE.Vector3(0.34, 0.12, 0.1),
-        new THREE.Vector3(0.36, -0.06, 0.1),
-        new THREE.Vector3(0.26, -0.16, 0.1),
+        new THREE.Vector3(0.02, 0.24, 0.09),
+        new THREE.Vector3(0.2, 0.28, 0.1),
+        new THREE.Vector3(0.34, 0.14, 0.1),
+        new THREE.Vector3(0.36, -0.04, 0.1),
+        new THREE.Vector3(0.26, -0.14, 0.09),
+        new THREE.Vector3(0.1, -0.18, 0.09),
       ],
-      0.034,
-      bc,
+      0.036,
     ),
   );
 
   // Right gyrus 2
-  brainGroup.add(
-    makeTube(
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(0.04, -0.04, 0.1),
-        new THREE.Vector3(0.16, -0.04, 0.1),
-        new THREE.Vector3(0.24, 0.08, 0.1),
-        new THREE.Vector3(0.22, 0.18, 0.1),
+        new THREE.Vector3(0.02, -0.06, 0.09),
+        new THREE.Vector3(0.14, -0.04, 0.09),
+        new THREE.Vector3(0.22, 0.06, 0.1),
+        new THREE.Vector3(0.2, 0.16, 0.1),
       ],
       0.026,
-      bc,
     ),
   );
 
-  // Bottom connect
-  brainGroup.add(
-    makeTube(
+  // Bottom stem
+  brain.add(
+    bt(
       [
-        new THREE.Vector3(-0.04, -0.3, 0.1),
-        new THREE.Vector3(0, -0.4, 0.1),
-        new THREE.Vector3(0.04, -0.3, 0.1),
+        new THREE.Vector3(-0.02, -0.32, 0.08),
+        new THREE.Vector3(0, -0.42, 0.08),
+        new THREE.Vector3(0.02, -0.32, 0.08),
       ],
-      0.044,
-      bc,
+      0.046,
     ),
   );
 
   // Center dashes
-  for (let i = 0; i < 5; i++) {
-    const c = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.016, 0.016, 0.07, 6),
+  for (let i = 0; i < 6; i++) {
+    const d = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.015, 0.015, 0.065, 6),
       new THREE.MeshPhysicalMaterial({
         color: 0x5550a0,
         emissive: 0x333388,
         emissiveIntensity: 0.4,
       }),
     );
-    c.position.set(0, 0.42 - i * 0.18, 0.1);
-    brainGroup.add(c);
+    d.position.set(0, 0.44 - i * 0.15, 0.09);
+    brain.add(d);
   }
 
-  splashScene.add(brainGroup);
+  splashScene.add(brain);
 
-  // ── SPINNING HEX (clockwise 2D) ──
-  const os = hexShape(1.52);
-  os.holes.push(hexShape(1.2));
+  // ── SPINNING HEX (2D clockwise only) ──
+  function hexShape(r) {
+    const s = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 6;
+      i === 0
+        ? s.moveTo(r * Math.cos(a), r * Math.sin(a))
+        : s.lineTo(r * Math.cos(a), r * Math.sin(a));
+    }
+    s.closePath();
+    return s;
+  }
+
+  const hs = hexShape(1.52);
+  hs.holes.push(hexShape(1.2));
   const spinHex = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(os, {
-      depth: 0.2,
+    new THREE.ExtrudeGeometry(hs, {
+      depth: 0.18,
       bevelEnabled: true,
-      bevelThickness: 0.06,
-      bevelSize: 0.06,
+      bevelThickness: 0.055,
+      bevelSize: 0.055,
       bevelSegments: 10,
     }),
     new THREE.MeshPhysicalMaterial({
@@ -231,11 +228,11 @@
       emissiveIntensity: 0.15,
     }),
   );
-  spinHex.position.z = -0.1;
+  spinHex.position.z = -0.09;
 
   const innerPanel = new THREE.Mesh(
     new THREE.ExtrudeGeometry(hexShape(1.16), {
-      depth: 0.08,
+      depth: 0.07,
       bevelEnabled: true,
       bevelThickness: 0.02,
       bevelSize: 0.02,
@@ -253,40 +250,15 @@
   hexGroup.add(spinHex, innerPanel);
   splashScene.add(hexGroup);
 
-  // Nodes on hex corners
-  function splashNode(x, y, z) {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(0.052, 12, 12),
-      new THREE.MeshPhysicalMaterial({
-        color: 0x9999ff,
-        metalness: 1.0,
-        roughness: 0.04,
-        emissive: 0x4444bb,
-        emissiveIntensity: 0.5,
-      }),
-    );
-    m.position.set(x, y, z);
-    return m;
-  }
-
-  const nodesGroup = new THREE.Group();
-  const nr = 1.58;
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 3) * i - Math.PI / 6;
-    nodesGroup.add(splashNode(nr * Math.cos(a), nr * Math.sin(a), 0.04));
-  }
-  splashScene.add(nodesGroup);
-
   let splashT = 0,
     splashAnimId;
   function animateSplash() {
     splashAnimId = requestAnimationFrame(animateSplash);
     splashT += 0.012;
-    // Hex spins clockwise in Z (2D)
+    // Only hex spins clockwise in 2D
     hexGroup.rotation.z = -splashT;
-    nodesGroup.rotation.z = -splashT;
-    // Brain floats gently
-    brainGroup.position.y = Math.sin(splashT * 0.8) * 0.018;
+    // Brain stays still — subtle float only
+    brain.position.y = Math.sin(splashT * 0.7) * 0.015;
     pl1.intensity = 3 + Math.sin(splashT * 1.5) * 0.4;
     splashRenderer.render(splashScene, splashCam);
   }
@@ -301,7 +273,6 @@
     }, 1000);
   }, 3200);
 })();
-
 // ══════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════
