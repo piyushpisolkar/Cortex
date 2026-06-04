@@ -1,19 +1,14 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="img-src 'self' https://lh3.googleusercontent.com https://*.googleusercontent.com data: blob:;"
-    />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cortex - Study Intelligence</title>
+    <title>Cortex — Study Intelligence</title>
     <link rel="stylesheet" href="css/style.css" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="icon" type="image/svg+xml" href="/icons/cortex-logo.svg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#7F77DD" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -23,25 +18,193 @@
       content="black-translucent"
     />
     <meta name="apple-mobile-web-app-title" content="Cortex" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="img-src 'self' https://lh3.googleusercontent.com https://*.googleusercontent.com data: blob:;"
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='hg' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%236699ff'/%3E%3Cstop offset='100%25' style='stop-color:%234433aa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='%230d0d14'/%3E%3Cpolygon points='50,5 88,27 88,73 50,95 12,73 12,27' fill='none' stroke='url(%23hg)' stroke-width='3.5'/%3E%3Cpath d='M47,28 C33,29 28,38 23,47 24,58 28,66 32,74 38,78 48,79' fill='none' stroke='%237788ff' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M53,28 C67,29 72,38 77,47 76,58 72,66 68,74 62,78 52,79' fill='none' stroke='%237788ff' stroke-width='2.8' stroke-linecap='round'/%3E%3Cline x1='50' y1='28' x2='50' y2='79' stroke='%235544aa' stroke-width='1.5' stroke-dasharray='3,3'/%3E%3C/svg%3E"
+    />
   </head>
   <body>
     <!-- SPLASH SCREEN -->
-<div id="splashScreen" style="position:fixed;inset:0;background:#0d0d14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s ease;">
-  <canvas id="splashCanvas"></canvas>
-  <p style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;letter-spacing:.2em;color:#e8e8f0;margin-top:16px;text-shadow:0 0 30px rgba(127,119,221,0.8);">CORTEX</p>
-  <p style="font-size:11px;letter-spacing:.15em;color:#6666aa;margin-top:6px;text-transform:uppercase;">Study Intelligence</p>
-  <div style="width:200px;height:2px;background:#1e1e2a;border-radius:2px;overflow:hidden;margin-top:16px;">
-    <div style="height:100%;width:0%;background:linear-gradient(90deg,#3C3489,#7F77DD,#1D9E75);border-radius:2px;animation:loadBar 2.8s ease forwards;"></div>
-  </div>
-</div>
-<style>
-@keyframes loadBar { 0%{width:0%} 60%{width:80%} 100%{width:100%} }
-</style>
-    
+    <div
+      id="splashScreen"
+      style="
+        position: fixed;
+        inset: 0;
+        background: #0d0d14;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 1s ease;
+      "
+    >
+      <canvas id="splashCanvas"></canvas>
+      <p
+        style="
+          font-family: &quot;JetBrains Mono&quot;, monospace;
+          font-size: 28px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          color: #e8e8f0;
+          margin-top: 20px;
+          text-shadow: 0 0 30px rgba(127, 119, 221, 0.8);
+        "
+      >
+        CORTEX
+      </p>
+      <p
+        style="
+          font-size: 11px;
+          letter-spacing: 0.15em;
+          color: #6666aa;
+          margin-top: 6px;
+          text-transform: uppercase;
+        "
+      >
+        Study Intelligence
+      </p>
+      <div
+        style="
+          width: 200px;
+          height: 2px;
+          background: #1e1e2a;
+          border-radius: 2px;
+          overflow: hidden;
+          margin-top: 20px;
+        "
+      >
+        <div
+          style="
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3c3489, #7f77dd, #1d9e75);
+            border-radius: 2px;
+            animation: loadBar 3s ease forwards;
+          "
+        ></div>
+      </div>
+    </div>
+    <style>
+      @keyframes loadBar {
+        0% {
+          width: 0%;
+        }
+        60% {
+          width: 80%;
+        }
+        100% {
+          width: 100%;
+        }
+      }
+    </style>
+
     <!-- TOP BAR -->
     <div class="topbar">
       <div class="topbar-left">
-        <img class="brand-logo" src="/icons/cortex-logo.svg" alt="Cortex logo" />
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="hexG" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color: #6699ff" />
+              <stop offset="100%" style="stop-color: #4433aa" />
+            </linearGradient>
+            <linearGradient id="brainG" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color: #7788ff" />
+              <stop offset="100%" style="stop-color: #5544bb" />
+            </linearGradient>
+          </defs>
+          <polygon
+            points="50,5 88,27 88,73 50,95 12,73 12,27"
+            fill="none"
+            stroke="url(#hexG)"
+            stroke-width="3.5"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M47,28 C47,28 33,29 28,38 C23,47 24,58 28,66 C32,74 38,78 44,79 C46,79 48,79 48,79"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M47,41 C41,42 36,46 36,52 C36,58 40,62 46,63"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+          <path
+            d="M47,54 C44,55 41,58 42,62 C43,66 46,68 48,68"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.0"
+            stroke-linecap="round"
+          />
+          <path
+            d="M47,35 C43,36 39,38 38,42 C37,46 39,49 43,50"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+          <path
+            d="M53,28 C53,28 67,29 72,38 C77,47 76,58 72,66 C68,74 62,78 56,79 C54,79 52,79 52,79"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M53,41 C59,42 64,46 64,52 C64,58 60,62 54,63"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+          <path
+            d="M53,54 C56,55 59,58 58,62 C57,66 54,68 52,68"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.0"
+            stroke-linecap="round"
+          />
+          <path
+            d="M53,35 C57,36 61,38 62,42 C63,46 61,49 57,50"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+          <line
+            x1="50"
+            y1="28"
+            x2="50"
+            y2="79"
+            stroke="#5544aa"
+            stroke-width="1.5"
+            stroke-dasharray="3,3"
+          />
+          <path
+            d="M47,79 C48,83 52,83 53,79"
+            fill="none"
+            stroke="url(#brainG)"
+            stroke-width="2.8"
+            stroke-linecap="round"
+          />
+        </svg>
         <span class="logo-text">CORTEX</span>
         <span class="logo-sub">Study Intelligence</span>
       </div>
@@ -63,7 +226,11 @@
         >
           ⚡ Panic Mode
         </button>
-        <div class="user-profile" id="userProfile">
+        <div
+          class="user-profile"
+          id="userProfile"
+          onclick="toggleProfileMenu()"
+        >
           <img class="user-photo" id="userPhoto" src="" alt="" />
           <span class="user-name" id="userName"></span>
           <div class="profile-dropdown" id="profileDropdown">
@@ -116,27 +283,41 @@
           </div>
         </div>
 
-        <!-- Drop Zone Input -->
         <div class="input-area">
           <div class="drop-zone" id="dropZone">
             <div class="drop-hint" id="dropHint">
-              <span>Drop a file here or</span>
+              <span>Drop a .txt file here or</span>
             </div>
             <div class="input-row">
+              <button
+                class="voice-btn"
+                id="voiceBtn"
+                data-tooltip="Voice input — speak your question"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                  />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              </button>
               <textarea
                 id="userInput"
                 class="chat-input"
                 placeholder="Ask Cortex anything..."
                 rows="1"
               ></textarea>
-              <button class="voice-btn" id="voiceBtn" data-tooltip="Voice input — speak your question">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
-                </svg>
-              </button>
               <button
                 class="send-btn"
                 id="sendBtn"
@@ -184,7 +365,7 @@
         </div>
       </div>
     </div>
-    </div>
+
     <!-- SCAN OVERLAY -->
     <div class="scan-overlay" id="scanOverlay">
       <div class="scan-box">
@@ -192,6 +373,7 @@
         <p class="scan-text">Cortex is reading your file...</p>
       </div>
     </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/app.js"></script>
   </body>

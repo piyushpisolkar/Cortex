@@ -56,8 +56,9 @@
   const pl3 = new THREE.PointLight(0xffffff, 1.2, 12);
   pl3.position.set(0, 4, 3);
   splashScene.add(pl3);
+
   // ── BRAIN (flat, exactly matching the logo) ──
-  const bc = 0x7777dd;
+  const bc = 0x7788ff;
   function bt(pts, r) {
     return new THREE.Mesh(
       new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, r, 8, false),
@@ -78,14 +79,14 @@
   brain.add(
     bt(
       [
-        new THREE.Vector3(-0.02, 0.54, 0.08),
-        new THREE.Vector3(-0.2, 0.54, 0.09),
-        new THREE.Vector3(-0.4, 0.42, 0.1),
-        new THREE.Vector3(-0.5, 0.2, 0.1),
-        new THREE.Vector3(-0.48, -0.04, 0.1),
-        new THREE.Vector3(-0.38, -0.22, 0.09),
-        new THREE.Vector3(-0.2, -0.32, 0.08),
-        new THREE.Vector3(-0.02, -0.32, 0.08),
+        new THREE.Vector3(-0.02, 0.56, 0.08),
+        new THREE.Vector3(-0.2, 0.57, 0.09),
+        new THREE.Vector3(-0.44, 0.44, 0.1),
+        new THREE.Vector3(-0.54, 0.2, 0.1),
+        new THREE.Vector3(-0.5, -0.06, 0.1),
+        new THREE.Vector3(-0.38, -0.26, 0.09),
+        new THREE.Vector3(-0.18, -0.36, 0.08),
+        new THREE.Vector3(-0.02, -0.36, 0.08),
       ],
       0.046,
     ),
@@ -95,12 +96,12 @@
   brain.add(
     bt(
       [
-        new THREE.Vector3(-0.02, 0.24, 0.09),
-        new THREE.Vector3(-0.2, 0.28, 0.1),
-        new THREE.Vector3(-0.34, 0.14, 0.1),
-        new THREE.Vector3(-0.36, -0.04, 0.1),
-        new THREE.Vector3(-0.26, -0.14, 0.09),
-        new THREE.Vector3(-0.1, -0.18, 0.09),
+        new THREE.Vector3(-0.02, 0.26, 0.09),
+        new THREE.Vector3(-0.22, 0.3, 0.1),
+        new THREE.Vector3(-0.36, 0.14, 0.1),
+        new THREE.Vector3(-0.38, -0.04, 0.1),
+        new THREE.Vector3(-0.28, -0.16, 0.09),
+        new THREE.Vector3(-0.1, -0.2, 0.09),
       ],
       0.036,
     ),
@@ -111,11 +112,24 @@
     bt(
       [
         new THREE.Vector3(-0.02, -0.06, 0.09),
-        new THREE.Vector3(-0.14, -0.04, 0.09),
-        new THREE.Vector3(-0.22, 0.06, 0.1),
-        new THREE.Vector3(-0.2, 0.16, 0.1),
+        new THREE.Vector3(-0.16, -0.04, 0.09),
+        new THREE.Vector3(-0.24, 0.08, 0.1),
+        new THREE.Vector3(-0.22, 0.18, 0.1),
       ],
       0.026,
+    ),
+  );
+
+  // Left gyrus 3 (top small)
+  brain.add(
+    bt(
+      [
+        new THREE.Vector3(-0.04, 0.44, 0.09),
+        new THREE.Vector3(-0.24, 0.44, 0.1),
+        new THREE.Vector3(-0.36, 0.32, 0.1),
+        new THREE.Vector3(-0.34, 0.2, 0.1),
+      ],
+      0.022,
     ),
   );
 
@@ -123,14 +137,14 @@
   brain.add(
     bt(
       [
-        new THREE.Vector3(0.02, 0.54, 0.08),
-        new THREE.Vector3(0.2, 0.54, 0.09),
-        new THREE.Vector3(0.4, 0.42, 0.1),
-        new THREE.Vector3(0.5, 0.2, 0.1),
-        new THREE.Vector3(0.48, -0.04, 0.1),
-        new THREE.Vector3(0.38, -0.22, 0.09),
-        new THREE.Vector3(0.2, -0.32, 0.08),
-        new THREE.Vector3(0.02, -0.32, 0.08),
+        new THREE.Vector3(0.02, 0.56, 0.08),
+        new THREE.Vector3(0.2, 0.57, 0.09),
+        new THREE.Vector3(0.44, 0.44, 0.1),
+        new THREE.Vector3(0.54, 0.2, 0.1),
+        new THREE.Vector3(0.5, -0.06, 0.1),
+        new THREE.Vector3(0.38, -0.26, 0.09),
+        new THREE.Vector3(0.18, -0.36, 0.08),
+        new THREE.Vector3(0.02, -0.36, 0.08),
       ],
       0.046,
     ),
@@ -140,12 +154,12 @@
   brain.add(
     bt(
       [
-        new THREE.Vector3(0.02, 0.24, 0.09),
-        new THREE.Vector3(0.2, 0.28, 0.1),
-        new THREE.Vector3(0.34, 0.14, 0.1),
-        new THREE.Vector3(0.36, -0.04, 0.1),
-        new THREE.Vector3(0.26, -0.14, 0.09),
-        new THREE.Vector3(0.1, -0.18, 0.09),
+        new THREE.Vector3(0.02, 0.26, 0.09),
+        new THREE.Vector3(0.22, 0.3, 0.1),
+        new THREE.Vector3(0.36, 0.14, 0.1),
+        new THREE.Vector3(0.38, -0.04, 0.1),
+        new THREE.Vector3(0.28, -0.16, 0.09),
+        new THREE.Vector3(0.1, -0.2, 0.09),
       ],
       0.036,
     ),
@@ -156,11 +170,24 @@
     bt(
       [
         new THREE.Vector3(0.02, -0.06, 0.09),
-        new THREE.Vector3(0.14, -0.04, 0.09),
-        new THREE.Vector3(0.22, 0.06, 0.1),
-        new THREE.Vector3(0.2, 0.16, 0.1),
+        new THREE.Vector3(0.16, -0.04, 0.09),
+        new THREE.Vector3(0.24, 0.08, 0.1),
+        new THREE.Vector3(0.22, 0.18, 0.1),
       ],
       0.026,
+    ),
+  );
+
+  // Right gyrus 3 (top small)
+  brain.add(
+    bt(
+      [
+        new THREE.Vector3(0.04, 0.44, 0.09),
+        new THREE.Vector3(0.24, 0.44, 0.1),
+        new THREE.Vector3(0.36, 0.32, 0.1),
+        new THREE.Vector3(0.34, 0.2, 0.1),
+      ],
+      0.022,
     ),
   );
 
@@ -168,9 +195,9 @@
   brain.add(
     bt(
       [
-        new THREE.Vector3(-0.02, -0.32, 0.08),
-        new THREE.Vector3(0, -0.42, 0.08),
-        new THREE.Vector3(0.02, -0.32, 0.08),
+        new THREE.Vector3(-0.02, -0.36, 0.08),
+        new THREE.Vector3(0, -0.46, 0.08),
+        new THREE.Vector3(0.02, -0.36, 0.08),
       ],
       0.046,
     ),
@@ -181,17 +208,17 @@
     const d = new THREE.Mesh(
       new THREE.CylinderGeometry(0.015, 0.015, 0.065, 6),
       new THREE.MeshPhysicalMaterial({
-        color: 0x5550a0,
-        emissive: 0x333388,
+        color: 0x5544aa,
+        emissive: 0x332288,
         emissiveIntensity: 0.4,
       }),
     );
-    d.position.set(0, 0.44 - i * 0.15, 0.09);
+    d.position.set(0, 0.46 - i * 0.16, 0.09);
     brain.add(d);
   }
 
   splashScene.add(brain);
-
+  
   // ── SPINNING HEX (2D clockwise only) ──
   function hexShape(r) {
     const s = new THREE.Shape();
