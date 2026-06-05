@@ -104,7 +104,7 @@ app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
 // ── ICONS ──
 app.get("/icons/icon-192.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="192" height="192" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  res.send(`<svg width="192" height="192" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="bg" cx="50%" cy="50%" r="50%">
         <stop offset="0%" style="stop-color:#1a1a2e"/>
@@ -114,29 +114,27 @@ app.get("/icons/icon-192.png", (req, res) => {
         <stop offset="0%" style="stop-color:#6699ff"/>
         <stop offset="100%" style="stop-color:#4433aa"/>
       </linearGradient>
-      <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#7788ff"/>
-        <stop offset="100%" style="stop-color:#5544bb"/>
+      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
+        <stop offset="0%" style="stop-color:#88aaff"/>
+        <stop offset="100%" style="stop-color:#5544cc"/>
       </linearGradient>
     </defs>
-    <rect width="100" height="100" fill="url(#bg)" rx="20"/>
-    <polygon points="50,5 88,27 88,73 50,95 12,73 12,27" fill="none" stroke="url(#hg)" stroke-width="3.5" stroke-linejoin="round"/>
-    <path d="M47,28 C47,28 33,29 28,38 C23,47 24,58 28,66 C32,74 38,78 44,79 C46,79 48,79 48,79" fill="none" stroke="url(#bg2)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M47,41 C41,42 36,46 36,52 C36,58 40,62 46,63" fill="none" stroke="url(#bg2)" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M47,54 C44,55 41,58 42,62 C43,66 46,68 48,68" fill="none" stroke="url(#bg2)" stroke-width="2.0" stroke-linecap="round"/>
-    <path d="M47,35 C43,36 39,38 38,42 C37,46 39,49 43,50" fill="none" stroke="url(#bg2)" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M53,28 C53,28 67,29 72,38 C77,47 76,58 72,66 C68,74 62,78 56,79 C54,79 52,79 52,79" fill="none" stroke="url(#bg2)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M53,41 C59,42 64,46 64,52 C64,58 60,62 54,63" fill="none" stroke="url(#bg2)" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M53,54 C56,55 59,58 58,62 C57,66 54,68 52,68" fill="none" stroke="url(#bg2)" stroke-width="2.0" stroke-linecap="round"/>
-    <path d="M53,35 C57,36 61,38 62,42 C63,46 61,49 57,50" fill="none" stroke="url(#bg2)" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="50" y1="28" x2="50" y2="79" stroke="#5544aa" stroke-width="1.5" stroke-dasharray="3,3"/>
-    <path d="M47,79 C48,83 52,83 53,79" fill="none" stroke="url(#bg2)" stroke-width="2.8" stroke-linecap="round"/>
+    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
+    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
+    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
   </svg>`);
 });
 
 app.get("/icons/icon-512.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  res.send(`<svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="bg" cx="50%" cy="50%" r="50%">
         <stop offset="0%" style="stop-color:#1a1a2e"/>
@@ -146,23 +144,21 @@ app.get("/icons/icon-512.png", (req, res) => {
         <stop offset="0%" style="stop-color:#6699ff"/>
         <stop offset="100%" style="stop-color:#4433aa"/>
       </linearGradient>
-      <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#7788ff"/>
-        <stop offset="100%" style="stop-color:#5544bb"/>
+      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
+        <stop offset="0%" style="stop-color:#88aaff"/>
+        <stop offset="100%" style="stop-color:#5544cc"/>
       </linearGradient>
     </defs>
-    <rect width="100" height="100" fill="url(#bg)" rx="20"/>
-    <polygon points="50,5 88,27 88,73 50,95 12,73 12,27" fill="none" stroke="url(#hg)" stroke-width="3.5" stroke-linejoin="round"/>
-    <path d="M47,28 C47,28 33,29 28,38 C23,47 24,58 28,66 C32,74 38,78 44,79 C46,79 48,79 48,79" fill="none" stroke="url(#bg2)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M47,41 C41,42 36,46 36,52 C36,58 40,62 46,63" fill="none" stroke="url(#bg2)" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M47,54 C44,55 41,58 42,62 C43,66 46,68 48,68" fill="none" stroke="url(#bg2)" stroke-width="2.0" stroke-linecap="round"/>
-    <path d="M47,35 C43,36 39,38 38,42 C37,46 39,49 43,50" fill="none" stroke="url(#bg2)" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M53,28 C53,28 67,29 72,38 C77,47 76,58 72,66 C68,74 62,78 56,79 C54,79 52,79 52,79" fill="none" stroke="url(#bg2)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M53,41 C59,42 64,46 64,52 C64,58 60,62 54,63" fill="none" stroke="url(#bg2)" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M53,54 C56,55 59,58 58,62 C57,66 54,68 52,68" fill="none" stroke="url(#bg2)" stroke-width="2.0" stroke-linecap="round"/>
-    <path d="M53,35 C57,36 61,38 62,42 C63,46 61,49 57,50" fill="none" stroke="url(#bg2)" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="50" y1="28" x2="50" y2="79" stroke="#5544aa" stroke-width="1.5" stroke-dasharray="3,3"/>
-    <path d="M47,79 C48,83 52,83 53,79" fill="none" stroke="url(#bg2)" stroke-width="2.8" stroke-linecap="round"/>
+    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
+    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
+    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
   </svg>`);
 });
 // ── AUTH ROUTES ──
