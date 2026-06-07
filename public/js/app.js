@@ -58,6 +58,7 @@
   splashScene.add(pl3);
 
   // ── BRAIN (flat, exactly matching the logo) ──
+
   const bc = 0x88aaff;
   function bt(pts, r) {
     return new THREE.Mesh(
@@ -582,46 +583,51 @@ function pushFlashcardsToCanvas(flashcards) {
 function initVoice() {
   const voiceBtn = document.getElementById("voiceBtn");
   if (!voiceBtn) return;
+
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     voiceBtn.style.display = "none";
     return;
   }
+
   const recognition = new SpeechRecognition();
   recognition.continuous = false;
   recognition.lang = "en-IN";
   recognition.interimResults = false;
+
+  const originalHTML = voiceBtn.innerHTML;
+  const micIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
+  const stopIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+
+  function resetBtn() {
+    isListening = false;
+    voiceBtn.classList.remove("listening");
+    voiceBtn.innerHTML = micIcon;
+  }
+
   recognition.onresult = (e) => {
     userInput.value = e.results[0][0].transcript;
     userInput.style.height = "auto";
     userInput.style.height = userInput.scrollHeight + "px";
-    isListening = false;
-    voiceBtn.classList.remove("listening");
-    voiceBtn.textContent = "🎤";
+    resetBtn();
   };
-  recognition.onerror = () => {
-    isListening = false;
-    voiceBtn.classList.remove("listening");
-    voiceBtn.textContent = "🎤";
-  };
-  recognition.onend = () => {
-    isListening = false;
-    voiceBtn.classList.remove("listening");
-    voiceBtn.textContent = "🎤";
-  };
+
+  recognition.onerror = () => resetBtn();
+  recognition.onend = () => resetBtn();
+
   voiceBtn.addEventListener("click", () => {
     if (isListening) {
       recognition.stop();
+      resetBtn();
     } else {
       recognition.start();
       isListening = true;
       voiceBtn.classList.add("listening");
-      voiceBtn.textContent = "⏹";
+      voiceBtn.innerHTML = stopIcon;
     }
   });
 }
-
 // ── READ ALOUD ──
 function speak(text) {
   if (!window.speechSynthesis) return;
