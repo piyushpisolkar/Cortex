@@ -628,6 +628,7 @@ function initVoice() {
     }
   });
 }
+
 // ── READ ALOUD ──
 function speak(text) {
   if (!window.speechSynthesis) return;
