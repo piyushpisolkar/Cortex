@@ -278,14 +278,21 @@
 
         <div class="input-area">
           <div class="drop-zone" id="dropZone">
-            <div class="drop-hint" id="dropHint">
-              <span>Drop a .txt file here or</span>
+            <div class="drop-hint">
+              <span>Drop PDF or image here, or</span>
+              <label class="file-label" for="fileInput">browse</label>
+              <input
+                type="file"
+                id="fileInput"
+                accept=".pdf,.txt,.png,.jpg,.jpeg,.webp"
+                style="display: none"
+              />
             </div>
             <div class="input-row">
               <button
                 class="voice-btn"
                 id="voiceBtn"
-                data-tooltip="Voice input — speak your question"
+                data-tooltip="Voice input"
               >
                 <svg
                   width="14"

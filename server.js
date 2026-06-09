@@ -7,10 +7,18 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const session = require("express-session");
 const MongoStore = require("connect-mongo").default || require("connect-mongo");
 const mongoose = require("mongoose");
+const multer = require("multer");
+const pdfParse = require("pdf-parse");
+const fs = require("fs");
 
 const isProduction =
   process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
 
+// ── FILE UPLOAD CONFIG ──
+const upload = multer({
+  dest: "/tmp/uploads/",
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+});
 // ── INIT ──
 const app = express();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -319,7 +327,98 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
     res.status(500).json({ error: "Could not summarize." });
   }
 });
+// ── FILE UPLOAD & ANALYSIS API ──
+app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+  const { mimetype, path: filePath, originalname } = req.file;
+  const userMessage =
+    req.body.message ||
+    "Analyze this file and give me a summary of the key points.";
+
+  try {
+    let content = "";
+    let isImage = false;
+
+    if (mimetype === "application/pdf") {
+      // Extract PDF text
+      const buffer = fs.readFileSync(filePath);
+      const data = await pdfParse(buffer);
+      content = data.text.slice(0, 6000); // limit tokens
+      if (!content.trim()) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Could not extract text from PDF. It may be scanned/image-based.",
+          });
+      }
+    } else if (mimetype.startsWith("image/")) {
+      isImage = true;
+      const imageData = fs.readFileSync(filePath).toString("base64");
+      content = imageData;
+    } else {
+      // Plain text
+      content = fs.readFileSync(filePath, "utf8").slice(0, 6000);
+    }
+
+    // Clean up temp file
+    fs.unlinkSync(filePath);
+
+    if (isImage) {
+      // Use Groq vision for images
+      const response = await groq.chat.completions.create({
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `You are Cortex, an AI study assistant. ${userMessage}`,
+              },
+              {
+                type: "image_url",
+                image_url: { url: `data:${mimetype};base64,${content}` },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1024,
+      });
+      return res.json({
+        reply: response.choices[0].message.content,
+        type: "image",
+        filename: originalname,
+      });
+    } else {
+      // Use text model for PDFs and text files
+      const response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: `You are Cortex, an AI study assistant. The user has uploaded a file named "${originalname}". Analyze its content and help the student understand it. Be clear, structured, and highlight key points.`,
+          },
+          {
+            role: "user",
+            content: `${userMessage}\n\nFile content:\n${content}`,
+          },
+        ],
+        max_tokens: 1024,
+      });
+      return res.json({
+        reply: response.choices[0].message.content,
+        type: "pdf",
+        filename: originalname,
+      });
+    }
+  } catch (error) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    console.error("Upload error:", error);
+    res.status(500).json({ error: "Could not analyze file. Try again." });
+  }
+});
 // ── START ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

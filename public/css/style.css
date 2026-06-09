@@ -1050,3 +1050,57 @@ code {
 .canvas-card {
   counter-reset: list-counter;
 }
+
+/* ── FILE UPLOAD ── */
+.file-label {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 12px;
+}
+.file-label:hover {
+  color: #fff;
+}
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  animation: fadeIn 0.2s ease;
+}
+
+.file-preview-icon {
+  font-size: 18px;
+}
+.file-preview-name {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-preview-remove {
+  background: none;
+  border: none;
+  color: var(--text-hint);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+}
+.file-preview-remove:hover {
+  color: var(--panic-light);
+}
+
+.uploading-indicator {
+  font-size: 12px;
+  color: var(--text-hint);
+  text-align: center;
+  padding: 6px;
+  animation: pulse 1s infinite;
+}

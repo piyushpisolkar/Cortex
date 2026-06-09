@@ -360,6 +360,16 @@ clearCanvas.addEventListener("click", () => {
 // ── SEND MESSAGE ──
 async function sendMessage() {
   const text = userInput.value.trim();
+
+  // If file is selected, upload and analyze it
+  if (selectedFile) {
+    const message = text || null;
+    userInput.value = "";
+    userInput.style.height = "auto";
+    await uploadAndAnalyze(selectedFile, message);
+    return;
+  }
+
   if (!text) return;
   appendUserMessage(text);
   userInput.value = "";
@@ -648,7 +658,45 @@ function speakText(btn) {
   speak(text.replace(/[#*`<>]/g, "").substring(0, 800));
 }
 
-// ── DRAG & DROP ──
+// ── FILE HANDLING ──
+let selectedFile = null;
+
+function showFilePreview(file) {
+  // Remove existing preview
+  const existing = document.getElementById("filePreview");
+  if (existing) existing.remove();
+
+  const icon = file.type.startsWith("image/")
+    ? "🖼️"
+    : file.name.endsWith(".pdf")
+      ? "📄"
+      : "📝";
+  const preview = document.createElement("div");
+  preview.className = "file-preview";
+  preview.id = "filePreview";
+  preview.innerHTML = `
+    <span class="file-preview-icon">${icon}</span>
+    <span class="file-preview-name">${file.name}</span>
+    <button class="file-preview-remove" onclick="removeFile()">✕</button>
+  `;
+  dropZone.insertBefore(preview, dropZone.querySelector(".input-row"));
+  selectedFile = file;
+}
+
+function removeFile() {
+  const existing = document.getElementById("filePreview");
+  if (existing) existing.remove();
+  selectedFile = null;
+  document.getElementById("fileInput").value = "";
+}
+
+// File input change
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) showFilePreview(file);
+});
+
+// Drag & drop
 dropZone.addEventListener("dragover", (e) => {
   e.preventDefault();
   dropZone.classList.add("dragover");
@@ -660,23 +708,61 @@ dropZone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropZone.classList.remove("dragover");
   const file = e.dataTransfer.files[0];
-  if (!file) return;
-  if (!file.name.endsWith(".txt")) {
-    appendAIMessage("Only .txt files supported. PDF support coming in v2!");
-    return;
-  }
-  scanOverlay.classList.add("active");
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    setTimeout(() => {
-      scanOverlay.classList.remove("active");
-      userInput.value = `File uploaded:\n\n${ev.target.result.slice(0, 2000)}`;
-      userInput.style.height = "auto";
-      userInput.style.height = userInput.scrollHeight + "px";
-    }, 2000);
-  };
-  reader.readAsText(file);
+  if (file) showFilePreview(file);
 });
+
+// ── UPLOAD & ANALYZE FILE ──
+async function uploadAndAnalyze(file, message) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append(
+    "message",
+    message ||
+      `Analyze this ${file.name.endsWith(".pdf") ? "PDF" : "file"} and give me a clear summary of the key points and important information.`,
+  );
+
+  // Show uploading indicator
+  const uploadingDiv = document.createElement("div");
+  uploadingDiv.className = "uploading-indicator";
+  uploadingDiv.id = "uploadingIndicator";
+  uploadingDiv.textContent = `📤 Analyzing ${file.name}...`;
+  chatArea.appendChild(uploadingDiv);
+  scrollChat();
+
+  try {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    document.getElementById("uploadingIndicator")?.remove();
+
+    const data = await res.json();
+    if (data.reply) {
+      // Show file message in chat
+      const fileMsg = document.createElement("div");
+      fileMsg.className = "msg msg-user";
+      fileMsg.innerHTML = `📎 <em>${file.name}</em>`;
+      chatArea.appendChild(fileMsg);
+
+      chatHistory.push({
+        role: "user",
+        content: `[Uploaded file: ${file.name}]`,
+      });
+      chatHistory.push({ role: "assistant", content: data.reply });
+      appendAIMessage(data.reply);
+    } else {
+      appendAIMessage(
+        "Could not analyze file: " + (data.error || "Unknown error"),
+      );
+    }
+  } catch (err) {
+    document.getElementById("uploadingIndicator")?.remove();
+    appendAIMessage("File upload failed. Check your connection.");
+  }
+
+  removeFile();
+}
 
 // ── MOBILE TABS ──
 function isMobile() {
