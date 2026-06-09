@@ -8,7 +8,7 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo").default || require("connect-mongo");
 const mongoose = require("mongoose");
 const multer = require("multer");
-const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+// pdf-parse removed — using buffer approach
 const fs = require("fs");
 
 const isProduction =
@@ -342,15 +342,25 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     let isImage = false;
 
     if (mimetype === "application/pdf") {
-      // Extract PDF text
+      // Extract text from PDF by reading raw buffer and finding text streams
       const buffer = fs.readFileSync(filePath);
-      const data = await pdfParse(buffer);
-      content = data.text.slice(0, 6000); // limit tokens
-      if (!content.trim()) {
-        return res.status(400).json({
-          error:
-            "Could not extract text from PDF. It may be scanned/image-based.",
+      const str = buffer.toString("latin1");
+      const textMatches = str.match(/BT[\s\S]*?ET/g) || [];
+      let extractedText = "";
+      textMatches.forEach((block) => {
+        const tjMatches = block.match(/\(([^)]+)\)\s*Tj/g) || [];
+        tjMatches.forEach((tj) => {
+          extractedText += tj.replace(/\(([^)]+)\)\s*Tj/, "$1") + " ";
         });
+      });
+      content = extractedText.trim().slice(0, 6000);
+      if (!content) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Could not extract text. PDF may be scanned. Try uploading as image instead.",
+          });
       }
     } else if (mimetype.startsWith("image/")) {
       isImage = true;
