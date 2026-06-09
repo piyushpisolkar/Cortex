@@ -8,7 +8,7 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo").default || require("connect-mongo");
 const mongoose = require("mongoose");
 const multer = require("multer");
-const pdfParse = require("pdf-parse");
+const pdfParse = require("pdf-parse/lib/pdf-parse.js");
 const fs = require("fs");
 
 const isProduction =
@@ -327,6 +327,7 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
     res.status(500).json({ error: "Could not summarize." });
   }
 });
+
 // ── FILE UPLOAD & ANALYSIS API ──
 app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
@@ -346,12 +347,10 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
       const data = await pdfParse(buffer);
       content = data.text.slice(0, 6000); // limit tokens
       if (!content.trim()) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Could not extract text from PDF. It may be scanned/image-based.",
-          });
+        return res.status(400).json({
+          error:
+            "Could not extract text from PDF. It may be scanned/image-based.",
+        });
       }
     } else if (mimetype.startsWith("image/")) {
       isImage = true;
@@ -419,6 +418,7 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     res.status(500).json({ error: "Could not analyze file. Try again." });
   }
 });
+
 // ── START ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
