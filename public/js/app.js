@@ -411,7 +411,7 @@ function appendUserMessage(text) {
 
 // ── APPEND AI MESSAGE ──
 function appendAIMessage(text) {
-  const isLong = text.length > 1200 || text.includes("```");
+  const isLong = text.includes("```") && text.length > 800;
   if (isLong) {
     pushToCanvas(text);
     const div = document.createElement("div");
@@ -471,22 +471,47 @@ function pushToCanvas(text) {
 
 // ── FORMAT MESSAGE ──
 function formatMessage(text) {
+  // Code blocks
   text = text.replace(
     /```(\w+)?\n([\s\S]*?)```/g,
     (_, lang, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`,
   );
+  // Inline code
   text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Headers
+  text = text.replace(
+    /^### (.+)$/gm,
+    '<p style="font-weight:600;font-size:15px;color:var(--text);margin:10px 0 4px">$1</p>',
+  );
+  text = text.replace(
+    /^## (.+)$/gm,
+    '<p style="font-weight:600;font-size:16px;color:var(--text);margin:10px 0 4px">$1</p>',
+  );
+  text = text.replace(
+    /^# (.+)$/gm,
+    '<p style="font-weight:700;font-size:17px;color:var(--accent);margin:10px 0 4px">$1</p>',
+  );
+  // Bold
   text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // Italic
+  text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
+  // Numbered list
+  text = text.replace(
+    /^\d+\.\s+(.+)$/gm,
+    '<div class="numbered-item">$1</div>',
+  );
+  // Bullet points
   text = text
     .split("\n")
     .map((line) =>
       line.match(/^\s*[\*\-]\s+/)
-        ? '<div class="bullet">• ' +
-          line.replace(/^\s*[\*\-]\s+/, "") +
-          "</div>"
+        ? '<div class="bullet">' + line.replace(/^\s*[\*\-]\s+/, "") + "</div>"
         : line,
     )
     .join("\n");
+  // Clean up extra line breaks
+  text = text.replace(/(<\/div>|<\/pre>|<\/p>)\n/g, "$1");
+  text = text.replace(/\n{2,}/g, "<br><br>");
   text = text.replace(/\n/g, "<br>");
   return text;
 }
