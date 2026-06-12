@@ -282,6 +282,8 @@ let isListening = false;
 const chatArea = document.getElementById("chatArea");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
+const panicBtn = document.getElementById("panicBtnMenu");
+const vivaBtn = document.getElementById("vivaBtnMenu");
 const canvasArea = document.getElementById("canvasArea");
 const canvasEmpty = document.getElementById("canvasEmpty");
 const clearCanvas = document.getElementById("clearCanvas");
@@ -303,50 +305,6 @@ userInput.addEventListener("keydown", (e) => {
 });
 
 sendBtn.addEventListener("click", sendMessage);
-
-// ── PANIC MODE ──
-panicBtn.addEventListener("click", () => {
-  panicMode = !panicMode;
-  if (vivaMode) {
-    vivaMode = false;
-    vivaBtn.classList.remove("active");
-    vivaBtn.textContent = "🎓 Viva Mode";
-  }
-  panicBtn.classList.toggle("active", panicMode);
-  panicBtn.textContent = panicMode ? "⚡ Panic ON" : "⚡ Panic Mode";
-  const notice = document.createElement("div");
-  notice.className = "msg msg-ai";
-  notice.innerHTML = panicMode
-    ? `<span class="msg-label">Cortex</span>⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only. Let's go.`
-    : `<span class="msg-label">Cortex</span>Panic Mode off. Back to normal explanations.`;
-  chatArea.appendChild(notice);
-  scrollChat();
-});
-
-// ── VIVA MODE ──
-vivaBtn.addEventListener("click", () => {
-  vivaMode = !vivaMode;
-  if (panicMode) {
-    panicMode = false;
-    panicBtn.classList.remove("active");
-    panicBtn.textContent = "⚡ Panic Mode";
-  }
-  vivaBtn.classList.toggle("active", vivaMode);
-  vivaBtn.textContent = vivaMode ? "🎓 Viva ON" : "🎓 Viva Mode";
-  if (vivaMode) {
-    chatHistory = [];
-    const notice = document.createElement("div");
-    notice.className = "msg msg-ai";
-    notice.innerHTML = `<span class="msg-label">Cortex</span>🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.`;
-    chatArea.appendChild(notice);
-  } else {
-    const notice = document.createElement("div");
-    notice.className = "msg msg-ai";
-    notice.innerHTML = `<span class="msg-label">Cortex</span>Viva Mode off. Good session!`;
-    chatArea.appendChild(notice);
-  }
-  scrollChat();
-});
 
 // ── CLEAR CANVAS ──
 clearCanvas.addEventListener("click", () => {
