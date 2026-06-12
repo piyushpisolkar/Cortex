@@ -108,8 +108,8 @@
     <div class="topbar">
       <div class="topbar-left">
         <svg
-          width="36"
-          height="36"
+          width="32"
+          height="32"
           viewBox="0 0 200 200"
           xmlns="http://www.w3.org/2000/svg"
         >
@@ -123,7 +123,6 @@
               <stop offset="100%" style="stop-color: #5544cc" />
             </linearGradient>
           </defs>
-          <!-- Flat-top hexagon -->
           <polygon
             points="100,18 172,60 172,140 100,182 28,140 28,60"
             fill="none"
@@ -131,7 +130,6 @@
             stroke-width="6"
             stroke-linejoin="round"
           />
-          <!-- Left outer -->
           <path
             d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143"
             fill="none"
@@ -139,7 +137,6 @@
             stroke-width="5"
             stroke-linecap="round"
           />
-          <!-- Left gyrus 1 -->
           <path
             d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111"
             fill="none"
@@ -147,7 +144,6 @@
             stroke-width="4"
             stroke-linecap="round"
           />
-          <!-- Left gyrus 2 -->
           <path
             d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134"
             fill="none"
@@ -155,7 +151,6 @@
             stroke-width="3.5"
             stroke-linecap="round"
           />
-          <!-- Right outer -->
           <path
             d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143"
             fill="none"
@@ -163,7 +158,6 @@
             stroke-width="5"
             stroke-linecap="round"
           />
-          <!-- Right gyrus 1 -->
           <path
             d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111"
             fill="none"
@@ -171,7 +165,6 @@
             stroke-width="4"
             stroke-linecap="round"
           />
-          <!-- Right gyrus 2 -->
           <path
             d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134"
             fill="none"
@@ -179,7 +172,6 @@
             stroke-width="3.5"
             stroke-linecap="round"
           />
-          <!-- Center divide -->
           <line
             x1="100"
             y1="62"
@@ -189,7 +181,6 @@
             stroke-width="2.5"
             stroke-dasharray="5,5"
           />
-          <!-- Brain stem -->
           <path
             d="M96,143 C97,150 103,150 104,143"
             fill="none"
@@ -199,33 +190,16 @@
           />
         </svg>
         <span class="logo-text">CORTEX</span>
-        <span class="logo-sub">Study Intelligence</span>
       </div>
 
       <div class="topbar-right">
         <div class="status-dot"></div>
-        <span class="status-text">AI Connected</span>
-        <button
-          class="viva-btn"
-          id="vivaBtn"
-          data-tooltip="Enter viva mode — AI becomes a strict professor"
-        >
-          🎓 Viva Mode
-        </button>
-        <button
-          class="panic-btn"
-          id="panicBtn"
-          data-tooltip="Switch to bullet-point only mode for last-minute revision"
-        >
-          ⚡ Panic Mode
-        </button>
         <div
           class="user-profile"
           id="userProfile"
           onclick="toggleProfileMenu()"
         >
           <img class="user-photo" id="userPhoto" src="" alt="" />
-          <span class="user-name" id="userName"></span>
           <div class="profile-dropdown" id="profileDropdown">
             <div class="profile-dropdown-header">
               <img class="dropdown-photo" id="dropdownPhoto" src="" alt="" />
@@ -235,12 +209,26 @@
               </div>
             </div>
             <hr class="dropdown-divider" />
+            <button
+              class="dropdown-item"
+              id="vivaBtnMenu"
+              onclick="toggleViva()"
+            >
+              🎓 Viva Mode
+            </button>
+            <button
+              class="dropdown-item"
+              id="panicBtnMenu"
+              onclick="togglePanic()"
+            >
+              ⚡ Panic Mode
+            </button>
+            <hr class="dropdown-divider" />
             <a href="/logout" class="dropdown-logout">↩ Sign out</a>
           </div>
         </div>
       </div>
     </div>
-
     <!-- MAIN WORKSPACE -->
     <div class="workspace" id="mainWorkspace">
       <!-- MOBILE TAB BAR -->

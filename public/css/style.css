@@ -91,21 +91,17 @@ body::before {
 
 /* ── TOPBAR ── */
 .topbar {
-  position: relative;
-  z-index: 10;
-  height: 52px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .logo-dot {
@@ -125,13 +121,12 @@ body::before {
 }
 
 .logo-text {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.12em;
   font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.15em;
+  color: var(--text);
 }
-
 .logo-sub {
   font-size: 11px;
   color: var(--text-hint);
@@ -141,7 +136,29 @@ body::before {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.dropdown-item:hover {
+  background: var(--surface);
+}
+.dropdown-item.active {
+  color: var(--accent);
 }
 
 .status-dot {

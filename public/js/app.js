@@ -282,8 +282,6 @@ let isListening = false;
 const chatArea = document.getElementById("chatArea");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
-const panicBtn = document.getElementById("panicBtn");
-const vivaBtn = document.getElementById("vivaBtn");
 const canvasArea = document.getElementById("canvasArea");
 const canvasEmpty = document.getElementById("canvasEmpty");
 const clearCanvas = document.getElementById("clearCanvas");
@@ -887,4 +885,50 @@ if ("serviceWorker" in navigator) {
       .then(() => console.log("Cortex PWA ready"))
       .catch((err) => console.log("SW error:", err));
   });
+}
+
+function toggleViva() {
+  vivaBtn.click ? null : null;
+  vivaMode = !vivaMode;
+  if (panicMode) {
+    panicMode = false;
+    document.getElementById("panicBtnMenu").classList.remove("active");
+  }
+  document.getElementById("vivaBtnMenu").classList.toggle("active", vivaMode);
+  document.getElementById("vivaBtnMenu").textContent = vivaMode
+    ? "🎓 Viva ON"
+    : "🎓 Viva Mode";
+  if (vivaMode) {
+    chatHistory = [];
+    appendSystemNotice(
+      "🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.",
+    );
+  } else {
+    appendSystemNotice("Viva Mode off. Good session!");
+  }
+}
+
+function togglePanic() {
+  panicMode = !panicMode;
+  if (vivaMode) {
+    vivaMode = false;
+    document.getElementById("vivaBtnMenu").classList.remove("active");
+  }
+  document.getElementById("panicBtnMenu").classList.toggle("active", panicMode);
+  document.getElementById("panicBtnMenu").textContent = panicMode
+    ? "⚡ Panic ON"
+    : "⚡ Panic Mode";
+  appendSystemNotice(
+    panicMode
+      ? "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only."
+      : "Panic Mode off. Back to normal explanations.",
+  );
+}
+
+function appendSystemNotice(html) {
+  const notice = document.createElement("div");
+  notice.className = "msg msg-ai";
+  notice.innerHTML = `<span class="msg-label">Cortex</span>${html}`;
+  chatArea.appendChild(notice);
+  scrollChat();
 }
