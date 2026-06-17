@@ -45,15 +45,15 @@
   splashCam.lookAt(0, 0, 0);
 
   // Lights
-  splashScene.add(new THREE.AmbientLight(0xffffff, 0.2));
-  const pl1 = new THREE.PointLight(0x8877ff, 3, 18);
+  splashScene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  const pl1 = new THREE.PointLight(0x8ab4ff, 4, 18);
   pl1.position.set(4, 2, 4);
   splashScene.add(pl1);
-  const pl2 = new THREE.PointLight(0x4444ff, 1.5, 14);
+  const pl2 = new THREE.PointLight(0x6a3fc8, 2, 14);
   pl2.position.set(-3, 3, 2);
   splashScene.add(pl2);
 
-  const pl3 = new THREE.PointLight(0xffffff, 1.2, 12);
+  const pl3 = new THREE.PointLight(0xffffff, 1.8, 12);
   pl3.position.set(0, 4, 3);
   splashScene.add(pl3);
 
@@ -204,39 +204,40 @@
     return s;
   }
 
-  const hs = hexShape(1.52);
-  hs.holes.push(hexShape(1.2));
+  const hs = hexShape(1.42);
+  hs.holes.push(hexShape(1.34)); // thinner ring (was 1.28)
   const spinHex = new THREE.Mesh(
     new THREE.ExtrudeGeometry(hs, {
-      depth: 0.18,
+      depth: 0.06, // shallower (was 0.1)
       bevelEnabled: true,
-      bevelThickness: 0.055,
-      bevelSize: 0.055,
-      bevelSegments: 10,
+      bevelThickness: 0.01,
+      bevelSize: 0.01,
+      bevelSegments: 6,
     }),
     new THREE.MeshPhysicalMaterial({
-      color: 0x5555bb,
-      metalness: 1.0,
-      roughness: 0.06,
+      color: 0x9fc8ff, // lighter blue (was 0x88aaff)
+      metalness: 0.2, // less heavy metal
+      roughness: 0.1, // smoother
       clearcoat: 1.0,
-      emissive: 0x222266,
-      emissiveIntensity: 0.15,
+      transparent: true,
+      opacity: 0.92,
+      emissive: 0x8ab4ff, // brighter emissive (was 0x6699ff)
+      emissiveIntensity: 0.7, // much brighter glow (was 0.35)
     }),
   );
-  spinHex.position.z = -0.09;
+  spinHex.position.z = -0.03;
 
   const innerPanel = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(hexShape(1.16), {
-      depth: 0.07,
-      bevelEnabled: true,
-      bevelThickness: 0.02,
-      bevelSize: 0.02,
-      bevelSegments: 4,
+    new THREE.ExtrudeGeometry(hexShape(1.24), {
+      depth: 0.04,
+      bevelEnabled: false,
     }),
     new THREE.MeshPhysicalMaterial({
-      color: 0x070710,
-      metalness: 0.2,
-      roughness: 0.7,
+      color: 0x0d0d14,
+      metalness: 0,
+      roughness: 1,
+      transparent: true,
+      opacity: 0.0,
     }),
   );
   innerPanel.position.z = -0.04;
@@ -660,7 +661,7 @@ function showFilePreview(file) {
     <span class="file-preview-name">${file.name}</span>
     <button class="file-preview-remove" onclick="removeFile()">✕</button>
   `;
-  dropZone.insertBefore(preview, dropZone.querySelector(".input-row"));
+  dropZone.insertBefore(preview, dropZone.querySelector(".input-pill"));
   selectedFile = file;
 }
 
@@ -837,11 +838,22 @@ initVoice();
 
 // ── SERVICE WORKER ──
 if ("serviceWorker" in navigator) {
+  // First unregister ALL old service workers and clear ALL caches
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((reg) => reg.unregister());
+  });
+  caches.keys().then((keys) => {
+    keys.forEach((key) => caches.delete(key));
+  });
+
+  // Re-register fresh after a short delay
   window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/service-worker.js")
-      .then(() => console.log("Cortex PWA ready"))
-      .catch((err) => console.log("SW error:", err));
+    setTimeout(() => {
+      navigator.serviceWorker
+        .register("/service-worker.js")
+        .then(() => console.log("Cortex PWA ready"))
+        .catch((err) => console.log("SW error:", err));
+    }, 2000);
   });
 }
 
@@ -890,3 +902,272 @@ function appendSystemNotice(html) {
   chatArea.appendChild(notice);
   scrollChat();
 }
+
+// ══════════════════════════════════════
+// NAV & TAB SWITCHING
+// ══════════════════════════════════════
+
+function switchNav(tab) {
+  // Update sidebar active state
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.nav === tab);
+  });
+  // Update mobile nav active state
+  document.querySelectorAll(".mobile-nav-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.nav === tab);
+  });
+  // Show/hide tab views
+  document.querySelectorAll(".tab-view").forEach((section) => {
+    section.classList.toggle("hidden", section.id !== `tab-${tab}`);
+  });
+  // Update home greeting
+  if (tab === "home") updateGreeting();
+  // Load history when switching to history tab
+  if (tab === "history") loadHistory();
+}
+
+function updateGreeting() {
+  const h = new Date().getHours();
+  const greet =
+    h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const titleEl = document.querySelector("#tab-home .tab-title");
+  if (titleEl) titleEl.textContent = `${greet} 👋`;
+}
+updateGreeting();
+
+// ── MODE SELECTOR ──
+let currentMode = "normal";
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll(".mode-btn").forEach((btn) => {
+    btn.classList.remove("active");
+  });
+  document
+    .getElementById(`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}`)
+    ?.classList.add("active");
+
+  // Sync with vivaMode / panicMode flags
+  if (mode === "viva") {
+    vivaMode = true;
+    panicMode = false;
+    appendSystemNotice(
+      "🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.",
+    );
+  } else if (mode === "panic") {
+    panicMode = true;
+    vivaMode = false;
+    appendSystemNotice(
+      "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only.",
+    );
+  } else {
+    vivaMode = false;
+    panicMode = false;
+    appendSystemNotice("Normal mode. Full explanations resumed.");
+  }
+
+  // Update settings toggles
+  syncModeToggles();
+}
+
+function syncModeToggles() {
+  const vivaToggle = document.getElementById("vivaToggle");
+  const panicToggle = document.getElementById("panicToggle");
+  if (vivaToggle) {
+    vivaToggle.textContent = vivaMode ? "On" : "Off";
+    vivaToggle.classList.toggle("on", vivaMode);
+  }
+  if (panicToggle) {
+    panicToggle.textContent = panicMode ? "On" : "Off";
+    panicToggle.classList.toggle("on", panicMode);
+  }
+}
+
+// ── THEME TOGGLE ──
+function toggleTheme() {
+  document.body.classList.toggle("light");
+  const isLight = document.body.classList.contains("light");
+  localStorage.setItem("cortex-theme", isLight ? "light" : "dark");
+  const btn = document.getElementById("themeToggleSetting");
+  if (btn) btn.textContent = isLight ? "Light" : "Dark";
+  const topBtn = document.getElementById("themeToggleBtn");
+  if (topBtn) topBtn.title = isLight ? "Switch to Dark" : "Switch to Light";
+}
+
+// Load saved theme
+(function () {
+  const saved = localStorage.getItem("cortex-theme");
+  if (saved === "light") {
+    document.body.classList.add("light");
+    const btn = document.getElementById("themeToggleSetting");
+    if (btn) btn.textContent = "Light";
+  }
+})();
+
+// ── LANGUAGE ──
+let selectedLanguage = "English";
+
+function setLanguage(lang) {
+  selectedLanguage = lang;
+  localStorage.setItem("cortex-language", lang);
+  appendSystemNotice(`🌐 Cortex will now respond in <strong>${lang}</strong>.`);
+}
+
+// Load saved language
+(function () {
+  const saved = localStorage.getItem("cortex-language");
+  if (saved) {
+    selectedLanguage = saved;
+    const sel = document.getElementById("langSelect");
+    if (sel) sel.value = saved;
+  }
+})();
+
+// ── STUDY PLANNER ──
+let plannerSessions = JSON.parse(
+  localStorage.getItem("cortex-planner") || "[]",
+);
+
+function openPlannerModal() {
+  document.getElementById("plannerModal")?.classList.remove("hidden");
+}
+
+function closePlannerModal() {
+  document.getElementById("plannerModal")?.classList.add("hidden");
+  document.getElementById("plannerSubject").value = "";
+  document.getElementById("plannerDate").value = "";
+  document.getElementById("plannerDuration").value = "";
+}
+
+function savePlannerSession() {
+  const subject = document.getElementById("plannerSubject").value.trim();
+  const date = document.getElementById("plannerDate").value;
+  const duration = document.getElementById("plannerDuration").value.trim();
+  if (!subject || !date) return;
+
+  const session = { id: Date.now(), subject, date, duration };
+  plannerSessions.unshift(session);
+  localStorage.setItem("cortex-planner", JSON.stringify(plannerSessions));
+  renderPlanner();
+  closePlannerModal();
+}
+
+function deletePlannerSession(id) {
+  plannerSessions = plannerSessions.filter((s) => s.id !== id);
+  localStorage.setItem("cortex-planner", JSON.stringify(plannerSessions));
+  renderPlanner();
+}
+
+function renderPlanner() {
+  const list = document.getElementById("plannerList");
+  if (!list) return;
+  if (plannerSessions.length === 0) {
+    list.innerHTML =
+      '<p class="empty-hint">No sessions planned. Add one to get started.</p>';
+    return;
+  }
+  list.innerHTML = plannerSessions
+    .map((s) => {
+      const d = s.date
+        ? new Date(s.date + "T00:00:00").toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+          })
+        : "";
+      return `<div class="planner-item">
+      <div class="planner-item-dot"></div>
+      <div class="planner-item-info">
+        <div class="planner-item-subject">${s.subject}</div>
+        <div class="planner-item-meta">${d}${s.duration ? " · " + s.duration : ""}</div>
+      </div>
+      <button class="planner-item-delete" onclick="deletePlannerSession(${s.id})">×</button>
+    </div>`;
+    })
+    .join("");
+}
+renderPlanner();
+
+// ── HISTORY ──
+async function loadHistory() {
+  const list = document.getElementById("historyList");
+  if (!list) return;
+
+  try {
+    const res = await fetch("/api/history");
+    if (!res.ok) throw new Error("not ok");
+    const sessions = await res.json();
+
+    if (!sessions || sessions.length === 0) {
+      list.innerHTML = `<div class="history-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <p>No history yet</p><span>Your chat sessions will appear here</span>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = sessions
+      .map((s) => {
+        const date = new Date(s.createdAt).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+        const time = new Date(s.createdAt).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const preview =
+          s.title ||
+          s.messages?.[0]?.content?.slice(0, 60) + "..." ||
+          "Chat session";
+        return `<div class="history-item" onclick="continueSession('${s._id}')">
+        <div class="history-item-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="history-item-info">
+          <div class="history-item-title">${preview}</div>
+          <div class="history-item-meta">${date} at ${time} · ${s.messages?.length || 0} messages</div>
+        </div>
+        <button class="history-continue-btn" onclick="event.stopPropagation(); continueSession('${s._id}')">Continue →</button>
+      </div>`;
+      })
+      .join("");
+  } catch {
+    list.innerHTML = `<div class="history-empty"><p>History unavailable</p><span>Save chats to see them here</span></div>`;
+  }
+}
+
+async function continueSession(id) {
+  try {
+    const res = await fetch(`/api/history/${id}`);
+    if (!res.ok) return;
+    const session = await res.json();
+    chatHistory = session.messages || [];
+    switchNav("chat");
+    const chatArea = document.getElementById("chatArea");
+    chatArea.innerHTML = "";
+    chatHistory.forEach((msg) => {
+      if (msg.role === "user") appendUserMessage(msg.content);
+      else if (msg.role === "assistant") appendAIMessage(msg.content);
+    });
+    scrollChat();
+  } catch (e) {
+    console.error("Could not load session", e);
+  }
+}
+
+// ── STATS ──
+function updateStats() {
+  const chats = parseInt(localStorage.getItem("cortex-stat-chats") || "0");
+  const flashcards = parseInt(
+    localStorage.getItem("cortex-stat-flashcards") || "0",
+  );
+  const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
+  const ce = document.getElementById("statChats");
+  const fe = document.getElementById("statFlashcards");
+  const ne = document.getElementById("statNotes");
+  if (ce) ce.textContent = chats;
+  if (fe) fe.textContent = flashcards;
+  if (ne) ne.textContent = notes;
+}
+updateStats();

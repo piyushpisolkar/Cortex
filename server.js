@@ -38,7 +38,23 @@ if (process.env.MONGODB_URI) {
 // ── MIDDLEWARE ──
 app.use(express.json());
 app.set("trust proxy", 1);
-app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  express.static(path.join(__dirname, "public"), {
+    etag: false,
+    lastModified: false,
+    setHeaders: (res, filePath) => {
+      if (
+        filePath.endsWith(".html") ||
+        filePath.endsWith(".css") ||
+        filePath.endsWith(".js")
+      ) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    },
+  }),
+);
 
 // ── SESSION WITH MONGODB ──
 let sessionStore;
@@ -102,7 +118,56 @@ app.get("/manifest.json", (req, res) => {
 
 app.get("/service-worker.js", (req, res) => {
   res.setHeader("Content-Type", "application/javascript");
-  res.sendFile(path.join(__dirname, "service-worker.js"));
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  // Serve a killer SW that wipes all caches and does no caching
+  res.send(`
+    self.addEventListener('install', function() { self.skipWaiting(); });
+    self.addEventListener('activate', function(e) {
+      e.waitUntil(
+        caches.keys().then(function(keys) {
+          return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+        }).then(function() {
+          return self.clients.claim();
+        }).then(function() {
+          return self.clients.matchAll({ type: 'window' }).then(function(clients) {
+            clients.forEach(function(client) { client.navigate(client.url); });
+          });
+        })
+      );
+    });
+    self.addEventListener('fetch', function() {});
+  `);
+});
+
+// /sw-kill — a page the SW has never seen, forces full cache wipe then redirects
+app.get("/sw-kill", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <script>
+    function kill() {
+      var done = [];
+      if ('serviceWorker' in navigator) {
+        done.push(navigator.serviceWorker.getRegistrations().then(function(regs) {
+          return Promise.all(regs.map(function(r) { return r.unregister(); }));
+        }));
+      }
+      if ('caches' in window) {
+        done.push(caches.keys().then(function(keys) {
+          return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+        }));
+      }
+      Promise.all(done).then(function() {
+        document.getElementById('msg').textContent = 'All caches cleared! Redirecting...';
+        setTimeout(function() { window.location.replace('/'); }, 1500);
+      });
+    }
+    window.onload = kill;
+  </script>
+  </head><body style="background:#0d0d14;color:#e8e8f0;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+  <p id="msg" style="font-size:20px;letter-spacing:0.1em;">Clearing all caches...</p>
+  </body></html>`);
 });
 
 app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
@@ -200,7 +265,11 @@ app.get("/login", (req, res) => {
 
 // ── MAIN APP ──
 app.get("/", isLoggedIn, (req, res) => {
-  res.sendFile(path.join(__dirname, "public/index.html"));
+  const fs = require("fs");
+  let html = fs.readFileSync(__dirname + "/public/index.html", "utf8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Content-Type", "text/html");
+  res.send(html);
 });
 
 // ── USER API ──
@@ -355,12 +424,10 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
       });
       content = extractedText.trim().slice(0, 6000);
       if (!content) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Could not extract text. PDF may be scanned. Try uploading as image instead.",
-          });
+        return res.status(400).json({
+          error:
+            "Could not extract text. PDF may be scanned. Try uploading as image instead.",
+        });
       }
     } else if (mimetype.startsWith("image/")) {
       isImage = true;
