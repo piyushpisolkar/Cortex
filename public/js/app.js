@@ -208,20 +208,20 @@
   hs.holes.push(hexShape(1.34)); // thinner ring (was 1.28)
   const spinHex = new THREE.Mesh(
     new THREE.ExtrudeGeometry(hs, {
-      depth: 0.06, // shallower (was 0.1)
+      depth: 0.06,           // shallower (was 0.1)
       bevelEnabled: true,
       bevelThickness: 0.01,
       bevelSize: 0.01,
       bevelSegments: 6,
     }),
     new THREE.MeshPhysicalMaterial({
-      color: 0x9fc8ff, // lighter blue (was 0x88aaff)
-      metalness: 0.2, // less heavy metal
-      roughness: 0.1, // smoother
+      color: 0x9fc8ff,       // lighter blue (was 0x88aaff)
+      metalness: 0.2,        // less heavy metal
+      roughness: 0.1,        // smoother
       clearcoat: 1.0,
       transparent: true,
       opacity: 0.92,
-      emissive: 0x8ab4ff, // brighter emissive (was 0x6699ff)
+      emissive: 0x8ab4ff,    // brighter emissive (was 0x6699ff)
       emissiveIntensity: 0.7, // much brighter glow (was 0.35)
     }),
   );
@@ -348,6 +348,8 @@ async function sendMessage() {
       chatHistory.push({ role: "user", content: text });
       chatHistory.push({ role: "assistant", content: data.reply });
       appendAIMessage(data.reply);
+      // Auto-save to history after every exchange
+      autoSaveHistory();
     } else {
       appendAIMessage("Something went wrong. Try again.");
     }
@@ -836,6 +838,7 @@ async function loadUser() {
 loadUser();
 initVoice();
 
+
 // ── SERVICE WORKER ──
 if ("serviceWorker" in navigator) {
   // First unregister ALL old service workers and clear ALL caches
@@ -856,6 +859,7 @@ if ("serviceWorker" in navigator) {
     }, 2000);
   });
 }
+
 
 function toggleViva() {
   vivaBtn.click ? null : null;
@@ -909,61 +913,48 @@ function appendSystemNotice(html) {
 
 function switchNav(tab) {
   // Update sidebar active state
-  document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.nav === tab);
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.nav === tab);
   });
   // Update mobile nav active state
-  document.querySelectorAll(".mobile-nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.nav === tab);
+  document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.nav === tab);
   });
   // Show/hide tab views
-  document.querySelectorAll(".tab-view").forEach((section) => {
-    section.classList.toggle("hidden", section.id !== `tab-${tab}`);
+  document.querySelectorAll('.tab-view').forEach(section => {
+    section.classList.toggle('hidden', section.id !== `tab-${tab}`);
   });
   // Update home greeting
-  if (tab === "home") updateGreeting();
+  if (tab === 'home') updateGreeting();
   // Load history when switching to history tab
-  if (tab === "history") loadHistory();
+  if (tab === 'history') loadHistory();
 }
 
 function updateGreeting() {
   const h = new Date().getHours();
-  const greet =
-    h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  const titleEl = document.querySelector("#tab-home .tab-title");
+  const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const titleEl = document.querySelector('#tab-home .tab-title');
   if (titleEl) titleEl.textContent = `${greet} 👋`;
 }
 updateGreeting();
 
 // ── MODE SELECTOR ──
-let currentMode = "normal";
+let currentMode = 'normal';
 
 function setMode(mode) {
   currentMode = mode;
-  document.querySelectorAll(".mode-btn").forEach((btn) => {
-    btn.classList.remove("active");
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.remove('active');
   });
-  document
-    .getElementById(`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}`)
-    ?.classList.add("active");
+  document.getElementById(`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}`)?.classList.add('active');
 
   // Sync with vivaMode / panicMode flags
-  if (mode === "viva") {
-    vivaMode = true;
-    panicMode = false;
-    appendSystemNotice(
-      "🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.",
-    );
-  } else if (mode === "panic") {
-    panicMode = true;
-    vivaMode = false;
-    appendSystemNotice(
-      "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only.",
-    );
+  if (mode === 'viva') {
+    vivaMode = true; panicMode = false;
+  } else if (mode === 'panic') {
+    panicMode = true; vivaMode = false;
   } else {
-    vivaMode = false;
-    panicMode = false;
-    appendSystemNotice("Normal mode. Full explanations resumed.");
+    vivaMode = false; panicMode = false;
   }
 
   // Update settings toggles
@@ -971,130 +962,126 @@ function setMode(mode) {
 }
 
 function syncModeToggles() {
-  const vivaToggle = document.getElementById("vivaToggle");
-  const panicToggle = document.getElementById("panicToggle");
+  const vivaToggle = document.getElementById('vivaToggle');
+  const panicToggle = document.getElementById('panicToggle');
   if (vivaToggle) {
-    vivaToggle.textContent = vivaMode ? "On" : "Off";
-    vivaToggle.classList.toggle("on", vivaMode);
+    vivaToggle.textContent = vivaMode ? 'On' : 'Off';
+    vivaToggle.classList.toggle('on', vivaMode);
   }
   if (panicToggle) {
-    panicToggle.textContent = panicMode ? "On" : "Off";
-    panicToggle.classList.toggle("on", panicMode);
+    panicToggle.textContent = panicMode ? 'On' : 'Off';
+    panicToggle.classList.toggle('on', panicMode);
   }
 }
 
 // ── THEME TOGGLE ──
 function toggleTheme() {
-  document.body.classList.toggle("light");
-  const isLight = document.body.classList.contains("light");
-  localStorage.setItem("cortex-theme", isLight ? "light" : "dark");
-  const btn = document.getElementById("themeToggleSetting");
-  if (btn) btn.textContent = isLight ? "Light" : "Dark";
-  const topBtn = document.getElementById("themeToggleBtn");
-  if (topBtn) topBtn.title = isLight ? "Switch to Dark" : "Switch to Light";
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  localStorage.setItem('cortex-theme', isLight ? 'light' : 'dark');
+  const btn = document.getElementById('themeToggleSetting');
+  if (btn) btn.textContent = isLight ? 'Light' : 'Dark';
+  const topBtn = document.getElementById('themeToggleBtn');
+  if (topBtn) topBtn.title = isLight ? 'Switch to Dark' : 'Switch to Light';
 }
 
 // Load saved theme
-(function () {
-  const saved = localStorage.getItem("cortex-theme");
-  if (saved === "light") {
-    document.body.classList.add("light");
-    const btn = document.getElementById("themeToggleSetting");
-    if (btn) btn.textContent = "Light";
+(function() {
+  const saved = localStorage.getItem('cortex-theme');
+  if (saved === 'light') {
+    document.body.classList.add('light');
+    const btn = document.getElementById('themeToggleSetting');
+    if (btn) btn.textContent = 'Light';
   }
 })();
 
 // ── LANGUAGE ──
-let selectedLanguage = "English";
+let selectedLanguage = 'English';
 
 function setLanguage(lang) {
   selectedLanguage = lang;
-  localStorage.setItem("cortex-language", lang);
-  appendSystemNotice(`🌐 Cortex will now respond in <strong>${lang}</strong>.`);
+  localStorage.setItem('cortex-language', lang);
+  // Update language badge in topbar if present
+  const badge = document.getElementById('langBadge');
+  if (badge) badge.textContent = lang;
+  // Sync select
+  const sel = document.getElementById('langSelect');
+  if (sel) sel.value = lang;
+  // No system notice - just silently switch
 }
 
 // Load saved language
-(function () {
-  const saved = localStorage.getItem("cortex-language");
+(function() {
+  const saved = localStorage.getItem('cortex-language');
   if (saved) {
     selectedLanguage = saved;
-    const sel = document.getElementById("langSelect");
+    const sel = document.getElementById('langSelect');
     if (sel) sel.value = saved;
   }
 })();
 
 // ── STUDY PLANNER ──
-let plannerSessions = JSON.parse(
-  localStorage.getItem("cortex-planner") || "[]",
-);
+let plannerSessions = JSON.parse(localStorage.getItem('cortex-planner') || '[]');
 
 function openPlannerModal() {
-  document.getElementById("plannerModal")?.classList.remove("hidden");
+  document.getElementById('plannerModal')?.classList.remove('hidden');
 }
 
 function closePlannerModal() {
-  document.getElementById("plannerModal")?.classList.add("hidden");
-  document.getElementById("plannerSubject").value = "";
-  document.getElementById("plannerDate").value = "";
-  document.getElementById("plannerDuration").value = "";
+  document.getElementById('plannerModal')?.classList.add('hidden');
+  document.getElementById('plannerSubject').value = '';
+  document.getElementById('plannerDate').value = '';
+  document.getElementById('plannerDuration').value = '';
 }
 
 function savePlannerSession() {
-  const subject = document.getElementById("plannerSubject").value.trim();
-  const date = document.getElementById("plannerDate").value;
-  const duration = document.getElementById("plannerDuration").value.trim();
+  const subject = document.getElementById('plannerSubject').value.trim();
+  const date = document.getElementById('plannerDate').value;
+  const duration = document.getElementById('plannerDuration').value.trim();
   if (!subject || !date) return;
 
   const session = { id: Date.now(), subject, date, duration };
   plannerSessions.unshift(session);
-  localStorage.setItem("cortex-planner", JSON.stringify(plannerSessions));
+  localStorage.setItem('cortex-planner', JSON.stringify(plannerSessions));
   renderPlanner();
   closePlannerModal();
 }
 
 function deletePlannerSession(id) {
-  plannerSessions = plannerSessions.filter((s) => s.id !== id);
-  localStorage.setItem("cortex-planner", JSON.stringify(plannerSessions));
+  plannerSessions = plannerSessions.filter(s => s.id !== id);
+  localStorage.setItem('cortex-planner', JSON.stringify(plannerSessions));
   renderPlanner();
 }
 
 function renderPlanner() {
-  const list = document.getElementById("plannerList");
+  const list = document.getElementById('plannerList');
   if (!list) return;
   if (plannerSessions.length === 0) {
-    list.innerHTML =
-      '<p class="empty-hint">No sessions planned. Add one to get started.</p>';
+    list.innerHTML = '<p class="empty-hint">No sessions planned. Add one to get started.</p>';
     return;
   }
-  list.innerHTML = plannerSessions
-    .map((s) => {
-      const d = s.date
-        ? new Date(s.date + "T00:00:00").toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-          })
-        : "";
-      return `<div class="planner-item">
+  list.innerHTML = plannerSessions.map(s => {
+    const d = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+    return `<div class="planner-item">
       <div class="planner-item-dot"></div>
       <div class="planner-item-info">
         <div class="planner-item-subject">${s.subject}</div>
-        <div class="planner-item-meta">${d}${s.duration ? " · " + s.duration : ""}</div>
+        <div class="planner-item-meta">${d}${s.duration ? ' · ' + s.duration : ''}</div>
       </div>
       <button class="planner-item-delete" onclick="deletePlannerSession(${s.id})">×</button>
     </div>`;
-    })
-    .join("");
+  }).join('');
 }
 renderPlanner();
 
 // ── HISTORY ──
 async function loadHistory() {
-  const list = document.getElementById("historyList");
+  const list = document.getElementById('historyList');
   if (!list) return;
 
   try {
-    const res = await fetch("/api/history");
-    if (!res.ok) throw new Error("not ok");
+    const res = await fetch('/api/history');
+    if (!res.ok) throw new Error('not ok');
     const sessions = await res.json();
 
     if (!sessions || sessions.length === 0) {
@@ -1105,22 +1092,11 @@ async function loadHistory() {
       return;
     }
 
-    list.innerHTML = sessions
-      .map((s) => {
-        const date = new Date(s.createdAt).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        });
-        const time = new Date(s.createdAt).toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        const preview =
-          s.title ||
-          s.messages?.[0]?.content?.slice(0, 60) + "..." ||
-          "Chat session";
-        return `<div class="history-item" onclick="continueSession('${s._id}')">
+    list.innerHTML = sessions.map(s => {
+      const date = new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const time = new Date(s.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      const preview = s.title || (s.messages?.[0]?.content?.slice(0, 60) + '...') || 'Chat session';
+      return `<div class="history-item" onclick="continueSession('${s._id}')">
         <div class="history-item-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
@@ -1130,8 +1106,7 @@ async function loadHistory() {
         </div>
         <button class="history-continue-btn" onclick="event.stopPropagation(); continueSession('${s._id}')">Continue →</button>
       </div>`;
-      })
-      .join("");
+    }).join('');
   } catch {
     list.innerHTML = `<div class="history-empty"><p>History unavailable</p><span>Save chats to see them here</span></div>`;
   }
@@ -1143,31 +1118,119 @@ async function continueSession(id) {
     if (!res.ok) return;
     const session = await res.json();
     chatHistory = session.messages || [];
-    switchNav("chat");
-    const chatArea = document.getElementById("chatArea");
-    chatArea.innerHTML = "";
-    chatHistory.forEach((msg) => {
-      if (msg.role === "user") appendUserMessage(msg.content);
-      else if (msg.role === "assistant") appendAIMessage(msg.content);
+    switchNav('chat');
+    const chatArea = document.getElementById('chatArea');
+    chatArea.innerHTML = '';
+    chatHistory.forEach(msg => {
+      if (msg.role === 'user') appendUserMessage(msg.content);
+      else if (msg.role === 'assistant') appendAIMessage(msg.content);
     });
     scrollChat();
   } catch (e) {
-    console.error("Could not load session", e);
+    console.error('Could not load session', e);
   }
 }
 
 // ── STATS ──
 function updateStats() {
-  const chats = parseInt(localStorage.getItem("cortex-stat-chats") || "0");
-  const flashcards = parseInt(
-    localStorage.getItem("cortex-stat-flashcards") || "0",
-  );
-  const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
-  const ce = document.getElementById("statChats");
-  const fe = document.getElementById("statFlashcards");
-  const ne = document.getElementById("statNotes");
+  const chats = parseInt(localStorage.getItem('cortex-stat-chats') || '0');
+  const flashcards = parseInt(localStorage.getItem('cortex-stat-flashcards') || '0');
+  const notes = parseInt(localStorage.getItem('cortex-stat-notes') || '0');
+  const ce = document.getElementById('statChats');
+  const fe = document.getElementById('statFlashcards');
+  const ne = document.getElementById('statNotes');
   if (ce) ce.textContent = chats;
   if (fe) fe.textContent = flashcards;
   if (ne) ne.textContent = notes;
 }
 updateStats();
+
+// ── CUSTOM LANGUAGE PICKER ──
+function toggleLangPicker(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('langPickerDropdown');
+  if (dd) dd.classList.toggle('open');
+}
+
+function pickLanguage(lang, flag, btn) {
+  setLanguage(lang);
+  // Update picker button display
+  const label = document.getElementById('langPickerLabel');
+  const flagEl = document.getElementById('langPickerFlag');
+  if (label) label.textContent = lang;
+  if (flagEl) flagEl.textContent = flag;
+  // Update lang badge (2-letter code)
+  const badge = document.getElementById('langBadge');
+  if (badge) {
+    const codes = {
+      'English':'EN','Hindi':'HI','Marathi':'MR',
+      'Tamil':'TA','Telugu':'TE','Bengali':'BN','Gujarati':'GU'
+    };
+    badge.textContent = codes[lang] || lang.substring(0,2).toUpperCase();
+  }
+  // Update active state
+  document.querySelectorAll('.lang-option').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Close dropdown
+  const dd = document.getElementById('langPickerDropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+// Close lang picker on outside click
+document.addEventListener('click', function(e) {
+  const picker = document.getElementById('langPicker');
+  if (picker && !picker.contains(e.target)) {
+    const dd = document.getElementById('langPickerDropdown');
+    if (dd) dd.classList.remove('open');
+  }
+});
+
+// Restore saved language on load
+(function() {
+  const saved = localStorage.getItem('cortex-language');
+  if (saved && saved !== 'English') {
+    const flags = {
+      'Hindi':'🇮🇳','Marathi':'🇮🇳','Tamil':'🇮🇳',
+      'Telugu':'🇮🇳','Bengali':'🇮🇳','Gujarati':'🇮🇳'
+    };
+    const codes = {
+      'Hindi':'HI','Marathi':'MR','Tamil':'TA',
+      'Telugu':'TE','Bengali':'BN','Gujarati':'GU'
+    };
+    const label = document.getElementById('langPickerLabel');
+    const flag = document.getElementById('langPickerFlag');
+    const badge = document.getElementById('langBadge');
+    if (label) label.textContent = saved;
+    if (flag) flag.textContent = flags[saved] || '🌐';
+    if (badge) badge.textContent = codes[saved] || saved.substring(0,2).toUpperCase();
+    selectedLanguage = saved;
+    // Mark active option
+    document.querySelectorAll('.lang-option').forEach(b => {
+      if (b.textContent.trim().includes(saved)) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+  }
+})();
+
+// ── AUTO-SAVE HISTORY ──
+let currentSessionId = null;
+async function autoSaveHistory() {
+  try {
+    if (chatHistory.length < 2) return;
+    const body = { messages: chatHistory };
+    if (currentSessionId) body.id = currentSessionId;
+    const res = await fetch('/api/history/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.ok && data.id) currentSessionId = data.id;
+    // Update stats
+    const chats = parseInt(localStorage.getItem('cortex-stat-chats') || '0') + 1;
+    localStorage.setItem('cortex-stat-chats', chats);
+    updateStats();
+  } catch (e) {
+    // Silently fail - history save is non-critical
+  }
+}

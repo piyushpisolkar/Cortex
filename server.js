@@ -35,26 +35,30 @@ if (process.env.MONGODB_URI) {
   console.log("MONGODB_URI missing, continuing with local-only sessions");
 }
 
+// ── SCHEMAS ──
+const ChatSessionSchema = new mongoose.Schema({
+  userId: String,
+  title: String,
+  messages: [{ role: String, content: String }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+const ChatSession = mongoose.models.ChatSession || mongoose.model("ChatSession", ChatSessionSchema);
+
 // ── MIDDLEWARE ──
 app.use(express.json());
 app.set("trust proxy", 1);
-app.use(
-  express.static(path.join(__dirname, "public"), {
-    etag: false,
-    lastModified: false,
-    setHeaders: (res, filePath) => {
-      if (
-        filePath.endsWith(".html") ||
-        filePath.endsWith(".css") ||
-        filePath.endsWith(".js")
-      ) {
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      }
-    },
-  }),
-);
+app.use(express.static(path.join(__dirname, "public"), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html") || filePath.endsWith(".css") || filePath.endsWith(".js")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  }
+}));
 
 // ── SESSION WITH MONGODB ──
 let sessionStore;
@@ -170,6 +174,7 @@ app.get("/sw-kill", (req, res) => {
   </body></html>`);
 });
 
+
 app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
   res.sendFile(path.join(__dirname, "public/icons/cortex-logo.svg"));
 });
@@ -265,11 +270,55 @@ app.get("/login", (req, res) => {
 
 // ── MAIN APP ──
 app.get("/", isLoggedIn, (req, res) => {
-  const fs = require("fs");
-  let html = fs.readFileSync(__dirname + "/public/index.html", "utf8");
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.setHeader("Content-Type", "text/html");
-  res.send(html);
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+
+// ── HISTORY API ──
+app.get("/api/history", isLoggedIn, async (req, res) => {
+  try {
+    const sessions = await ChatSession.find({ userId: req.user.id })
+      .sort({ updatedAt: -1 })
+      .limit(30)
+      .select("title messages createdAt updatedAt");
+    res.json(sessions);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+app.get("/api/history/:id", isLoggedIn, async (req, res) => {
+  try {
+    const session = await ChatSession.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!session) return res.status(404).json({ error: "Not found" });
+    res.json(session);
+  } catch (e) {
+    res.status(500).json({ error: "Error loading session" });
+  }
+});
+
+app.post("/api/history/save", isLoggedIn, async (req, res) => {
+  try {
+    const { messages, title } = req.body;
+    if (!messages || messages.length < 2) return res.json({ ok: false });
+    const autoTitle = messages.find(m => m.role === 'user')?.content?.slice(0, 60) || "Chat session";
+    const session = await ChatSession.create({
+      userId: req.user.id,
+      title: title || autoTitle,
+      messages,
+    });
+    res.json({ ok: true, id: session._id });
+  } catch (e) {
+    res.json({ ok: false });
+  }
+});
+
+app.delete("/api/history/:id", isLoggedIn, async (req, res) => {
+  try {
+    await ChatSession.deleteOne({ _id: req.params.id, userId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false });
+  }
 });
 
 // ── USER API ──
@@ -424,10 +473,12 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
       });
       content = extractedText.trim().slice(0, 6000);
       if (!content) {
-        return res.status(400).json({
-          error:
-            "Could not extract text. PDF may be scanned. Try uploading as image instead.",
-        });
+        return res
+          .status(400)
+          .json({
+            error:
+              "Could not extract text. PDF may be scanned. Try uploading as image instead.",
+          });
       }
     } else if (mimetype.startsWith("image/")) {
       isImage = true;
