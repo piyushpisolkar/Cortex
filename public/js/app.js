@@ -812,6 +812,8 @@ document.addEventListener("click", (e) => {
 });
 
 // ── LOAD USER ──
+let currentUserName = '';
+
 async function loadUser() {
   try {
     const res = await fetch("/api/user");
@@ -830,6 +832,9 @@ async function loadUser() {
     if (dp) dp.src = user.photo;
     if (dn) dn.textContent = user.name;
     if (de) de.textContent = user.email;
+    // Store first name globally and update greeting
+    currentUserName = user.name.split(" ")[0];
+    updateGreeting();
   } catch (err) {
     window.location.href = "/login";
   }
@@ -934,7 +939,21 @@ function updateGreeting() {
   const h = new Date().getHours();
   const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   const titleEl = document.querySelector('#tab-home .tab-title');
-  if (titleEl) titleEl.textContent = `${greet} 👋`;
+  const subtitleEl = document.querySelector('#tab-home .tab-subtitle');
+  if (titleEl) {
+    titleEl.textContent = currentUserName
+      ? `${greet}, ${currentUserName}! 👋`
+      : `${greet} 👋`;
+  }
+  if (subtitleEl) {
+    const msgs = [
+      "What are we studying today?",
+      "Ready to learn something new?",
+      "Let's make today productive!",
+      "Your study session awaits."
+    ];
+    subtitleEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+  }
 }
 updateGreeting();
 
@@ -1096,15 +1115,20 @@ async function loadHistory() {
       const date = new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
       const time = new Date(s.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
       const preview = s.title || (s.messages?.[0]?.content?.slice(0, 60) + '...') || 'Chat session';
-      return `<div class="history-item" onclick="continueSession('${s._id}')">
+      return `<div class="history-item" id="hist-${s._id}">
         <div class="history-item-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
-        <div class="history-item-info">
+        <div class="history-item-info" onclick="continueSession('${s._id}')" style="cursor:pointer">
           <div class="history-item-title">${preview}</div>
           <div class="history-item-meta">${date} at ${time} · ${s.messages?.length || 0} messages</div>
         </div>
-        <button class="history-continue-btn" onclick="event.stopPropagation(); continueSession('${s._id}')">Continue →</button>
+        <div class="history-item-actions">
+          <button class="history-continue-btn" onclick="continueSession('${s._id}')">Continue →</button>
+          <button class="history-delete-btn" onclick="deleteSession('${s._id}')" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
       </div>`;
     }).join('');
   } catch {
@@ -1118,6 +1142,7 @@ async function continueSession(id) {
     if (!res.ok) return;
     const session = await res.json();
     chatHistory = session.messages || [];
+    currentSessionId = id;
     switchNav('chat');
     const chatArea = document.getElementById('chatArea');
     chatArea.innerHTML = '';
@@ -1128,6 +1153,25 @@ async function continueSession(id) {
     scrollChat();
   } catch (e) {
     console.error('Could not load session', e);
+  }
+}
+
+async function deleteSession(id) {
+  if (!confirm('Delete this chat session?')) return;
+  try {
+    const res = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      const el = document.getElementById(`hist-${id}`);
+      if (el) {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(20px)';
+        el.style.transition = 'all 0.3s ease';
+        setTimeout(() => { el.remove(); }, 300);
+      }
+    }
+  } catch (e) {
+    console.error('Could not delete session', e);
   }
 }
 

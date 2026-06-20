@@ -8,13 +8,18 @@
 }
 
 :root {
-  --bg: #0d0d14;
-  --surface: #141420;
-  --canvas-bg: #0a0a11;
-  --border: #1e1e2a;
-  --accent: #7f77dd;
-  --accent-dark: #3c3489;
-  --teal: #1d9e75;
+  --bg: #0b0b13;
+  --surface: #13131f;
+  --canvas-bg: #0e0e1a;
+  --border: #22223a;
+  --accent: #8b83e8;
+  --accent-dark: #4a42a8;
+  --teal: #20b882;
+  --panic: #c0392b;
+  --panic-light: #e55a4e;
+  --text: #eeeef8;
+  --text-muted: #b0b0cc;
+  --text-hint: #6a6a9a;
   --panic: #993c1d;
   --panic-light: #f0997b;
   --text: #e8e8f0;
@@ -1994,15 +1999,18 @@ code {
 
 /* ── LIGHT THEME ── */
 body.light {
-  --bg: #f4f4f8;
+  --bg: #f0f0f8;
   --surface: #ffffff;
-  --canvas-bg: #eeeef4;
-  --border: #d4d4e0;
-  --text: #1a1a2e;
-  --text-muted: #4a4a6a;
-  --text-hint: #8888aa;
-  --user-msg-bg: #e8e6ff;
-  --user-msg-border: #c4c0f0;
+  --canvas-bg: #e8e8f4;
+  --border: #c8c8e0;
+  --accent: #6c63d8;
+  --accent-dark: #4a42a8;
+  --teal: #178a60;
+  --text: #12122a;
+  --text-muted: #363660;
+  --text-hint: #7070a0;
+  --user-msg-bg: #e0deff;
+  --user-msg-border: #b8b3f0;
 }
 
 body.light .sidebar {
@@ -2251,23 +2259,30 @@ body.light .settings-toggle.panic.on {
 }
 
 /* ── LIGHT THEME — blue-tinted borders ── */
-body.light {
-  --border: #d0d4e8;
-}
 body.light .home-card,
 body.light .history-item,
 body.light .settings-group,
 body.light .planner-item,
 body.light .stat-item,
 body.light .saved-flashcard-card,
-body.light .saved-note-card {
-  border-color: #cdd3e8;
+body.light .saved-note-card,
+body.light .canvas-panel,
+body.light .input-pill {
+  border-color: #bebedd;
 }
 body.light .sidebar {
-  border-right-color: #d0d4e8;
+  border-right-color: #c0c0dc;
 }
 body.light .topbar {
-  border-bottom-color: #d0d4e8;
+  border-bottom-color: #c0c0dc;
+  background: rgba(240, 240, 248, 0.9);
+}
+body.light .msg.msg-ai {
+  background: #ffffff;
+  border: 1px solid #d0d0e8;
+}
+body.light .chat-area {
+  background: #f0f0f8;
 }
 
 /* ── MOBILE — profile dropdown larger text ── */
@@ -2292,4 +2307,37 @@ body.light .topbar {
   .lang-badge {
     display: none;
   }
+}
+
+/* ── HISTORY DELETE ── */
+.history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.history-delete-btn {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-hint);
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.history-item:hover .history-delete-btn {
+  opacity: 1;
+}
+
+.history-delete-btn:hover {
+  background: rgba(192, 57, 43, 0.12);
+  border-color: #c0392b;
+  color: #e55a4e;
 }
