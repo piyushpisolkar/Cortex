@@ -281,7 +281,7 @@ body::before {
 .msg-user {
   background: var(--user-msg-bg);
   border: 1px solid var(--user-msg-border);
-  color: #e0dcff;
+  color: var(--text);
   align-self: flex-end;
   font-weight: 500;
 }
@@ -289,7 +289,7 @@ body::before {
 .msg-ai {
   background: var(--surface);
   border: 1px solid var(--border);
-  color: #d0d0e8;
+  color: var(--text-muted);
   align-self: flex-start;
   font-weight: 500;
 }
@@ -2009,8 +2009,8 @@ body.light {
   --text: #12122a;
   --text-muted: #363660;
   --text-hint: #7070a0;
-  --user-msg-bg: #e0deff;
-  --user-msg-border: #b8b3f0;
+  --user-msg-bg: #6c63d8;
+  --user-msg-border: #5a52c0;
 }
 
 body.light .sidebar {
@@ -2280,6 +2280,10 @@ body.light .topbar {
 body.light .msg.msg-ai {
   background: #ffffff;
   border: 1px solid #d0d0e8;
+  color: #12122a;
+}
+body.light .msg.msg-user {
+  color: #ffffff;
 }
 body.light .chat-area {
   background: #f0f0f8;
