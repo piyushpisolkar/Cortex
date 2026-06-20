@@ -43,22 +43,30 @@ const ChatSessionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
-const ChatSession = mongoose.models.ChatSession || mongoose.model("ChatSession", ChatSessionSchema);
+const ChatSession =
+  mongoose.models.ChatSession ||
+  mongoose.model("ChatSession", ChatSessionSchema);
 
 // ── MIDDLEWARE ──
 app.use(express.json());
 app.set("trust proxy", 1);
-app.use(express.static(path.join(__dirname, "public"), {
-  etag: false,
-  lastModified: false,
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith(".html") || filePath.endsWith(".css") || filePath.endsWith(".js")) {
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-    }
-  }
-}));
+app.use(
+  express.static(path.join(__dirname, "public"), {
+    etag: false,
+    lastModified: false,
+    setHeaders: (res, filePath) => {
+      if (
+        filePath.endsWith(".html") ||
+        filePath.endsWith(".css") ||
+        filePath.endsWith(".js")
+      ) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    },
+  }),
+);
 
 // ── SESSION WITH MONGODB ──
 let sessionStore;
@@ -98,7 +106,8 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL:
-        "https://cortex-production-cd8b.up.railway.app/auth/google/callback",
+        process.env.CALLBACK_URL ||
+        "https://cortex-y7m6.onrender.com/auth/google/callback",
     },
     (accessToken, refreshToken, profile, done) => {
       return done(null, profile);
@@ -173,7 +182,6 @@ app.get("/sw-kill", (req, res) => {
   <p id="msg" style="font-size:20px;letter-spacing:0.1em;">Clearing all caches...</p>
   </body></html>`);
 });
-
 
 app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
   res.sendFile(path.join(__dirname, "public/icons/cortex-logo.svg"));
@@ -288,7 +296,10 @@ app.get("/api/history", isLoggedIn, async (req, res) => {
 
 app.get("/api/history/:id", isLoggedIn, async (req, res) => {
   try {
-    const session = await ChatSession.findOne({ _id: req.params.id, userId: req.user.id });
+    const session = await ChatSession.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
     if (!session) return res.status(404).json({ error: "Not found" });
     res.json(session);
   } catch (e) {
@@ -300,7 +311,9 @@ app.post("/api/history/save", isLoggedIn, async (req, res) => {
   try {
     const { messages, title } = req.body;
     if (!messages || messages.length < 2) return res.json({ ok: false });
-    const autoTitle = messages.find(m => m.role === 'user')?.content?.slice(0, 60) || "Chat session";
+    const autoTitle =
+      messages.find((m) => m.role === "user")?.content?.slice(0, 60) ||
+      "Chat session";
     const session = await ChatSession.create({
       userId: req.user.id,
       title: title || autoTitle,
@@ -473,12 +486,10 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
       });
       content = extractedText.trim().slice(0, 6000);
       if (!content) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Could not extract text. PDF may be scanned. Try uploading as image instead.",
-          });
+        return res.status(400).json({
+          error:
+            "Could not extract text. PDF may be scanned. Try uploading as image instead.",
+        });
       }
     } else if (mimetype.startsWith("image/")) {
       isImage = true;
