@@ -1,18 +1,73 @@
 require("dotenv").config();
 const express = require("express");
-const path = require("path");
-const Groq = require("groq-sdk");
-const passport = require("passport");
+const path    = require("path");
+const fs      = require("fs");
+const Groq    = require("groq-sdk");
+const passport       = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const session = require("express-session");
+const session    = require("express-session");
 const MongoStore = require("connect-mongo").default || require("connect-mongo");
-const mongoose = require("mongoose");
-const multer = require("multer");
-// pdf-parse removed — using buffer approach
-const fs = require("fs");
+const mongoose   = require("mongoose");
+const multer     = require("multer");
 
 const isProduction =
-  process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+  process.env.NODE_ENV === "production" || !!process.env.RENDER;
+
+// ── PWA ICON PATHS ──
+const ICONS_DIR   = path.join(__dirname, "public", "icons");
+const ICON_192    = path.join(ICONS_DIR, "cortex-icon-192.png");
+const ICON_512    = path.join(ICONS_DIR, "cortex-icon-512.png");
+
+// V3 Double Ring Neural Mark — single source of truth
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="115" fill="#534AB7"/>
+  <g transform="translate(256,256) scale(8.8)">
+    <circle cx="0" cy="0" r="26" stroke="rgba(255,255,255,0.28)" stroke-width="1.2" fill="none"/>
+    <circle cx="0"   cy="-26" r="3"   fill="rgba(255,255,255,0.5)"/>
+    <circle cx="26"  cy="0"   r="3"   fill="rgba(255,255,255,0.5)"/>
+    <circle cx="0"   cy="26"  r="3"   fill="rgba(255,255,255,0.5)"/>
+    <circle cx="-26" cy="0"   r="3"   fill="rgba(255,255,255,0.5)"/>
+    <circle cx="0" cy="0" r="16" stroke="white" stroke-width="5.5" fill="none"/>
+    <line x1="0"    y1="-6.5" x2="0"    y2="-12.5" stroke="white" stroke-width="4"   stroke-linecap="round"/>
+    <line x1="6.5"  y1="0"    x2="12.5" y2="0"     stroke="white" stroke-width="4"   stroke-linecap="round"/>
+    <line x1="0"    y1="6.5"  x2="0"    y2="12.5"  stroke="white" stroke-width="4"   stroke-linecap="round"/>
+    <line x1="-6.5" y1="0"    x2="-12.5" y2="0"    stroke="white" stroke-width="4"   stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="5.5" fill="white"/>
+  </g>
+</svg>`;
+
+// ── AUTO-GENERATE PWA ICONS ON STARTUP ──
+async function generateIcons() {
+  try {
+    if (!fs.existsSync(ICONS_DIR)) fs.mkdirSync(ICONS_DIR, { recursive: true });
+
+    // Skip if both PNGs already exist
+    if (fs.existsSync(ICON_192) && fs.existsSync(ICON_512)) {
+      console.log("✓ PWA icons already exist, skipping generation");
+      return;
+    }
+
+    let sharp;
+    try {
+      sharp = require("sharp");
+    } catch {
+      console.warn("⚠ sharp not installed — PWA PNG icons will not be generated.");
+      console.warn("  Run: npm install sharp");
+      return;
+    }
+
+    const svgBuffer = Buffer.from(LOGO_SVG);
+    await Promise.all([
+      sharp(svgBuffer).resize(192, 192).png().toFile(ICON_192),
+      sharp(svgBuffer).resize(512, 512).png().toFile(ICON_512),
+    ]);
+    console.log("✓ PWA icons generated: cortex-icon-192.png & cortex-icon-512.png");
+  } catch (err) {
+    console.error("✗ Icon generation failed:", err.message);
+  }
+}
+
+generateIcons();
 
 // ── FILE UPLOAD CONFIG ──
 const upload = multer({
@@ -183,69 +238,31 @@ app.get("/sw-kill", (req, res) => {
   </body></html>`);
 });
 
-app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
-  res.sendFile(path.join(__dirname, "public/icons/cortex-logo.svg"));
+// ── PWA ICON ROUTES ──
+// Serve the master SVG logo
+app.get("/icons/cortex-logo.svg", (req, res) => {
+  res.setHeader("Content-Type", "image/svg+xml");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send(LOGO_SVG);
 });
 
-// ── ICONS ──
-app.get("/icons/icon-192.png", (req, res) => {
+// Serve generated PNGs (or fall back to SVG if sharp never ran)
+app.get(["/icons/cortex-icon-192.png", "/icons/icon-192.png"], (req, res) => {
+  if (fs.existsSync(ICON_192)) {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.sendFile(ICON_192);
+  }
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="192" height="192" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#1a1a2e"/>
-        <stop offset="100%" style="stop-color:#0d0d14"/>
-      </radialGradient>
-      <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#6699ff"/>
-        <stop offset="100%" style="stop-color:#4433aa"/>
-      </linearGradient>
-      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
-        <stop offset="0%" style="stop-color:#88aaff"/>
-        <stop offset="100%" style="stop-color:#5544cc"/>
-      </linearGradient>
-    </defs>
-    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
-    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
-    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
-    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-  </svg>`);
+  res.send(LOGO_SVG);
 });
 
-app.get("/icons/icon-512.png", (req, res) => {
+app.get(["/icons/cortex-icon-512.png", "/icons/icon-512.png"], (req, res) => {
+  if (fs.existsSync(ICON_512)) {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.sendFile(ICON_512);
+  }
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#1a1a2e"/>
-        <stop offset="100%" style="stop-color:#0d0d14"/>
-      </radialGradient>
-      <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#6699ff"/>
-        <stop offset="100%" style="stop-color:#4433aa"/>
-      </linearGradient>
-      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
-        <stop offset="0%" style="stop-color:#88aaff"/>
-        <stop offset="100%" style="stop-color:#5544cc"/>
-      </linearGradient>
-    </defs>
-    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
-    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
-    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
-    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-  </svg>`);
+  res.send(LOGO_SVG);
 });
 // ── AUTH ROUTES ──
 app.get("/auth/google", (req, res, next) => {
@@ -561,5 +578,5 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
 // ── START ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Cortex is running at http://localhost:${PORT}`);
+  console.log(`🧠 Cortex running → http://localhost:${PORT}`);
 });

@@ -146,12 +146,24 @@ body::before {
 }
 
 .logo-text {
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.18em;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
+
+/* ── Topbar logo mark — light theme swaps purple to stay vivid ── */
+.topbar-logo-mark .cx-orbit-stroke  { stroke: #AFA9EC; }
+.topbar-logo-mark .cx-orbit-dot     { fill: #AFA9EC; }
+.topbar-logo-mark .cx-inner-stroke  { stroke: #534AB7; }
+.topbar-logo-mark .cx-core-fill     { fill: #534AB7; }
+
+body.light .topbar-logo-mark circle[r="26"]   { stroke: #AFA9EC; }
+body.light .topbar-logo-mark circle[r="3.2"]  { fill: #AFA9EC; }
+body.light .topbar-logo-mark circle[r="16"]   { stroke: #534AB7; }
+body.light .topbar-logo-mark circle[r="5.5"]  { fill: #534AB7; }
+body.light .topbar-logo-mark line            { stroke: #534AB7; }
 .logo-sub {
   font-size: 11px;
   color: var(--text-hint);
