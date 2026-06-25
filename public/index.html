@@ -100,87 +100,89 @@
     </style>
 
     <script>
-      /* ── Splash animation (JS-driven, pixel-perfect) ── */
+      /* ── Splash animation — JS-driven, pixel-perfect ── */
       (function() {
-        const ease = {
-          out4:    t => 1 - Math.pow(1-t, 4),
-          inOut:   t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2,
-          spring:  t => { const c4=(2*Math.PI)/3; return t===0?0:t===1?1:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*c4)+1; },
-          outBack: t => { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); },
-          out3:    t => 1 - Math.pow(1-t, 3),
-        };
-        const lerp = (a,b,t) => a+(b-a)*t;
-        const $ = id => document.getElementById(id);
-        const setOp = (el,v) => el.setAttribute('opacity', v);
-        const setTr = (el,v) => el.setAttribute('transform', v);
-        const setDO = (el,v) => el.setAttribute('stroke-dashoffset', v);
+        /* easing functions — take raw 0→1, return eased 0→1 */
+        function eOut4(t)    { return 1 - Math.pow(1-t, 4); }
+        function eInOut(t)   { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+        function eSpring(t)  { if(t===0) return 0; if(t===1) return 1; return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1; }
+        function eBack(t)    { const c=1.70158; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2); }
+        function eOut3(t)    { return 1 - Math.pow(1-t, 3); }
 
-        function anim(dur, fn, cb) {
-          const s = performance.now();
-          const frame = now => {
-            const raw = Math.min((now-s)/dur, 1);
-            fn(fn===ease.spring||fn===ease.outBack||fn===ease.out4||fn===ease.inOut||fn===ease.out3 ? fn(raw) : raw, raw);
-            raw < 1 ? requestAnimationFrame(frame) : cb && cb();
-          };
-          requestAnimationFrame(frame);
+        const lerp = (a,b,t) => a + (b-a) * t;
+        const $    = id => document.getElementById(id);
+        const op   = (el,v) => el.setAttribute('opacity', v);
+        const tr   = (el,v) => el.setAttribute('transform', v);
+        const dash = (el,v) => el.setAttribute('stroke-dashoffset', v);
+
+        /* animate(duration, easeFn, updateFn) → Promise */
+        function go(dur, eFn, updateFn) {
+          return new Promise(resolve => {
+            const start = performance.now();
+            function tick(now) {
+              const raw = Math.min((now - start) / dur, 1);
+              updateFn(eFn(raw));
+              if (raw < 1) requestAnimationFrame(tick);
+              else resolve();
+            }
+            requestAnimationFrame(tick);
+          });
         }
-        function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+        const wait = ms => new Promise(r => setTimeout(r, ms));
 
         async function runSplash() {
-          await wait(150);
+          await wait(200);
           const mark = $('splashMark');
 
-          // 1 — orbit ring fades + spins 360° on its own center
-          await new Promise(r => anim(1100, ease.out4, t => {
-            setOp($('cxOrbitRing'), Math.min(t*3, 1));
-            mark.style.transform = `rotate(${lerp(0,360,t)}deg)`;
+          /* 1 — orbit ring fades in while whole SVG spins 360° */
+          await go(1100, eOut4, t => {
+            op($('cxOrbitRing'), Math.min(t * 3, 1));
             mark.style.transformOrigin = '50% 50%';
-          }, r));
+            mark.style.transform = `rotate(${lerp(0, 360, t)}deg)`;
+          });
           mark.style.transform = 'rotate(0deg)';
 
-          // 2 — dots snap in staggered
+          /* 2 — orbit dots snap in one by one */
           for (const id of ['cxDotN','cxDotE','cxDotS','cxDotW']) {
             await wait(55);
-            anim(180, ease.outBack, t => setOp($(id), Math.min(t,1)));
+            go(200, eBack, t => op($(id), Math.min(t, 1)));
           }
           await wait(80);
 
-          // 3 — inner ring draws itself
-          setOp($('cxInnerRing'), 1);
-          await new Promise(r => anim(620, ease.inOut, t => setDO($('cxInnerRing'), lerp(150.8,0,t)), r));
+          /* 3 — inner ring draws itself clockwise */
+          op($('cxInnerRing'), 1);
+          await go(620, eInOut, t => dash($('cxInnerRing'), lerp(150.8, 0, t)));
           await wait(40);
 
-          // 4 — core springs in
-          setOp($('cxCore'), 1);
-          await new Promise(r => anim(420, ease.spring, t => setTr($('cxCore'), `scale(${t})`), r));
+          /* 4 — core dot springs in */
+          op($('cxCore'), 1);
+          await go(420, eSpring, t => tr($('cxCore'), `scale(${t})`));
 
-          // 5 — arms shoot out
-          const armLen = 8.5;
-          ['cxArmN','cxArmE','cxArmS','cxArmW'].forEach((id,i) => {
-            const el = $(id);
-            el.setAttribute('stroke-dasharray', armLen);
-            el.setAttribute('stroke-dashoffset', armLen);
+          /* 5 — 4 arms shoot out staggered */
+          const AL = 8.5;
+          ['cxArmN','cxArmE','cxArmS','cxArmW'].forEach(id => {
+            $(id).setAttribute('stroke-dasharray', AL);
+            $(id).setAttribute('stroke-dashoffset', AL);
           });
-          await Promise.all(['cxArmN','cxArmE','cxArmS','cxArmW'].map((id,i) =>
-            wait(i*40).then(() => new Promise(r => {
-              setOp($(id), 1);
-              anim(220, ease.out3, t => $(id).setAttribute('stroke-dashoffset', lerp(armLen,0,t)), r);
-            }))
+          await Promise.all(['cxArmN','cxArmE','cxArmS','cxArmW'].map((id, i) =>
+            wait(i * 45).then(() => {
+              op($(id), 1);
+              return go(220, eOut3, t => dash($(id), lerp(AL, 0, t)));
+            })
           ));
           await wait(120);
 
-          // 6 — wordmark rises + fades
+          /* 6 — wordmark rises + fades in */
           const wm = $('cxWordmark');
-          anim(500, ease.out3, t => {
+          go(500, eOut3, t => {
             wm.style.opacity = t;
-            wm.style.transform = `translateY(${lerp(12,0,t)}px)`;
+            wm.style.transform = `translateY(${lerp(12, 0, t)}px)`;
           });
           await wait(1800);
 
-          // 7 — fade out splash
+          /* 7 — whole splash fades out */
           const splash = $('splashScreen');
-          anim(600, ease.out3, t => { splash.style.opacity = 1-t; });
-          await wait(620);
+          await go(600, eOut3, t => { splash.style.opacity = 1 - t; });
           splash.style.display = 'none';
         }
 
