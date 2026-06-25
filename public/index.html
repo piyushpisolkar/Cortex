@@ -31,93 +31,166 @@
   <body>
     <!-- ══ SPLASH SCREEN ══ -->
     <div id="splashScreen" style="position:fixed;inset:0;background:#0d0d14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.8s ease;">
-
-      <!-- Animated logo mark -->
-      <svg id="splashMark" width="80" height="80" viewBox="-30 -30 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- orbit ring spins in -->
-        <circle class="cx-orbit" cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.2"/>
-        <!-- orbit dots snap in at 90° after spin -->
-        <circle class="cx-dot cx-dot-1" cx="0"   cy="-26" r="3"   fill="#AFA9EC"/>
-        <circle class="cx-dot cx-dot-2" cx="26"  cy="0"   r="3"   fill="#AFA9EC"/>
-        <circle class="cx-dot cx-dot-3" cx="0"   cy="26"  r="3"   fill="#AFA9EC"/>
-        <circle class="cx-dot cx-dot-4" cx="-26" cy="0"   r="3"   fill="#AFA9EC"/>
-        <!-- inner ring draws itself -->
-        <circle class="cx-inner" cx="0" cy="0" r="16" stroke="#534AB7" stroke-width="5.5"/>
-        <!-- core pulses in -->
-        <circle class="cx-core" cx="0" cy="0" r="5.5" fill="#534AB7"/>
-        <!-- 4 arms shoot out -->
-        <line class="cx-arm cx-arm-1" x1="0"    y1="-6.5" x2="0"    y2="-12.5" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-        <line class="cx-arm cx-arm-2" x1="6.5"  y1="0"    x2="12.5" y2="0"     stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-        <line class="cx-arm cx-arm-3" x1="0"    y1="6.5"  x2="0"    y2="12.5"  stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-        <line class="cx-arm cx-arm-4" x1="-6.5" y1="0"    x2="-12.5" y2="0"    stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+      <svg id="splashMark" width="88" height="88" viewBox="-44 -44 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle id="cxOrbitRing" cx="0" cy="0" r="38" fill="none" stroke="#AFA9EC" stroke-width="1.2" opacity="0"/>
+        <circle id="cxDotN" cx="0"   cy="-38" r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxDotE" cx="38"  cy="0"   r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxDotS" cx="0"   cy="38"  r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxDotW" cx="-38" cy="0"   r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxInnerRing" cx="0" cy="0" r="24" fill="none" stroke="#534AB7" stroke-width="7.5" stroke-dasharray="150.8" stroke-dashoffset="150.8" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmN" x1="0"    y1="-10"  x2="0"    y2="-18.5" stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmE" x1="10"   y1="0"    x2="18.5" y2="0"     stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmS" x1="0"    y1="10"   x2="0"    y2="18.5"  stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmW" x1="-10"  y1="0"    x2="-18.5" y2="0"    stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <circle id="cxCore" cx="0" cy="0" r="8" fill="#534AB7" opacity="0" transform="scale(0)"/>
       </svg>
-
-      <!-- Wordmark fades in after animation -->
-      <div class="cx-wordmark">
-        <p class="cx-name">Cortex</p>
-        <p class="cx-sub">AI Study Assistant</p>
+      <div id="cxWordmark" style="opacity:0;transform:translateY(12px);text-align:center;margin-top:22px;">
+        <p style="font-family:'Inter',system-ui,sans-serif;font-size:28px;font-weight:400;letter-spacing:-0.02em;color:#e8e8f0;text-shadow:0 0 32px rgba(175,169,236,0.45),0 0 64px rgba(83,74,183,0.25);">Cortex</p>
+        <p style="font-size:10px;letter-spacing:0.18em;color:rgba(175,169,236,0.75);text-transform:uppercase;margin-top:6px;text-shadow:0 0 20px rgba(175,169,236,0.5),0 0 40px rgba(83,74,183,0.3);">AI Study Intelligence</p>
       </div>
     </div>
 
     <style>
-      /* ── Splash animation keyframes ── */
-      .cx-orbit {
-        transform-origin: 0px 0px;
-        transform-box: fill-box;
-        animation: cxSpin 1.2s cubic-bezier(0.4,0,0.2,1) forwards;
+      /* ── Chat thinking spinner ── */
+      .msg-ai-spinner {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 4px 0;
       }
-      .cx-dot { opacity: 0; animation: cxSnap 0.15s ease forwards; }
-      .cx-dot-1 { animation-delay: 1.18s; }
-      .cx-dot-2 { animation-delay: 1.23s; }
-      .cx-dot-3 { animation-delay: 1.28s; }
-      .cx-dot-4 { animation-delay: 1.33s; }
-      .cx-inner {
-        stroke-dasharray: 101;
-        stroke-dashoffset: 101;
-        animation: cxDraw 0.55s cubic-bezier(0.4,0,0.2,1) 1.45s forwards;
+      .cx-chat-mark {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+        margin-top: 2px;
       }
-      .cx-core {
-        opacity: 0;
-        transform-origin: 0px 0px;
-        transform-box: fill-box;
-        animation: cxPop 0.35s cubic-bezier(0.34,1.56,0.64,1) 2.05s forwards;
+      .cx-chat-mark .cx-spin-orbit {
+        transform-origin: 14px 14px;
+        animation: cxChatSpin 2s linear infinite;
       }
-      .cx-arm { opacity: 0; animation: cxSnap 0.2s ease forwards; }
-      .cx-arm-1 { animation-delay: 2.1s; }
-      .cx-arm-2 { animation-delay: 2.16s; }
-      .cx-arm-3 { animation-delay: 2.22s; }
-      .cx-arm-4 { animation-delay: 2.28s; }
-      .cx-wordmark {
-        opacity: 0;
-        transform: translateY(10px);
-        animation: cxFadeUp 0.5s ease 2.5s forwards;
-        text-align: center;
-        margin-top: 20px;
+      .cx-chat-mark .cx-breathe {
+        transform-origin: 14px 14px;
+        animation: cxChatBreathe 1.8s ease-in-out infinite;
       }
-      .cx-name {
-        font-family: "Inter", system-ui, sans-serif;
-        font-size: 28px;
-        font-weight: 500;
-        letter-spacing: -0.02em;
-        color: #e8e8f0;
+      .cx-chat-mark .cx-pulse {
+        animation: cxChatPulse 1.8s ease-in-out infinite;
       }
-      .cx-sub {
-        font-size: 11px;
-        letter-spacing: 0.14em;
-        color: #6666aa;
-        margin-top: 5px;
-        text-transform: uppercase;
+      .cx-chat-mark.done .cx-spin-orbit { animation: none; }
+      .cx-chat-mark.done .cx-breathe    { animation: none; transform: scale(1); opacity: 1; }
+      .cx-chat-mark.done .cx-pulse      { animation: none; opacity: 1; }
+      .cx-thinking-dots {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 4px;
       }
-      @keyframes cxSpin {
-        0%   { transform: rotate(0deg);   opacity: 0; }
-        8%   { opacity: 1; }
-        100% { transform: rotate(360deg); opacity: 1; }
+      .cx-thinking-dots span {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: var(--accent, #534AB7);
+        opacity: 0.4;
+        animation: cxDotBounce 1.2s ease-in-out infinite;
       }
-      @keyframes cxSnap    { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes cxDraw    { to   { stroke-dashoffset: 0; } }
-      @keyframes cxPop     { 0% { opacity:0; transform:scale(0); } 100% { opacity:1; transform:scale(1); } }
-      @keyframes cxFadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+      .cx-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+      .cx-thinking-dots span:nth-child(3) { animation-delay: 0.30s; }
+      @keyframes cxChatSpin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      @keyframes cxChatBreathe { 0%,100%{opacity:0.5;transform:scale(0.85)} 50%{opacity:1;transform:scale(1)} }
+      @keyframes cxChatPulse   { 0%,100%{opacity:0.6} 50%{opacity:1} }
+      @keyframes cxDotBounce   { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-5px);opacity:1} }
     </style>
+
+    <script>
+      /* ── Splash animation (JS-driven, pixel-perfect) ── */
+      (function() {
+        const ease = {
+          out4:    t => 1 - Math.pow(1-t, 4),
+          inOut:   t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2,
+          spring:  t => { const c4=(2*Math.PI)/3; return t===0?0:t===1?1:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*c4)+1; },
+          outBack: t => { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); },
+          out3:    t => 1 - Math.pow(1-t, 3),
+        };
+        const lerp = (a,b,t) => a+(b-a)*t;
+        const $ = id => document.getElementById(id);
+        const setOp = (el,v) => el.setAttribute('opacity', v);
+        const setTr = (el,v) => el.setAttribute('transform', v);
+        const setDO = (el,v) => el.setAttribute('stroke-dashoffset', v);
+
+        function anim(dur, fn, cb) {
+          const s = performance.now();
+          const frame = now => {
+            const raw = Math.min((now-s)/dur, 1);
+            fn(fn===ease.spring||fn===ease.outBack||fn===ease.out4||fn===ease.inOut||fn===ease.out3 ? fn(raw) : raw, raw);
+            raw < 1 ? requestAnimationFrame(frame) : cb && cb();
+          };
+          requestAnimationFrame(frame);
+        }
+        function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        async function runSplash() {
+          await wait(150);
+          const mark = $('splashMark');
+
+          // 1 — orbit ring fades + spins 360° on its own center
+          await new Promise(r => anim(1100, ease.out4, t => {
+            setOp($('cxOrbitRing'), Math.min(t*3, 1));
+            mark.style.transform = `rotate(${lerp(0,360,t)}deg)`;
+            mark.style.transformOrigin = '50% 50%';
+          }, r));
+          mark.style.transform = 'rotate(0deg)';
+
+          // 2 — dots snap in staggered
+          for (const id of ['cxDotN','cxDotE','cxDotS','cxDotW']) {
+            await wait(55);
+            anim(180, ease.outBack, t => setOp($(id), Math.min(t,1)));
+          }
+          await wait(80);
+
+          // 3 — inner ring draws itself
+          setOp($('cxInnerRing'), 1);
+          await new Promise(r => anim(620, ease.inOut, t => setDO($('cxInnerRing'), lerp(150.8,0,t)), r));
+          await wait(40);
+
+          // 4 — core springs in
+          setOp($('cxCore'), 1);
+          await new Promise(r => anim(420, ease.spring, t => setTr($('cxCore'), `scale(${t})`), r));
+
+          // 5 — arms shoot out
+          const armLen = 8.5;
+          ['cxArmN','cxArmE','cxArmS','cxArmW'].forEach((id,i) => {
+            const el = $(id);
+            el.setAttribute('stroke-dasharray', armLen);
+            el.setAttribute('stroke-dashoffset', armLen);
+          });
+          await Promise.all(['cxArmN','cxArmE','cxArmS','cxArmW'].map((id,i) =>
+            wait(i*40).then(() => new Promise(r => {
+              setOp($(id), 1);
+              anim(220, ease.out3, t => $(id).setAttribute('stroke-dashoffset', lerp(armLen,0,t)), r);
+            }))
+          ));
+          await wait(120);
+
+          // 6 — wordmark rises + fades
+          const wm = $('cxWordmark');
+          anim(500, ease.out3, t => {
+            wm.style.opacity = t;
+            wm.style.transform = `translateY(${lerp(12,0,t)}px)`;
+          });
+          await wait(1800);
+
+          // 7 — fade out splash
+          const splash = $('splashScreen');
+          anim(600, ease.out3, t => { splash.style.opacity = 1-t; });
+          await wait(620);
+          splash.style.display = 'none';
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', runSplash);
+        } else {
+          runSplash();
+        }
+      })();
+    </script>
 
     <!-- ══ APP SHELL ══ -->
     <div class="app-shell" id="appShell">
@@ -472,10 +545,13 @@
               <!-- Chat messages -->
               <div class="chat-area" id="chatArea">
                 <div class="msg msg-ai">
-                  <span class="msg-label">Cortex</span>
-                  Hey! I'm Cortex, your personal study intelligence. Ask me
-                  anything — concepts, code, theory, viva prep. What are we
-                  studying today?
+                  <div class="msg-ai-spinner">
+                    <svg class="cx-chat-mark done" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <g class="cx-spin-orbit"><circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/><circle cx="14" cy="1.5" r="1.6" fill="#AFA9EC"/><circle cx="26.5" cy="14" r="1.6" fill="#AFA9EC"/><circle cx="14" cy="26.5" r="1.6" fill="#AFA9EC"/><circle cx="1.5" cy="14" r="1.6" fill="#AFA9EC"/></g>
+                      <g class="cx-breathe"><circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/><line x1="14" y1="9.8" x2="14" y2="7" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="18.2" y1="14" x2="21" y2="14" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="14" y1="18.2" x2="14" y2="21" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="9.8" y1="14" x2="7" y2="14" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="14" r="2.8" fill="#534AB7"/></g>
+                    </svg>
+                    <span>Hey! I'm Cortex, your personal study intelligence. Ask me anything — concepts, code, theory, viva prep. What are we studying today?</span>
+                  </div>
                 </div>
               </div>
               <!-- Input bar -->
@@ -911,6 +987,62 @@
         </div>
       </div>
     </div>
+
+    <script>
+      /* ── Cortex chat thinking spinner ── */
+      const CX_SPINNER_SVG = `
+        <svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g class="cx-spin-orbit">
+            <circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/>
+            <circle cx="14"   cy="1.5"  r="1.6" fill="#AFA9EC"/>
+            <circle cx="26.5" cy="14"   r="1.6" fill="#AFA9EC"/>
+            <circle cx="14"   cy="26.5" r="1.6" fill="#AFA9EC"/>
+            <circle cx="1.5"  cy="14"   r="1.6" fill="#AFA9EC"/>
+          </g>
+          <g class="cx-breathe">
+            <circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/>
+            <line x1="14"   y1="9.8"  x2="14"   y2="7"    stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="18.2" y1="14"   x2="21"   y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="14"   y1="18.2" x2="14"   y2="21"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="9.8"  y1="14"   x2="7"    y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+            <circle cx="14" cy="14" r="2.8" fill="#534AB7"/>
+          </g>
+        </svg>`;
+
+      /* Call this right after the user sends a message */
+      window.showThinking = function() {
+        const chatArea = document.getElementById('chatArea');
+        const el = document.createElement('div');
+        el.className = 'msg msg-ai';
+        el.id = 'thinkingMsg';
+        el.innerHTML = `
+          <div class="msg-ai-spinner">
+            ${CX_SPINNER_SVG}
+            <div class="cx-thinking-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>`;
+        chatArea.appendChild(el);
+        chatArea.scrollTop = chatArea.scrollHeight;
+      };
+
+      /* Call this when the response arrives — pass the rendered HTML */
+      window.hideThinking = function(responseHTML) {
+        const el = document.getElementById('thinkingMsg');
+        if (!el) return;
+        /* Lock the spinner */
+        const mark = el.querySelector('.cx-chat-mark');
+        if (mark) mark.classList.add('done');
+        /* Swap dots for the actual response */
+        el.innerHTML = `
+          <div class="msg-ai-spinner">
+            ${CX_SPINNER_SVG.replace('cx-chat-mark', 'cx-chat-mark done')}
+            <div class="msg-ai-content">${responseHTML}</div>
+          </div>`;
+        el.removeAttribute('id');
+        document.getElementById('chatArea').scrollTop = 99999;
+      };
+    </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/app.js"></script>

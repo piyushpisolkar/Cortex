@@ -3,272 +3,7 @@
 // ══════════════════════════════════════════
 
 // ── SPLASH SCREEN ──
-
-(function () {
-  const splash = document.getElementById("splashScreen");
-  if (!splash) return;
-  if (typeof THREE === "undefined") {
-    setTimeout(() => {
-      splash.style.opacity = "0";
-      setTimeout(() => {
-        splash.style.display = "none";
-      }, 1000);
-    }, 2500);
-    return;
-  }
-  const canvas = document.getElementById("splashCanvas");
-  if (!canvas) {
-    setTimeout(() => {
-      splash.style.opacity = "0";
-      setTimeout(() => {
-        splash.style.display = "none";
-      }, 1000);
-    }, 2500);
-    return;
-  }
-
-  const size = Math.min(window.innerWidth * 0.6, 240);
-  canvas.width = size;
-  canvas.height = size;
-
-  const splashRenderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    alpha: true,
-  });
-  splashRenderer.setSize(size, size);
-  splashRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  const splashScene = new THREE.Scene();
-  const splashCam = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-  splashCam.position.set(0, 0, 5.5);
-  splashCam.lookAt(0, 0, 0);
-
-  // Lights
-  splashScene.add(new THREE.AmbientLight(0xffffff, 0.4));
-  const pl1 = new THREE.PointLight(0x8ab4ff, 4, 18);
-  pl1.position.set(4, 2, 4);
-  splashScene.add(pl1);
-  const pl2 = new THREE.PointLight(0x6a3fc8, 2, 14);
-  pl2.position.set(-3, 3, 2);
-  splashScene.add(pl2);
-
-  const pl3 = new THREE.PointLight(0xffffff, 1.8, 12);
-  pl3.position.set(0, 4, 3);
-  splashScene.add(pl3);
-
-  // ── BRAIN (flat, exactly matching the logo) ──
-
-  const bc = 0x88aaff;
-  function bt(pts, r) {
-    return new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, r, 8, false),
-      new THREE.MeshPhysicalMaterial({
-        color: bc,
-        metalness: 0.85,
-        roughness: 0.1,
-        emissive: bc,
-        emissiveIntensity: 0.18,
-        clearcoat: 1,
-      }),
-    );
-  }
-
-  const brain = new THREE.Group();
-
-  // Left outer
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(-0.02, 0.52, 0.08),
-        new THREE.Vector3(-0.2, 0.52, 0.09),
-        new THREE.Vector3(-0.4, 0.36, 0.1),
-        new THREE.Vector3(-0.48, 0.12, 0.1),
-        new THREE.Vector3(-0.46, -0.1, 0.1),
-        new THREE.Vector3(-0.34, -0.28, 0.09),
-        new THREE.Vector3(-0.14, -0.36, 0.08),
-        new THREE.Vector3(-0.02, -0.36, 0.08),
-      ],
-      0.04,
-    ),
-  );
-
-  // Left gyrus 1
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(-0.02, 0.18, 0.09),
-        new THREE.Vector3(-0.18, 0.22, 0.1),
-        new THREE.Vector3(-0.3, 0.1, 0.1),
-        new THREE.Vector3(-0.32, -0.06, 0.1),
-        new THREE.Vector3(-0.22, -0.16, 0.09),
-      ],
-      0.032,
-    ),
-  );
-
-  // Left gyrus 2
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(-0.02, -0.1, 0.09),
-        new THREE.Vector3(-0.12, -0.08, 0.09),
-        new THREE.Vector3(-0.18, 0.02, 0.1),
-        new THREE.Vector3(-0.16, 0.12, 0.1),
-      ],
-      0.024,
-    ),
-  );
-
-  // Right outer
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(0.02, 0.52, 0.08),
-        new THREE.Vector3(0.2, 0.52, 0.09),
-        new THREE.Vector3(0.4, 0.36, 0.1),
-        new THREE.Vector3(0.48, 0.12, 0.1),
-        new THREE.Vector3(0.46, -0.1, 0.1),
-        new THREE.Vector3(0.34, -0.28, 0.09),
-        new THREE.Vector3(0.14, -0.36, 0.08),
-        new THREE.Vector3(0.02, -0.36, 0.08),
-      ],
-      0.04,
-    ),
-  );
-
-  // Right gyrus 1
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(0.02, 0.18, 0.09),
-        new THREE.Vector3(0.18, 0.22, 0.1),
-        new THREE.Vector3(0.3, 0.1, 0.1),
-        new THREE.Vector3(0.32, -0.06, 0.1),
-        new THREE.Vector3(0.22, -0.16, 0.09),
-      ],
-      0.032,
-    ),
-  );
-
-  // Right gyrus 2
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(0.02, -0.1, 0.09),
-        new THREE.Vector3(0.12, -0.08, 0.09),
-        new THREE.Vector3(0.18, 0.02, 0.1),
-        new THREE.Vector3(0.16, 0.12, 0.1),
-      ],
-      0.024,
-    ),
-  );
-
-  // Bottom stem
-  brain.add(
-    bt(
-      [
-        new THREE.Vector3(-0.02, -0.36, 0.08),
-        new THREE.Vector3(0, -0.44, 0.08),
-        new THREE.Vector3(0.02, -0.36, 0.08),
-      ],
-      0.04,
-    ),
-  );
-
-  // Center dashes
-  for (let i = 0; i < 5; i++) {
-    const d = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.013, 0.013, 0.06, 6),
-      new THREE.MeshPhysicalMaterial({
-        color: 0x5544aa,
-        emissive: 0x332288,
-        emissiveIntensity: 0.4,
-      }),
-    );
-    d.position.set(0, 0.42 - i * 0.19, 0.09);
-    brain.add(d);
-  }
-
-  splashScene.add(brain);
-  // ── SPINNING HEX (2D clockwise only) ──
-  function hexShape(r) {
-    const s = new THREE.Shape();
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 3) * i - Math.PI / 6;
-      i === 0
-        ? s.moveTo(r * Math.cos(a), r * Math.sin(a))
-        : s.lineTo(r * Math.cos(a), r * Math.sin(a));
-    }
-    s.closePath();
-    return s;
-  }
-
-  const hs = hexShape(1.42);
-  hs.holes.push(hexShape(1.34)); // thinner ring (was 1.28)
-  const spinHex = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(hs, {
-      depth: 0.06,           // shallower (was 0.1)
-      bevelEnabled: true,
-      bevelThickness: 0.01,
-      bevelSize: 0.01,
-      bevelSegments: 6,
-    }),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x9fc8ff,       // lighter blue (was 0x88aaff)
-      metalness: 0.2,        // less heavy metal
-      roughness: 0.1,        // smoother
-      clearcoat: 1.0,
-      transparent: true,
-      opacity: 0.92,
-      emissive: 0x8ab4ff,    // brighter emissive (was 0x6699ff)
-      emissiveIntensity: 0.7, // much brighter glow (was 0.35)
-    }),
-  );
-  spinHex.position.z = -0.03;
-
-  const innerPanel = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(hexShape(1.24), {
-      depth: 0.04,
-      bevelEnabled: false,
-    }),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x0d0d14,
-      metalness: 0,
-      roughness: 1,
-      transparent: true,
-      opacity: 0.0,
-    }),
-  );
-  innerPanel.position.z = -0.04;
-
-  const hexGroup = new THREE.Group();
-  hexGroup.add(spinHex, innerPanel);
-  splashScene.add(hexGroup);
-
-  let splashT = 0,
-    splashAnimId;
-  function animateSplash() {
-    splashAnimId = requestAnimationFrame(animateSplash);
-    splashT += 0.012;
-    // Only hex spins clockwise in 2D
-    hexGroup.rotation.z = -splashT;
-    // Brain stays still — subtle float only
-    brain.position.y = Math.sin(splashT * 0.7) * 0.015;
-    pl1.intensity = 3 + Math.sin(splashT * 1.5) * 0.4;
-    splashRenderer.render(splashScene, splashCam);
-  }
-  animateSplash();
-
-  setTimeout(() => {
-    splash.style.opacity = "0";
-    setTimeout(() => {
-      splash.style.display = "none";
-      cancelAnimationFrame(splashAnimId);
-      splashRenderer.dispose();
-    }, 1000);
-  }, 3200);
-})();
+// Handled entirely in index.html via JS animation — no Three.js needed
 // ══════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════
@@ -370,25 +105,31 @@ function appendUserMessage(text) {
 
 // ── APPEND AI MESSAGE ──
 function appendAIMessage(text) {
+  const lockedMark = CX_MARK_SVG.replace('cx-chat-mark', 'cx-chat-mark done');
   const isLong = text.includes("```") && text.length > 800;
   if (isLong) {
     pushToCanvas(text);
     const div = document.createElement("div");
     div.className = "msg msg-ai";
-    div.innerHTML = `<span class="msg-label">Cortex</span>Pushed to <strong style="color:var(--teal)">Canvas →</strong>`;
+    div.innerHTML = `<div class="msg-ai-spinner">
+      ${lockedMark}
+      <span>Pushed to <strong style="color:var(--teal)">Canvas →</strong></span>
+    </div>`;
     chatArea.appendChild(div);
     const actions = makeActions(text);
     chatArea.appendChild(actions);
   } else {
     const div = document.createElement("div");
     div.className = "msg msg-ai";
-    div.innerHTML = `<span class="msg-label">Cortex</span>${formatMessage(text)}`;
+    div.innerHTML = `<div class="msg-ai-spinner">
+      ${lockedMark}
+      <div class="msg-ai-content">${formatMessage(text)}</div>
+    </div>`;
     chatArea.appendChild(div);
     const actions = makeActions(text);
     chatArea.appendChild(actions);
   }
   scrollChat();
-  // Read aloud if enabled
   if (
     document.getElementById("readAloudToggle") &&
     document.getElementById("readAloudToggle").checked
@@ -479,15 +220,38 @@ function escapeHtml(t) {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// ── TYPING INDICATOR ──
+// ── TYPING INDICATOR → Cortex Chat Spinner ──
+const CX_MARK_SVG = `<svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g class="cx-spin-orbit">
+    <circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/>
+    <circle cx="14"   cy="1.5"  r="1.6" fill="#AFA9EC"/>
+    <circle cx="26.5" cy="14"   r="1.6" fill="#AFA9EC"/>
+    <circle cx="14"   cy="26.5" r="1.6" fill="#AFA9EC"/>
+    <circle cx="1.5"  cy="14"   r="1.6" fill="#AFA9EC"/>
+  </g>
+  <g class="cx-breathe">
+    <circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/>
+    <line x1="14"   y1="9.8"  x2="14"   y2="7"    stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="18.2" y1="14"   x2="21"   y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="14"   y1="18.2" x2="14"   y2="21"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="9.8"  y1="14"   x2="7"    y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="14" cy="14" r="2.8" fill="#534AB7"/>
+  </g>
+</svg>`;
+
 function showTyping() {
   const div = document.createElement("div");
-  div.className = "typing";
-  div.innerHTML = "<span></span><span></span><span></span>";
+  div.className = "msg msg-ai";
+  div.id = "__cxThinking";
+  div.innerHTML = `<div class="msg-ai-spinner">
+    ${CX_MARK_SVG}
+    <div class="cx-thinking-dots"><span></span><span></span><span></span></div>
+  </div>`;
   chatArea.appendChild(div);
   scrollChat();
   return div;
 }
+
 function removeTyping(el) {
   if (el?.parentNode) el.parentNode.removeChild(el);
 }
