@@ -52,47 +52,19 @@
 
     <style>
       /* ── Chat thinking spinner ── */
-      .msg-ai-spinner {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 4px 0;
-      }
-      .cx-chat-mark {
-        width: 28px;
-        height: 28px;
-        flex-shrink: 0;
-        margin-top: 2px;
-      }
-      .cx-chat-mark .cx-spin-orbit {
-        transform-origin: 14px 14px;
-        animation: cxChatSpin 2s linear infinite;
-      }
-      .cx-chat-mark .cx-breathe {
-        transform-origin: 14px 14px;
-        animation: cxChatBreathe 1.8s ease-in-out infinite;
-      }
-      .cx-chat-mark .cx-pulse {
-        animation: cxChatPulse 1.8s ease-in-out infinite;
-      }
-      .cx-chat-mark.done .cx-spin-orbit { animation: none; }
-      .cx-chat-mark.done .cx-breathe    { animation: none; transform: scale(1); opacity: 1; }
-      .cx-chat-mark.done .cx-pulse      { animation: none; opacity: 1; }
-      .cx-thinking-dots {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 12px 4px;
-      }
-      .cx-thinking-dots span {
-        width: 5px; height: 5px;
-        border-radius: 50%;
-        background: var(--accent, #534AB7);
-        opacity: 0.4;
-        animation: cxDotBounce 1.2s ease-in-out infinite;
-      }
-      .cx-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
-      .cx-thinking-dots span:nth-child(3) { animation-delay: 0.30s; }
+      .msg-ai-spinner { display:flex; align-items:flex-start; gap:10px; }
+      .cx-chat-mark { width:28px; height:28px; flex-shrink:0; margin-top:2px; }
+      .cx-chat-mark .cx-spin-orbit { transform-origin:14px 14px; animation:cxChatSpin 2s linear infinite; }
+      .cx-chat-mark .cx-breathe    { transform-origin:14px 14px; animation:cxChatBreathe 1.8s ease-in-out infinite; }
+      .cx-chat-mark .cx-pulse      { animation:cxChatPulse 1.8s ease-in-out infinite; }
+      .cx-chat-mark.done .cx-spin-orbit { animation:none; }
+      .cx-chat-mark.done .cx-breathe    { animation:none; opacity:1; transform:scale(1); }
+      .cx-chat-mark.done .cx-pulse      { animation:none; opacity:1; }
+      .cx-thinking-dots { display:flex; align-items:center; gap:4px; padding:6px 0; }
+      .cx-thinking-dots span { width:5px; height:5px; border-radius:50%; background:var(--accent,#534AB7); opacity:0.4; animation:cxDotBounce 1.2s ease-in-out infinite; }
+      .cx-thinking-dots span:nth-child(2) { animation-delay:0.15s; }
+      .cx-thinking-dots span:nth-child(3) { animation-delay:0.30s; }
+      .msg-ai-content { flex:1; min-width:0; }
       @keyframes cxChatSpin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
       @keyframes cxChatBreathe { 0%,100%{opacity:0.5;transform:scale(0.85)} 50%{opacity:1;transform:scale(1)} }
       @keyframes cxChatPulse   { 0%,100%{opacity:0.6} 50%{opacity:1} }
@@ -100,22 +72,19 @@
     </style>
 
     <script>
-      /* ── Splash animation — JS-driven, pixel-perfect ── */
+      /* ── Splash animation — JS-driven, spins on own center ── */
       (function() {
-        /* easing functions — take raw 0→1, return eased 0→1 */
-        function eOut4(t)    { return 1 - Math.pow(1-t, 4); }
-        function eInOut(t)   { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
-        function eSpring(t)  { if(t===0) return 0; if(t===1) return 1; return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1; }
-        function eBack(t)    { const c=1.70158; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2); }
-        function eOut3(t)    { return 1 - Math.pow(1-t, 3); }
-
-        const lerp = (a,b,t) => a + (b-a) * t;
+        function eOut4(t)  { return 1 - Math.pow(1-t, 4); }
+        function eInOut(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+        function eSpring(t){ if(t===0)return 0; if(t===1)return 1; return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1; }
+        function eBack(t)  { const c=1.70158; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2); }
+        function eOut3(t)  { return 1 - Math.pow(1-t, 3); }
+        const lerp = (a,b,t) => a+(b-a)*t;
         const $    = id => document.getElementById(id);
         const op   = (el,v) => el.setAttribute('opacity', v);
         const tr   = (el,v) => el.setAttribute('transform', v);
         const dash = (el,v) => el.setAttribute('stroke-dashoffset', v);
 
-        /* animate(duration, easeFn, updateFn) → Promise */
         function go(dur, eFn, updateFn) {
           return new Promise(resolve => {
             const start = performance.now();
@@ -134,31 +103,31 @@
           await wait(200);
           const mark = $('splashMark');
 
-          /* 1 — orbit ring fades in while whole SVG spins 360° */
+          /* 1 — orbit ring fades in while SVG spins 360 on its own center */
           await go(1100, eOut4, t => {
             op($('cxOrbitRing'), Math.min(t * 3, 1));
             mark.style.transformOrigin = '50% 50%';
-            mark.style.transform = `rotate(${lerp(0, 360, t)}deg)`;
+            mark.style.transform = 'rotate(' + lerp(0, 360, t) + 'deg)';
           });
           mark.style.transform = 'rotate(0deg)';
 
-          /* 2 — orbit dots snap in one by one */
+          /* 2 — orbit dots snap in */
           for (const id of ['cxDotN','cxDotE','cxDotS','cxDotW']) {
             await wait(55);
             go(200, eBack, t => op($(id), Math.min(t, 1)));
           }
           await wait(80);
 
-          /* 3 — inner ring draws itself clockwise */
+          /* 3 — inner ring draws clockwise */
           op($('cxInnerRing'), 1);
           await go(620, eInOut, t => dash($('cxInnerRing'), lerp(150.8, 0, t)));
           await wait(40);
 
-          /* 4 — core dot springs in */
+          /* 4 — core springs in */
           op($('cxCore'), 1);
-          await go(420, eSpring, t => tr($('cxCore'), `scale(${t})`));
+          await go(420, eSpring, t => tr($('cxCore'), 'scale(' + t + ')'));
 
-          /* 5 — 4 arms shoot out staggered */
+          /* 5 — arms shoot out staggered */
           const AL = 8.5;
           ['cxArmN','cxArmE','cxArmS','cxArmW'].forEach(id => {
             $(id).setAttribute('stroke-dasharray', AL);
@@ -172,18 +141,17 @@
           ));
           await wait(120);
 
-          /* 6 — wordmark rises + fades in */
+          /* 6 — wordmark rises + fades */
           const wm = $('cxWordmark');
           go(500, eOut3, t => {
             wm.style.opacity = t;
-            wm.style.transform = `translateY(${lerp(12, 0, t)}px)`;
+            wm.style.transform = 'translateY(' + lerp(12, 0, t) + 'px)';
           });
           await wait(1800);
 
-          /* 7 — whole splash fades out */
-          const splash = $('splashScreen');
-          await go(600, eOut3, t => { splash.style.opacity = 1 - t; });
-          splash.style.display = 'none';
+          /* 7 — splash fades out */
+          await go(600, eOut3, t => { $('splashScreen').style.opacity = 1 - t; });
+          $('splashScreen').style.display = 'none';
         }
 
         if (document.readyState === 'loading') {
@@ -200,7 +168,7 @@
       <header class="topbar">
         <div class="topbar-left">
           <!-- Cortex V3 Double Ring Mark — topbar -->
-          <svg width="30" height="30" viewBox="-30 -30 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="topbar-logo-mark">
+          <svg width="28" height="28" viewBox="-30 -30 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="topbar-logo-mark" style="display:block;flex-shrink:0;">
             <circle cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.5"/>
             <circle cx="0"   cy="-26" r="3.2" fill="#AFA9EC"/>
             <circle cx="26"  cy="0"   r="3.2" fill="#AFA9EC"/>
@@ -258,21 +226,6 @@
                   <p class="dropdown-email" id="dropdownEmail"></p>
                 </div>
               </div>
-              <hr class="dropdown-divider" />
-              <button
-                class="dropdown-item"
-                id="vivaBtnMenu"
-                onclick="toggleViva()"
-              >
-                🎓 Viva Mode
-              </button>
-              <button
-                class="dropdown-item"
-                id="panicBtnMenu"
-                onclick="togglePanic()"
-              >
-                ⚡ Panic Mode
-              </button>
               <hr class="dropdown-divider" />
               <button class="dropdown-item" onclick="switchNav('settings')">
                 ⚙ Settings
@@ -414,62 +367,22 @@
                 <h3 class="card-heading">Quick Start</h3>
                 <div class="quick-btns">
                   <button class="quick-btn" onclick="switchNav('chat')">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path
-                        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                      />
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                     </svg>
                     Ask Cortex
                   </button>
-                  <button
-                    class="quick-btn"
-                    onclick="
-                      switchNav('chat');
-                      setTimeout(() => toggleViva(), 200);
-                    "
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                      <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                  <button class="quick-btn" onclick="newChat()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
-                    Viva Prep
+                    New Chat
                   </button>
-                  <button
-                    class="quick-btn accent"
-                    onclick="
-                      switchNav('chat');
-                      setTimeout(() => togglePanic(), 200);
-                    "
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <polygon
-                        points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
-                      />
+                  <button class="quick-btn" onclick="switchNav('history')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                     </svg>
-                    Panic Mode
+                    History
                   </button>
                 </div>
               </div>
@@ -547,13 +460,10 @@
               <!-- Chat messages -->
               <div class="chat-area" id="chatArea">
                 <div class="msg msg-ai">
-                  <div class="msg-ai-spinner">
-                    <svg class="cx-chat-mark done" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <g class="cx-spin-orbit"><circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/><circle cx="14" cy="1.5" r="1.6" fill="#AFA9EC"/><circle cx="26.5" cy="14" r="1.6" fill="#AFA9EC"/><circle cx="14" cy="26.5" r="1.6" fill="#AFA9EC"/><circle cx="1.5" cy="14" r="1.6" fill="#AFA9EC"/></g>
-                      <g class="cx-breathe"><circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/><line x1="14" y1="9.8" x2="14" y2="7" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="18.2" y1="14" x2="21" y2="14" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="14" y1="18.2" x2="14" y2="21" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="9.8" y1="14" x2="7" y2="14" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="14" r="2.8" fill="#534AB7"/></g>
-                    </svg>
-                    <span>Hey! I'm Cortex, your personal study intelligence. Ask me anything — concepts, code, theory, viva prep. What are we studying today?</span>
-                  </div>
+                  <span class="msg-label">Cortex</span>
+                  Hey! I'm Cortex, your personal study intelligence. Ask me
+                  anything — concepts, code, theory, viva prep. What are we
+                  studying today?
                 </div>
               </div>
               <!-- Input bar -->
@@ -989,62 +899,6 @@
         </div>
       </div>
     </div>
-
-    <script>
-      /* ── Cortex chat thinking spinner ── */
-      const CX_SPINNER_SVG = `
-        <svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <g class="cx-spin-orbit">
-            <circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/>
-            <circle cx="14"   cy="1.5"  r="1.6" fill="#AFA9EC"/>
-            <circle cx="26.5" cy="14"   r="1.6" fill="#AFA9EC"/>
-            <circle cx="14"   cy="26.5" r="1.6" fill="#AFA9EC"/>
-            <circle cx="1.5"  cy="14"   r="1.6" fill="#AFA9EC"/>
-          </g>
-          <g class="cx-breathe">
-            <circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/>
-            <line x1="14"   y1="9.8"  x2="14"   y2="7"    stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-            <line x1="18.2" y1="14"   x2="21"   y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-            <line x1="14"   y1="18.2" x2="14"   y2="21"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-            <line x1="9.8"  y1="14"   x2="7"    y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-            <circle cx="14" cy="14" r="2.8" fill="#534AB7"/>
-          </g>
-        </svg>`;
-
-      /* Call this right after the user sends a message */
-      window.showThinking = function() {
-        const chatArea = document.getElementById('chatArea');
-        const el = document.createElement('div');
-        el.className = 'msg msg-ai';
-        el.id = 'thinkingMsg';
-        el.innerHTML = `
-          <div class="msg-ai-spinner">
-            ${CX_SPINNER_SVG}
-            <div class="cx-thinking-dots">
-              <span></span><span></span><span></span>
-            </div>
-          </div>`;
-        chatArea.appendChild(el);
-        chatArea.scrollTop = chatArea.scrollHeight;
-      };
-
-      /* Call this when the response arrives — pass the rendered HTML */
-      window.hideThinking = function(responseHTML) {
-        const el = document.getElementById('thinkingMsg');
-        if (!el) return;
-        /* Lock the spinner */
-        const mark = el.querySelector('.cx-chat-mark');
-        if (mark) mark.classList.add('done');
-        /* Swap dots for the actual response */
-        el.innerHTML = `
-          <div class="msg-ai-spinner">
-            ${CX_SPINNER_SVG.replace('cx-chat-mark', 'cx-chat-mark done')}
-            <div class="msg-ai-content">${responseHTML}</div>
-          </div>`;
-        el.removeAttribute('id');
-        document.getElementById('chatArea').scrollTop = 99999;
-      };
-    </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/app.js"></script>
