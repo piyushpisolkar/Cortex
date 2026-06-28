@@ -30,354 +30,106 @@
   </head>
   <body>
     <!-- ══ SPLASH SCREEN ══ -->
-    <div
-      id="splashScreen"
-      style="
-        position: fixed;
-        inset: 0;
-        background: #0d0d14;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      "
-    >
-      <svg
-        id="splashMark"
-        width="88"
-        height="88"
-        viewBox="-44 -44 88 88"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle
-          id="cxOrbitRing"
-          cx="0"
-          cy="0"
-          r="38"
-          fill="none"
-          stroke="#AFA9EC"
-          stroke-width="1.2"
-          opacity="0"
-        />
-        <circle
-          id="cxDotN"
-          cx="0"
-          cy="-38"
-          r="3.8"
-          fill="#AFA9EC"
-          opacity="0"
-        />
-        <circle id="cxDotE" cx="38" cy="0" r="3.8" fill="#AFA9EC" opacity="0" />
-        <circle id="cxDotS" cx="0" cy="38" r="3.8" fill="#AFA9EC" opacity="0" />
-        <circle
-          id="cxDotW"
-          cx="-38"
-          cy="0"
-          r="3.8"
-          fill="#AFA9EC"
-          opacity="0"
-        />
-        <circle
-          id="cxInnerRing"
-          cx="0"
-          cy="0"
-          r="24"
-          fill="none"
-          stroke="#534AB7"
-          stroke-width="7.5"
-          stroke-dasharray="150.8"
-          stroke-dashoffset="150.8"
-          stroke-linecap="round"
-          opacity="0"
-        />
-        <line
-          id="cxArmN"
-          x1="0"
-          y1="-10"
-          x2="0"
-          y2="-18.5"
-          stroke="#534AB7"
-          stroke-width="5.5"
-          stroke-linecap="round"
-          opacity="0"
-        />
-        <line
-          id="cxArmE"
-          x1="10"
-          y1="0"
-          x2="18.5"
-          y2="0"
-          stroke="#534AB7"
-          stroke-width="5.5"
-          stroke-linecap="round"
-          opacity="0"
-        />
-        <line
-          id="cxArmS"
-          x1="0"
-          y1="10"
-          x2="0"
-          y2="18.5"
-          stroke="#534AB7"
-          stroke-width="5.5"
-          stroke-linecap="round"
-          opacity="0"
-        />
-        <line
-          id="cxArmW"
-          x1="-10"
-          y1="0"
-          x2="-18.5"
-          y2="0"
-          stroke="#534AB7"
-          stroke-width="5.5"
-          stroke-linecap="round"
-          opacity="0"
-        />
-        <circle
-          id="cxCore"
-          cx="0"
-          cy="0"
-          r="8"
-          fill="#534AB7"
-          opacity="0"
-          transform="scale(0)"
-        />
+    <div id="splashScreen" style="position:fixed;inset:0;background:#0d0d14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <svg id="splashMark" width="88" height="88" viewBox="-44 -44 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle id="cxOrbitRing" cx="0" cy="0" r="38" fill="none" stroke="#AFA9EC" stroke-width="1.2" opacity="0"/>
+        <circle id="cxDotN" cx="0"   cy="-38" r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxDotE" cx="38"  cy="0"   r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxDotS" cx="0"   cy="38"  r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxDotW" cx="-38" cy="0"   r="3.8" fill="#AFA9EC" opacity="0"/>
+        <circle id="cxInnerRing" cx="0" cy="0" r="24" fill="none" stroke="#534AB7" stroke-width="7.5" stroke-dasharray="150.8" stroke-dashoffset="150.8" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmN" x1="0"    y1="-10"  x2="0"    y2="-18.5" stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmE" x1="10"   y1="0"    x2="18.5" y2="0"     stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmS" x1="0"    y1="10"   x2="0"    y2="18.5"  stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <line id="cxArmW" x1="-10"  y1="0"    x2="-18.5" y2="0"    stroke="#534AB7" stroke-width="5.5" stroke-linecap="round" opacity="0"/>
+        <circle id="cxCore" cx="0" cy="0" r="8" fill="#534AB7" opacity="0" transform="scale(0)"/>
       </svg>
-      <div
-        id="cxWordmark"
-        style="
-          opacity: 0;
-          transform: translateY(12px);
-          text-align: center;
-          margin-top: 22px;
-        "
-      >
-        <p
-          style="
-            font-family: &quot;Inter&quot;, system-ui, sans-serif;
-            font-size: 28px;
-            font-weight: 400;
-            letter-spacing: -0.02em;
-            color: #e8e8f0;
-            text-shadow:
-              0 0 32px rgba(175, 169, 236, 0.45),
-              0 0 64px rgba(83, 74, 183, 0.25);
-          "
-        >
-          Cortex
-        </p>
-        <p
-          style="
-            font-size: 10px;
-            letter-spacing: 0.18em;
-            color: rgba(175, 169, 236, 0.75);
-            text-transform: uppercase;
-            margin-top: 6px;
-            text-shadow:
-              0 0 20px rgba(175, 169, 236, 0.5),
-              0 0 40px rgba(83, 74, 183, 0.3);
-          "
-        >
-          AI Study Intelligence
-        </p>
+      <div id="cxWordmark" style="opacity:0;transform:translateY(12px);text-align:center;margin-top:22px;">
+        <p style="font-family:'Inter',system-ui,sans-serif;font-size:28px;font-weight:400;letter-spacing:-0.02em;color:#e8e8f0;text-shadow:0 0 32px rgba(175,169,236,0.45),0 0 64px rgba(83,74,183,0.25);">Cortex</p>
+        <p style="font-size:10px;letter-spacing:0.18em;color:rgba(175,169,236,0.75);text-transform:uppercase;margin-top:6px;text-shadow:0 0 20px rgba(175,169,236,0.5),0 0 40px rgba(83,74,183,0.3);">AI Study Intelligence</p>
       </div>
     </div>
 
     <style>
       /* ── Chat thinking spinner ── */
-      .msg-ai-spinner {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-      }
-      .cx-chat-mark {
-        width: 28px;
-        height: 28px;
-        flex-shrink: 0;
-        margin-top: 2px;
-      }
-      .cx-chat-mark .cx-spin-orbit {
-        transform-origin: 14px 14px;
-        animation: cxChatSpin 2s linear infinite;
-      }
-      .cx-chat-mark .cx-breathe {
-        transform-origin: 14px 14px;
-        animation: cxChatBreathe 1.8s ease-in-out infinite;
-      }
-      .cx-chat-mark .cx-pulse {
-        animation: cxChatPulse 1.8s ease-in-out infinite;
-      }
-      .cx-chat-mark.done .cx-spin-orbit {
-        animation: none;
-      }
-      .cx-chat-mark.done .cx-breathe {
-        animation: none;
-        opacity: 1;
-        transform: scale(1);
-      }
-      .cx-chat-mark.done .cx-pulse {
-        animation: none;
-        opacity: 1;
-      }
-      .cx-thinking-dots {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 0;
-      }
-      .cx-thinking-dots span {
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--accent, #534ab7);
-        opacity: 0.4;
-        animation: cxDotBounce 1.2s ease-in-out infinite;
-      }
-      .cx-thinking-dots span:nth-child(2) {
-        animation-delay: 0.15s;
-      }
-      .cx-thinking-dots span:nth-child(3) {
-        animation-delay: 0.3s;
-      }
-      .msg-ai-content {
-        flex: 1;
-        min-width: 0;
-      }
-      @keyframes cxChatSpin {
-        from {
-          transform: rotate(0deg);
-        }
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      @keyframes cxChatBreathe {
-        0%,
-        100% {
-          opacity: 0.5;
-          transform: scale(0.85);
-        }
-        50% {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-      @keyframes cxChatPulse {
-        0%,
-        100% {
-          opacity: 0.6;
-        }
-        50% {
-          opacity: 1;
-        }
-      }
-      @keyframes cxDotBounce {
-        0%,
-        60%,
-        100% {
-          transform: translateY(0);
-          opacity: 0.4;
-        }
-        30% {
-          transform: translateY(-5px);
-          opacity: 1;
-        }
-      }
+      .msg-ai-spinner { display:flex; align-items:flex-start; gap:10px; }
+      .cx-chat-mark { width:28px; height:28px; flex-shrink:0; margin-top:2px; }
+      .cx-chat-mark .cx-spin-orbit { transform-origin:14px 14px; animation:cxChatSpin 2s linear infinite; }
+      .cx-chat-mark .cx-breathe    { transform-origin:14px 14px; animation:cxChatBreathe 1.8s ease-in-out infinite; }
+      .cx-chat-mark .cx-pulse      { animation:cxChatPulse 1.8s ease-in-out infinite; }
+      .cx-chat-mark.done .cx-spin-orbit { animation:none; }
+      .cx-chat-mark.done .cx-breathe    { animation:none; opacity:1; transform:scale(1); }
+      .cx-chat-mark.done .cx-pulse      { animation:none; opacity:1; }
+      .cx-thinking-dots { display:flex; align-items:center; gap:4px; padding:6px 0; }
+      .cx-thinking-dots span { width:5px; height:5px; border-radius:50%; background:var(--accent,#534AB7); opacity:0.4; animation:cxDotBounce 1.2s ease-in-out infinite; }
+      .cx-thinking-dots span:nth-child(2) { animation-delay:0.15s; }
+      .cx-thinking-dots span:nth-child(3) { animation-delay:0.30s; }
+      .msg-ai-content { flex:1; min-width:0; }
+      @keyframes cxChatSpin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      @keyframes cxChatBreathe { 0%,100%{opacity:0.5;transform:scale(0.85)} 50%{opacity:1;transform:scale(1)} }
+      @keyframes cxChatPulse   { 0%,100%{opacity:0.6} 50%{opacity:1} }
+      @keyframes cxDotBounce   { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-5px);opacity:1} }
     </style>
 
     <script>
-      (function () {
-        function eOut4(t) {
-          return 1 - Math.pow(1 - t, 4);
-        }
-        function eInOut(t) {
-          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        }
-        function eSpring(t) {
-          if (t === 0) return 0;
-          if (t === 1) return 1;
-          return (
-            Math.pow(2, -10 * t) *
-              Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)) +
-            1
-          );
-        }
-        function eBack(t) {
-          const c = 1.70158;
-          return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
-        }
-        function eOut3(t) {
-          return 1 - Math.pow(1 - t, 3);
-        }
-        const lerp = (a, b, t) => a + (b - a) * t;
-        const $ = (id) => document.getElementById(id);
-        const op = (el, v) => el.setAttribute("opacity", v);
-        const tr = (el, v) => el.setAttribute("transform", v);
-        const dash = (el, v) => el.setAttribute("stroke-dashoffset", v);
+      (function() {
+        function eOut4(t)  { return 1 - Math.pow(1-t, 4); }
+        function eInOut(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+        function eSpring(t){ if(t===0)return 0; if(t===1)return 1; return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1; }
+        function eBack(t)  { const c=1.70158; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2); }
+        function eOut3(t)  { return 1 - Math.pow(1-t, 3); }
+        const lerp = (a,b,t) => a+(b-a)*t;
+        const $ = id => document.getElementById(id);
+        const op   = (el,v) => el.setAttribute('opacity', v);
+        const tr   = (el,v) => el.setAttribute('transform', v);
+        const dash = (el,v) => el.setAttribute('stroke-dashoffset', v);
         function go(dur, eFn, updateFn) {
-          return new Promise((resolve) => {
+          return new Promise(resolve => {
             const start = performance.now();
             function tick(now) {
               const raw = Math.min((now - start) / dur, 1);
               updateFn(eFn(raw));
-              if (raw < 1) requestAnimationFrame(tick);
-              else resolve();
+              if (raw < 1) requestAnimationFrame(tick); else resolve();
             }
             requestAnimationFrame(tick);
           });
         }
-        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        const wait = ms => new Promise(r => setTimeout(r, ms));
         async function runSplash() {
           await wait(200);
-          const mark = $("splashMark");
-          await go(1100, eOut4, (t) => {
-            op($("cxOrbitRing"), Math.min(t * 3, 1));
-            mark.style.transformOrigin = "50% 50%";
-            mark.style.transform = "rotate(" + lerp(0, 360, t) + "deg)";
+          const mark = $('splashMark');
+          await go(1100, eOut4, t => {
+            op($('cxOrbitRing'), Math.min(t * 3, 1));
+            mark.style.transformOrigin = '50% 50%';
+            mark.style.transform = 'rotate(' + lerp(0,360,t) + 'deg)';
           });
-          mark.style.transform = "rotate(0deg)";
-          for (const id of ["cxDotN", "cxDotE", "cxDotS", "cxDotW"]) {
+          mark.style.transform = 'rotate(0deg)';
+          for (const id of ['cxDotN','cxDotE','cxDotS','cxDotW']) {
             await wait(55);
-            go(200, eBack, (t) => op($(id), Math.min(t, 1)));
+            go(200, eBack, t => op($(id), Math.min(t, 1)));
           }
           await wait(80);
-          op($("cxInnerRing"), 1);
-          await go(620, eInOut, (t) =>
-            dash($("cxInnerRing"), lerp(150.8, 0, t)),
-          );
+          op($('cxInnerRing'), 1);
+          await go(620, eInOut, t => dash($('cxInnerRing'), lerp(150.8, 0, t)));
           await wait(40);
-          op($("cxCore"), 1);
-          await go(420, eSpring, (t) => tr($("cxCore"), "scale(" + t + ")"));
+          op($('cxCore'), 1);
+          await go(420, eSpring, t => tr($('cxCore'), 'scale(' + t + ')'));
           const AL = 8.5;
-          ["cxArmN", "cxArmE", "cxArmS", "cxArmW"].forEach((id) => {
-            $(id).setAttribute("stroke-dasharray", AL);
-            $(id).setAttribute("stroke-dashoffset", AL);
+          ['cxArmN','cxArmE','cxArmS','cxArmW'].forEach(id => {
+            $(id).setAttribute('stroke-dasharray', AL);
+            $(id).setAttribute('stroke-dashoffset', AL);
           });
-          await Promise.all(
-            ["cxArmN", "cxArmE", "cxArmS", "cxArmW"].map((id, i) =>
-              wait(i * 45).then(() => {
-                op($(id), 1);
-                return go(220, eOut3, (t) => dash($(id), lerp(AL, 0, t)));
-              }),
-            ),
-          );
+          await Promise.all(['cxArmN','cxArmE','cxArmS','cxArmW'].map((id, i) =>
+            wait(i * 45).then(() => { op($(id), 1); return go(220, eOut3, t => dash($(id), lerp(AL, 0, t))); })
+          ));
           await wait(120);
-          const wm = $("cxWordmark");
-          go(500, eOut3, (t) => {
-            wm.style.opacity = t;
-            wm.style.transform = "translateY(" + lerp(12, 0, t) + "px)";
-          });
+          const wm = $('cxWordmark');
+          go(500, eOut3, t => { wm.style.opacity = t; wm.style.transform = 'translateY(' + lerp(12,0,t) + 'px)'; });
           await wait(1800);
-          await go(600, eOut3, (t) => {
-            $("splashScreen").style.opacity = 1 - t;
-          });
-          $("splashScreen").style.display = "none";
+          await go(600, eOut3, t => { $('splashScreen').style.opacity = 1 - t; });
+          $('splashScreen').style.display = 'none';
         }
-        if (document.readyState === "loading")
-          document.addEventListener("DOMContentLoaded", runSplash);
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runSplash);
         else runSplash();
       })();
     </script>
@@ -388,57 +140,18 @@
       <header class="topbar">
         <div class="topbar-left">
           <!-- Cortex V3 Double Ring Mark — topbar -->
-          <svg
-            width="30"
-            height="30"
-            viewBox="-30 -30 60 60"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            class="topbar-logo-mark"
-          >
-            <circle cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.5" />
-            <circle cx="0" cy="-26" r="3.2" fill="#AFA9EC" />
-            <circle cx="26" cy="0" r="3.2" fill="#AFA9EC" />
-            <circle cx="0" cy="26" r="3.2" fill="#AFA9EC" />
-            <circle cx="-26" cy="0" r="3.2" fill="#AFA9EC" />
-            <circle cx="0" cy="0" r="16" stroke="#534AB7" stroke-width="5.5" />
-            <line
-              x1="0"
-              y1="-6.5"
-              x2="0"
-              y2="-12.5"
-              stroke="#534AB7"
-              stroke-width="4"
-              stroke-linecap="round"
-            />
-            <line
-              x1="6.5"
-              y1="0"
-              x2="12.5"
-              y2="0"
-              stroke="#534AB7"
-              stroke-width="4"
-              stroke-linecap="round"
-            />
-            <line
-              x1="0"
-              y1="6.5"
-              x2="0"
-              y2="12.5"
-              stroke="#534AB7"
-              stroke-width="4"
-              stroke-linecap="round"
-            />
-            <line
-              x1="-6.5"
-              y1="0"
-              x2="-12.5"
-              y2="0"
-              stroke="#534AB7"
-              stroke-width="4"
-              stroke-linecap="round"
-            />
-            <circle cx="0" cy="0" r="5.5" fill="#534AB7" />
+          <svg width="26" height="26" viewBox="-30 -30 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0;width:26px;height:26px;">
+            <circle cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.5"/>
+            <circle cx="0"   cy="-26" r="3.2" fill="#AFA9EC"/>
+            <circle cx="26"  cy="0"   r="3.2" fill="#AFA9EC"/>
+            <circle cx="0"   cy="26"  r="3.2" fill="#AFA9EC"/>
+            <circle cx="-26" cy="0"   r="3.2" fill="#AFA9EC"/>
+            <circle cx="0" cy="0" r="16" stroke="#534AB7" stroke-width="5.5"/>
+            <line x1="0"    y1="-6.5" x2="0"    y2="-12.5" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+            <line x1="6.5"  y1="0"    x2="12.5" y2="0"     stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+            <line x1="0"    y1="6.5"  x2="0"    y2="12.5"  stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+            <line x1="-6.5" y1="0"    x2="-12.5" y2="0"    stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="0" cy="0" r="5.5" fill="#534AB7"/>
           </svg>
           <span class="logo-text">Cortex</span>
         </div>
@@ -641,62 +354,22 @@
                 <h3 class="card-heading">Quick Start</h3>
                 <div class="quick-btns">
                   <button class="quick-btn" onclick="switchNav('chat')">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path
-                        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                      />
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                     </svg>
                     Ask Cortex
                   </button>
-                  <button
-                    class="quick-btn"
-                    onclick="
-                      switchNav('chat');
-                      setTimeout(() => toggleViva(), 200);
-                    "
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                      <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                  <button class="quick-btn" onclick="newChat()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
-                    Viva Prep
+                    New Chat
                   </button>
-                  <button
-                    class="quick-btn accent"
-                    onclick="
-                      switchNav('chat');
-                      setTimeout(() => togglePanic(), 200);
-                    "
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <polygon
-                        points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
-                      />
+                  <button class="quick-btn" onclick="switchNav('history')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                     </svg>
-                    Panic Mode
+                    History
                   </button>
                 </div>
               </div>

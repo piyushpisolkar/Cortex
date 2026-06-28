@@ -12,7 +12,7 @@ const multer = require("multer");
 const fs = require("fs");
 
 const isProduction =
-  process.env.NODE_ENV === "production" || !!process.env.RENDER;
+  process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
 
 // ── FILE UPLOAD CONFIG ──
 const upload = multer({
@@ -46,6 +46,18 @@ const ChatSessionSchema = new mongoose.Schema({
 const ChatSession =
   mongoose.models.ChatSession ||
   mongoose.model("ChatSession", ChatSessionSchema);
+
+// ── PLANNER SCHEMA ──
+const PlannerSessionSchema = new mongoose.Schema({
+  userId:   String,
+  subject:  String,
+  date:     String,
+  duration: String,
+  createdAt: { type: Date, default: Date.now },
+});
+const PlannerSession =
+  mongoose.models.PlannerSession ||
+  mongoose.model("PlannerSession", PlannerSessionSchema);
 
 // ── MIDDLEWARE ──
 app.use(express.json());
@@ -183,68 +195,69 @@ app.get("/sw-kill", (req, res) => {
   </body></html>`);
 });
 
-// ── PWA ICON ROUTES ──
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="115" fill="#534AB7"/>
-  <g transform="translate(256,256) scale(8.8)">
-    <circle cx="0" cy="0" r="26" stroke="rgba(255,255,255,0.28)" stroke-width="1.2" fill="none"/>
-    <circle cx="0"   cy="-26" r="3"   fill="rgba(255,255,255,0.5)"/>
-    <circle cx="26"  cy="0"   r="3"   fill="rgba(255,255,255,0.5)"/>
-    <circle cx="0"   cy="26"  r="3"   fill="rgba(255,255,255,0.5)"/>
-    <circle cx="-26" cy="0"   r="3"   fill="rgba(255,255,255,0.5)"/>
-    <circle cx="0" cy="0" r="16" stroke="white" stroke-width="5.5" fill="none"/>
-    <line x1="0"    y1="-6.5" x2="0"    y2="-12.5" stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <line x1="6.5"  y1="0"    x2="12.5" y2="0"     stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <line x1="0"    y1="6.5"  x2="0"    y2="12.5"  stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <line x1="-6.5" y1="0"    x2="-12.5" y2="0"    stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <circle cx="0" cy="0" r="5.5" fill="white"/>
-  </g>
-</svg>`;
-
-const ICONS_DIR = path.join(__dirname, "public", "icons");
-const ICON_192  = path.join(ICONS_DIR, "cortex-icon-192.png");
-const ICON_512  = path.join(ICONS_DIR, "cortex-icon-512.png");
-
-async function generateIcons() {
-  try {
-    if (!fs.existsSync(ICONS_DIR)) fs.mkdirSync(ICONS_DIR, { recursive: true });
-    if (fs.existsSync(ICON_192) && fs.existsSync(ICON_512)) {
-      console.log("✓ PWA icons already exist");
-      return;
-    }
-    let sharp;
-    try { sharp = require("sharp"); } catch {
-      console.warn("⚠ sharp not installed — run: npm install sharp");
-      return;
-    }
-    const svgBuf = Buffer.from(LOGO_SVG);
-    await Promise.all([
-      sharp(svgBuf).resize(192, 192).png().toFile(ICON_192),
-      sharp(svgBuf).resize(512, 512).png().toFile(ICON_512),
-    ]);
-    console.log("✓ PWA icons generated");
-  } catch (err) {
-    console.error("✗ Icon generation failed:", err.message);
-  }
-}
-generateIcons();
-
-app.get("/icons/cortex-logo.svg", (req, res) => {
-  res.setHeader("Content-Type", "image/svg+xml");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.send(LOGO_SVG);
+app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public/icons/cortex-logo.svg"));
 });
 
-app.get(["/icons/cortex-icon-192.png", "/icons/icon-192.png"], (req, res) => {
-  if (fs.existsSync(ICON_192)) return res.sendFile(ICON_192);
+// ── ICONS ──
+app.get("/icons/icon-192.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(LOGO_SVG);
+  res.send(`<svg width="192" height="192" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" style="stop-color:#1a1a2e"/>
+        <stop offset="100%" style="stop-color:#0d0d14"/>
+      </radialGradient>
+      <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#6699ff"/>
+        <stop offset="100%" style="stop-color:#4433aa"/>
+      </linearGradient>
+      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
+        <stop offset="0%" style="stop-color:#88aaff"/>
+        <stop offset="100%" style="stop-color:#5544cc"/>
+      </linearGradient>
+    </defs>
+    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
+    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
+    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+  </svg>`);
 });
 
-app.get(["/icons/cortex-icon-512.png", "/icons/icon-512.png"], (req, res) => {
-  if (fs.existsSync(ICON_512)) return res.sendFile(ICON_512);
+app.get("/icons/icon-512.png", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(LOGO_SVG);
+  res.send(`<svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" style="stop-color:#1a1a2e"/>
+        <stop offset="100%" style="stop-color:#0d0d14"/>
+      </radialGradient>
+      <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#6699ff"/>
+        <stop offset="100%" style="stop-color:#4433aa"/>
+      </linearGradient>
+      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
+        <stop offset="0%" style="stop-color:#88aaff"/>
+        <stop offset="100%" style="stop-color:#5544cc"/>
+      </linearGradient>
+    </defs>
+    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
+    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
+    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
+  </svg>`);
 });
 // ── AUTH ROUTES ──
 app.get("/auth/google", (req, res, next) => {
@@ -308,35 +321,18 @@ app.get("/api/history/:id", isLoggedIn, async (req, res) => {
 
 app.post("/api/history/save", isLoggedIn, async (req, res) => {
   try {
-    const { messages, title, id } = req.body;
+    const { messages, title } = req.body;
     if (!messages || messages.length < 2) return res.json({ ok: false });
-
-    // Strip _id and MongoDB fields — only keep {role, content}
-    const cleanMessages = messages
-      .filter(m => m && m.role && m.content)
-      .map(({ role, content }) => ({ role, content }));
-
     const autoTitle =
-      cleanMessages.find(m => m.role === "user")?.content?.slice(0, 60) || "Chat session";
-
-    if (id) {
-      // Update existing session instead of creating duplicate
-      await ChatSession.findOneAndUpdate(
-        { _id: id, userId: req.user.id },
-        { messages: cleanMessages, title: title || autoTitle, updatedAt: new Date() },
-        { new: true }
-      );
-      return res.json({ ok: true, id });
-    } else {
-      const session = await ChatSession.create({
-        userId: req.user.id,
-        title: title || autoTitle,
-        messages: cleanMessages,
-      });
-      return res.json({ ok: true, id: session._id });
-    }
+      messages.find((m) => m.role === "user")?.content?.slice(0, 60) ||
+      "Chat session";
+    const session = await ChatSession.create({
+      userId: req.user.id,
+      title: title || autoTitle,
+      messages,
+    });
+    res.json({ ok: true, id: session._id });
   } catch (e) {
-    console.error("History save error:", e.message);
     res.json({ ok: false });
   }
 });
@@ -362,167 +358,116 @@ app.get("/api/user", isLoggedIn, (req, res) => {
 });
 
 // ── SYSTEM PROMPTS ──
-const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built exclusively for MSBTE (Maharashtra State Board of Technical Education) diploma engineering students in India.
-
-You have deep knowledge of the MSBTE diploma engineering curriculum including:
-- All 6 semesters across branches: Computer Engineering, Mechanical, Civil, Electrical, Electronics & Telecommunication
-- Current MSBTE syllabus: K-Scheme (latest, currently running) — always refer to K-Scheme topics and structure
-- K-Scheme features: competency-based curriculum, Course Outcomes (COs), theory + practical integrated, micro projects, online exam component
-- Common subjects: Applied Mathematics, Applied Science, Engineering Drawing, Communication Skills, Professional Practices
-- Branch-specific subjects for Computer Engineering K-Scheme:
-  Sem 1-2: Applied Mathematics, Applied Science, Engineering Drawing, Communication Skills
-  Sem 3: Data Structures using C, Digital Techniques, Computer Organization, Web Design, OOP using C++
-  Sem 4: Database Management System, Operating System, Java Programming, Computer Networks, Python Programming
-  Sem 5: Software Engineering, Microprocessor & Interfacing, Advanced Java, Linux Administration, Project
-  Sem 6: Cloud Computing, Cyber Security, Mobile App Development, AI & ML Basics, Major Project
-- MSBTE K-Scheme exam pattern: End semester theory (70 marks), Internal assessment (30 marks), Practical exams, Micro projects
-- Important questions, PYQs patterns, and commonly asked topics in MSBTE K-Scheme papers
-
-Your personality: sharp, clear, and intelligent — like a brilliant senior student helping a junior crack their MSBTE exams.
-
+const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built specifically for engineering students.
+Your personality: sharp, clear, and intelligent — like a friendly brilliant senior student helping a junior.
 Rules:
-- Always refer to K-Scheme when mentioning syllabus, topics, or exam structure
-- Always relate answers to the MSBTE K-Scheme syllabus and exam perspective when relevant
-- When a student asks about a topic, mention which unit/chapter it falls under if you know it
-- For definitions, give the exact textbook-style definition first, then a simple explanation
-- Keep responses focused — max 3-4 sentences for simple questions
+- Keep responses SHORT, simple to understand and focused — max 3-4 sentences for simple questions
 - Only give long responses when the question genuinely requires detail
-- For code, always use proper code blocks
-- For concepts, give a 2-3 line explanation first, then bullet points if needed
-- Mention "important for MSBTE K-Scheme exam" when a topic is frequently asked
-- Never say you cannot access the internet — just answer from your training knowledge
-- If asked to "fetch syllabus", explain the K-Scheme syllabus from your knowledge instead`;
+- For code requests, always use proper code blocks with backticks
+- For concepts, give a clear 2-3 line explanation in simple words first, then bullet points only if needed
+- Never add unnecessary padding or filler sentences`;
 
-const PANIC_PROMPT = `You are Cortex in PANIC MODE — built for MSBTE K-Scheme diploma students with exams in hours.
+const PANIC_PROMPT = `You are Cortex in PANIC MODE. The student has an exam in 2 hours.
 Rules:
-- Bullet points ONLY — no paragraphs
-- Only the most important points, definitions, and formulas
-- Focus on what's most frequently asked in MSBTE K-Scheme exams
-- Include key terms the examiner expects to see
-- Start every response with "⚡ PANIC MODE:"
-- Max 8-10 bullets per response`;
+- Be extremely concise — bullet points only
+- Give only the most important points
+- No long explanations — just facts, formulas, and key terms
+- Start every response with "⚡ PANIC MODE:"`;
 
-const VIVA_PROMPT = `You are a strict MSBTE K-Scheme engineering professor conducting an oral viva exam.
+const VIVA_PROMPT = `You are a strict engineering professor conducting a viva exam.
 Rules:
-- Ask ONE question at a time — never multiple
-- Wait for the student's answer before asking the next
-- After each answer: give brief feedback (Correct / Partially correct / Incorrect) in one line, then ask the next question
-- Questions should go from basic definitions → applications → tricky conceptual questions
-- Ask questions that are commonly asked in MSBTE K-Scheme viva exams
-- Start by asking: "Ready for your viva? Tell me the subject you want to be examined on."
-- Be strict but fair — exactly like a real MSBTE K-Scheme examiner`;
+- Ask ONE question at a time — never multiple questions
+- Wait for the student's answer before asking the next question
+- After each answer, give brief feedback (correct/incorrect/partial)
+- Then immediately ask the next question
+- Questions should go from easy to hard
+- Start by asking: "Ready for your viva? Tell me the topic you want to be examined on."
+- Keep feedback short and sharp — max 2 sentences`;
 
 // ── CHAT API ──
 app.post("/api/chat", isLoggedIn, async (req, res) => {
   const { message, history, mode } = req.body;
-
-  if (!message || typeof message !== "string" || !message.trim()) {
-    return res.status(400).json({ error: "Message is required." });
-  }
-
   try {
     const systemPrompt =
-      mode === "panic" ? PANIC_PROMPT :
-      mode === "viva"  ? VIVA_PROMPT  : SYSTEM_PROMPT;
-
-    // ── CRITICAL: strip _id and any MongoDB fields — Groq only accepts {role, content} ──
-    const cleanHistory = Array.isArray(history)
-      ? history
-          .filter(m => m && typeof m.role === "string" && typeof m.content === "string")
-          .map(({ role, content }) => ({ role, content }))
-          .slice(-20) // keep last 20 messages max to avoid token overflow
-      : [];
+      mode === "panic"
+        ? PANIC_PROMPT
+        : mode === "viva"
+          ? VIVA_PROMPT
+          : SYSTEM_PROMPT;
 
     const messages = [
       { role: "system", content: systemPrompt },
-      ...cleanHistory,
-      { role: "user", content: message.trim() },
+      ...history,
+      { role: "user", content: message },
     ];
 
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages,
-      max_tokens: 1500,
-      temperature: 0.7,
+      max_tokens: 1024,
     });
 
-    const reply = response.choices?.[0]?.message?.content;
-    if (!reply) throw new Error("Empty response from Groq");
-
-    res.json({ reply });
+    res.json({ reply: response.choices[0].message.content });
   } catch (error) {
-    console.error("Groq chat error:", error?.message || error);
-    const msg = error?.message?.includes("_id")
-      ? "Session data error — please start a new chat."
-      : error?.message?.includes("rate_limit")
-      ? "Cortex is busy right now. Try again in a moment."
-      : error?.message?.includes("context_length")
-      ? "This conversation is too long. Please start a new chat."
-      : "Cortex couldn't respond. Please try again.";
-    res.status(500).json({ error: msg });
+    console.error("Groq error:", error);
+    res.status(500).json({ error: "Something went wrong." });
   }
 });
 
 // ── FLASHCARD API ──
 app.post("/api/flashcard", isLoggedIn, async (req, res) => {
   const { text } = req.body;
-  if (!text || text.trim().length < 20)
-    return res.status(400).json({ error: "Not enough content to make flashcards." });
-
   try {
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",
-          content: `Convert the given text into exactly 3 flashcards for MSBTE engineering exam preparation.
-Respond ONLY with a valid JSON array, no markdown, no explanation, nothing else:
-[{"q":"question","a":"answer"},{"q":"question","a":"answer"},{"q":"question","a":"answer"}]`,
+          content: `Convert the given text into exactly 3 flashcards.
+          Respond ONLY in this JSON format, nothing else:
+          [
+            {"q": "question here", "a": "answer here"},
+            {"q": "question here", "a": "answer here"},
+            {"q": "question here", "a": "answer here"}
+          ]`,
         },
-        { role: "user", content: text.slice(0, 3000) },
+        { role: "user", content: text },
       ],
-      max_tokens: 600,
-      temperature: 0.3,
+      max_tokens: 512,
     });
 
-    const raw = response.choices[0].message.content.trim();
+    const raw = response.choices[0].message.content;
     const clean = raw.replace(/```json|```/g, "").trim();
-    const start = clean.indexOf("[");
-    const end = clean.lastIndexOf("]");
-    if (start === -1 || end === -1) throw new Error("Invalid JSON response");
-    const flashcards = JSON.parse(clean.slice(start, end + 1));
+    const flashcards = JSON.parse(clean);
     res.json({ flashcards });
   } catch (error) {
-    console.error("Flashcard error:", error.message);
-    res.status(500).json({ error: "Could not generate flashcards. Try again." });
+    console.error("Flashcard error:", error);
+    res.status(500).json({ error: "Could not generate flashcards." });
   }
 });
 
 // ── SUMMARIZE API ──
 app.post("/api/summarize", isLoggedIn, async (req, res) => {
   const { text, type } = req.body;
-  if (!text || text.trim().length < 10)
-    return res.status(400).json({ error: "No content to summarize." });
-
   try {
-    const instruction = type === "shorter"
-      ? "Summarize this in 3-4 concise bullet points for an MSBTE engineering student. Keep only the most exam-relevant points."
-      : "Expand this into a detailed technical explanation with examples. Structure it clearly with headings and bullet points for an MSBTE engineering student.";
+    const instruction =
+      type === "shorter"
+        ? "Summarize this in 3-4 bullet points. Be very concise."
+        : "Expand this into a detailed technical explanation with examples.";
 
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: instruction },
-        { role: "user", content: text.slice(0, 3000) },
+        { role: "user", content: text },
       ],
       max_tokens: 1024,
-      temperature: 0.5,
     });
 
     res.json({ reply: response.choices[0].message.content });
   } catch (error) {
-    console.error("Summarize error:", error.message);
-    res.status(500).json({ error: "Could not summarize. Try again." });
+    console.error("Summarize error:", error);
+    res.status(500).json({ error: "Could not summarize." });
   }
 });
 
@@ -625,8 +570,45 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
   }
 });
 
+// ── PLANNER API ──
+app.get("/api/planner", isLoggedIn, async (req, res) => {
+  try {
+    const sessions = await PlannerSession.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.json(sessions);
+  } catch (e) {
+    console.error("Planner get error:", e.message);
+    res.status(500).json([]);
+  }
+});
+
+app.post("/api/planner", isLoggedIn, async (req, res) => {
+  try {
+    const { subject, date, duration } = req.body;
+    if (!subject) return res.status(400).json({ ok: false });
+    const session = await PlannerSession.create({
+      userId: req.user.id,
+      subject: subject.trim(),
+      date: date || "",
+      duration: duration?.trim() || "",
+    });
+    res.json({ ok: true, id: session._id, session });
+  } catch (e) {
+    console.error("Planner save error:", e.message);
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.delete("/api/planner/:id", isLoggedIn, async (req, res) => {
+  try {
+    await PlannerSession.deleteOne({ _id: req.params.id, userId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
 // ── START ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🧠 Cortex running → http://localhost:${PORT}`);
+  console.log(`Cortex is running at http://localhost:${PORT}`);
 });
