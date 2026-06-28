@@ -142,15 +142,27 @@ body::before {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  line-height: 1;
+}
+
+.topbar-logo-mark {
+  display: block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  position: relative;
+  top: 0;
 }
 
 .logo-text {
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.18em;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.02em;
   color: var(--text);
+  line-height: 1;
+  position: relative;
+  top: 0;
 }
 .logo-sub {
   font-size: 11px;
@@ -295,56 +307,6 @@ body::before {
 }
 
 .msg-label {
-  display: none; /* replaced by spinner mark */
-}
-
-/* ── AI message spinner layout ── */
-.msg-ai-spinner {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.cx-chat-mark {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.cx-chat-mark .cx-spin-orbit {
-  transform-origin: 14px 14px;
-  animation: cxChatSpin 2s linear infinite;
-}
-.cx-chat-mark .cx-breathe {
-  transform-origin: 14px 14px;
-  animation: cxChatBreathe 1.8s ease-in-out infinite;
-}
-.cx-chat-mark .cx-pulse {
-  animation: cxChatPulse 1.8s ease-in-out infinite;
-}
-.cx-chat-mark.done .cx-spin-orbit { animation: none; }
-.cx-chat-mark.done .cx-breathe    { animation: none; opacity: 1; transform: scale(1); }
-.cx-chat-mark.done .cx-pulse      { animation: none; opacity: 1; }
-.cx-thinking-dots {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 0;
-}
-.cx-thinking-dots span {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0.4;
-  animation: cxDotBounce 1.2s ease-in-out infinite;
-}
-.cx-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
-.cx-thinking-dots span:nth-child(3) { animation-delay: 0.30s; }
-.msg-ai-content { flex: 1; min-width: 0; }
-
-@keyframes cxChatSpin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-@keyframes cxChatBreathe { 0%,100%{opacity:0.5;transform:scale(0.85)} 50%{opacity:1;transform:scale(1)} }
-@keyframes cxChatPulse   { 0%,100%{opacity:0.6} 50%{opacity:1} }
-@keyframes cxDotBounce   { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-5px);opacity:1} }
   display: block;
   font-size: 11px;
   font-weight: 500;
@@ -451,7 +413,9 @@ code {
   border-radius: var(--radius-pill);
   padding: 10px 12px 10px 18px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .input-pill:focus-within {
   border-color: var(--accent);
@@ -772,7 +736,7 @@ code {
     -webkit-overflow-scrolling: touch;
   }
 
-/* Hide mobile tabs on desktop */
+  /* Hide mobile tabs on desktop */
   .msg {
     max-width: 95%;
     font-size: 14px;
@@ -1156,7 +1120,9 @@ code {
   font-size: 13px;
   font-weight: 500;
   font-family: "Inter", sans-serif;
-  transition: background 0.18s, color 0.18s;
+  transition:
+    background 0.18s,
+    color 0.18s;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1393,7 +1359,8 @@ code {
   gap: 12px;
 }
 
-.progress-item {}
+.progress-item {
+}
 
 .progress-label-row {
   display: flex;
@@ -1573,7 +1540,8 @@ code {
   padding: 0 40px 40px;
 }
 
-.canvas-section {}
+.canvas-section {
+}
 
 .section-heading-row {
   display: flex;
@@ -2234,7 +2202,7 @@ body.light .topbar {
   padding: 6px;
   min-width: 160px;
   z-index: 200;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   animation: fadeIn 0.15s ease;
 }
 
@@ -2278,7 +2246,7 @@ body.light .topbar {
   position: relative;
 }
 .nav-item.active::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;

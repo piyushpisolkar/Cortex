@@ -1,5 +1,8 @@
-// ── SPLASH SCREEN ──
-// Handled entirely in index.html via JS animation
+// ══════════════════════════════════════════
+// CORTEX — app.js (complete clean version)
+// ══════════════════════════════════════════
+
+// ── SPLASH SCREEN ── handled in index.html
 // ══════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════
@@ -14,6 +17,8 @@ let isListening = false;
 const chatArea = document.getElementById("chatArea");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
+const panicBtn = document.getElementById("panicBtnMenu");
+const vivaBtn = document.getElementById("vivaBtnMenu");
 const canvasArea = document.getElementById("canvasArea");
 const canvasEmpty = document.getElementById("canvasEmpty");
 const clearCanvas = document.getElementById("clearCanvas");
@@ -134,7 +139,17 @@ function makeActions(text) {
     <button class="action-btn" data-tooltip="Shorter summary" onclick="summarize(this,'shorter')">Shorter</button>
     <button class="action-btn" data-tooltip="More detail" onclick="summarize(this,'longer')">More detail</button>
     <button class="action-btn" data-tooltip="Make flashcards" onclick="makeFlashcard(this)">⊞ Flashcard</button>
-    <button class="action-btn" data-tooltip="Read aloud" onclick="speakText(this)">🔊</button>
+    <button class="action-btn read-aloud-btn" data-tooltip="Read aloud" onclick="speakText(this)" data-speaking="false">
+      <svg class="icon-speaker" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      </svg>
+      <svg class="icon-pause" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none">
+        <line x1="6" y1="4" x2="6" y2="20"/>
+        <line x1="18" y1="4" x2="18" y2="20"/>
+      </svg>
+    </button>
   `;
   return actions;
 }
@@ -352,23 +367,81 @@ function initVoice() {
   });
 }
 
-// ── READ ALOUD ──
+// ── READ ALOUD — with pause/resume toggle ──
+let currentSpeakBtn = null;
+
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "en-IN";
   utter.rate = 0.95;
+  utter.onend = () => resetSpeakBtn(currentSpeakBtn);
+  utter.onerror = () => resetSpeakBtn(currentSpeakBtn);
   window.speechSynthesis.speak(utter);
 }
 
+function resetSpeakBtn(btn) {
+  if (!btn) return;
+  btn.dataset.speaking = "false";
+  const speaker = btn.querySelector(".icon-speaker");
+  const pause = btn.querySelector(".icon-pause");
+  if (speaker) speaker.style.display = "";
+  if (pause) pause.style.display = "none";
+  btn.style.color = "";
+  currentSpeakBtn = null;
+}
+
 function speakText(btn) {
+  const isSpeaking = btn.dataset.speaking === "true";
+  const speaker = btn.querySelector(".icon-speaker");
+  const pause = btn.querySelector(".icon-pause");
+
+  // If this button is currently speaking → pause
+  if (isSpeaking) {
+    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+      window.speechSynthesis.pause();
+      // show speaker icon (paused state)
+      if (speaker) speaker.style.display = "";
+      if (pause) pause.style.display = "none";
+      btn.style.color = "var(--text-muted)";
+    } else if (window.speechSynthesis.paused) {
+      // Resume
+      window.speechSynthesis.resume();
+      if (speaker) speaker.style.display = "none";
+      if (pause) pause.style.display = "";
+      btn.style.color = "var(--accent)";
+    }
+    return;
+  }
+
+  // Stop any previous read aloud
+  if (currentSpeakBtn && currentSpeakBtn !== btn) {
+    resetSpeakBtn(currentSpeakBtn);
+  }
+  window.speechSynthesis.cancel();
+
+  // Start new read aloud
   const actionsDiv = btn.parentElement;
   const text =
     actionsDiv.dataset.fullText ||
     actionsDiv.previousElementSibling?.innerText ||
     "";
-  speak(text.replace(/[#*`<>]/g, "").substring(0, 800));
+  const clean = text.replace(/[#*`<>]/g, "").substring(0, 800);
+
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang = "en-IN";
+  utter.rate = 0.95;
+  utter.onend = () => resetSpeakBtn(btn);
+  utter.onerror = () => resetSpeakBtn(btn);
+
+  currentSpeakBtn = btn;
+  btn.dataset.speaking = "true";
+  if (speaker) speaker.style.display = "none";
+  if (pause) pause.style.display = "";
+  btn.style.color = "var(--accent)";
+
+  window.speechSynthesis.speak(utter);
 }
 
 // ── FILE HANDLING ──
@@ -594,26 +667,41 @@ if ("serviceWorker" in navigator) {
 }
 
 function toggleViva() {
+  vivaBtn.click ? null : null;
+  vivaMode = !vivaMode;
+  if (panicMode) {
+    panicMode = false;
+    document.getElementById("panicBtnMenu").classList.remove("active");
+  }
+  document.getElementById("vivaBtnMenu").classList.toggle("active", vivaMode);
+  document.getElementById("vivaBtnMenu").textContent = vivaMode
+    ? "🎓 Viva ON"
+    : "🎓 Viva Mode";
   if (vivaMode) {
-    setMode("normal");
-  } else {
-    setMode("viva");
     chatHistory = [];
     appendSystemNotice(
       "🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.",
     );
+  } else {
+    appendSystemNotice("Viva Mode off. Good session!");
   }
 }
 
 function togglePanic() {
-  if (panicMode) {
-    setMode("normal");
-  } else {
-    setMode("panic");
-    appendSystemNotice(
-      "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only.",
-    );
+  panicMode = !panicMode;
+  if (vivaMode) {
+    vivaMode = false;
+    document.getElementById("vivaBtnMenu").classList.remove("active");
   }
+  document.getElementById("panicBtnMenu").classList.toggle("active", panicMode);
+  document.getElementById("panicBtnMenu").textContent = panicMode
+    ? "⚡ Panic ON"
+    : "⚡ Panic Mode";
+  appendSystemNotice(
+    panicMode
+      ? "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only."
+      : "Panic Mode off. Back to normal explanations.",
+  );
 }
 
 function appendSystemNotice(html) {
@@ -821,39 +909,13 @@ function renderPlanner() {
 }
 renderPlanner();
 
-// ── NEW CHAT ──
-function newChat() {
-  chatHistory = [];
-  currentSessionId = null;
-  const chatArea = document.getElementById("chatArea");
-  if (chatArea) {
-    chatArea.innerHTML = "";
-    // Reset welcome message
-    const welcome = document.createElement("div");
-    welcome.className = "msg msg-ai";
-    welcome.innerHTML = `<span class="msg-label">Cortex</span>Hey! I'm Cortex, your personal study intelligence. Ask me anything — concepts, code, theory, viva prep. What are we studying today?`;
-    chatArea.appendChild(welcome);
-  }
-  // Reset mode to normal
-  setMode("normal");
-  switchNav("chat");
-}
-
-// ── HISTORY — always fetch fresh from server for cross-device sync ──
+// ── HISTORY ──
 async function loadHistory() {
   const list = document.getElementById("historyList");
   if (!list) return;
 
-  list.innerHTML = `<div class="history-empty" style="opacity:0.5">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    <p>Loading...</p>
-  </div>`;
-
   try {
-    // Always fetch fresh — no cache — ensures cross-device sync
-    const res = await fetch("/api/history", {
-      headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-    });
+    const res = await fetch("/api/history");
     if (!res.ok) throw new Error("not ok");
     const sessions = await res.json();
 
@@ -898,48 +960,9 @@ async function loadHistory() {
       })
       .join("");
   } catch {
-    list.innerHTML = `<div class="history-empty"><p>Could not load history</p><span>Check your connection and try again</span></div>`;
+    list.innerHTML = `<div class="history-empty"><p>History unavailable</p><span>Save chats to see them here</span></div>`;
   }
 }
-
-// Refresh history whenever the page becomes visible again (cross-device sync)
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    const histTab = document.getElementById("tab-history");
-    if (histTab && !histTab.classList.contains("hidden")) {
-      loadHistory();
-    }
-  }
-});
-
-// ── ANDROID BACK BUTTON — navigate tabs instead of closing app ──
-(function () {
-  // Track navigation history for back button
-  const navStack = ["home"];
-
-  // Push state on every tab switch
-  const _switchNav = switchNav;
-  window.switchNav = function (tab) {
-    _switchNav(tab);
-    // Push to browser history so back button navigates tabs
-    history.pushState({ tab }, "", "#" + tab);
-    if (navStack[navStack.length - 1] !== tab) navStack.push(tab);
-  };
-
-  // Handle back button / popstate
-  window.addEventListener("popstate", function (e) {
-    if (e.state && e.state.tab) {
-      _switchNav(e.state.tab);
-    } else {
-      // Go to home if no state
-      _switchNav("home");
-      history.pushState({ tab: "home" }, "", "#home");
-    }
-  });
-
-  // Set initial state so first back press doesn't close the app
-  history.replaceState({ tab: "home" }, "", "#home");
-})();
 
 async function continueSession(id) {
   try {
@@ -982,17 +1005,28 @@ async function deleteSession(id) {
   }
 }
 
-// ── STATS ──
-function updateStats() {
-  const chats = parseInt(localStorage.getItem("cortex-stat-chats") || "0");
+// ── STATS — fetch from server for cross-device sync ──
+async function updateStats() {
+  try {
+    const res = await fetch("/api/history", {
+      headers: { "Cache-Control": "no-cache" },
+    });
+    if (res.ok) {
+      const sessions = await res.json();
+      const chats = sessions.length || 0;
+      const ce = document.getElementById("statChats");
+      if (ce) ce.textContent = chats;
+    }
+  } catch {
+    /* silently fail */
+  }
+  // Flashcards and notes still local for now
   const flashcards = parseInt(
     localStorage.getItem("cortex-stat-flashcards") || "0",
   );
   const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
-  const ce = document.getElementById("statChats");
   const fe = document.getElementById("statFlashcards");
   const ne = document.getElementById("statNotes");
-  if (ce) ce.textContent = chats;
   if (fe) fe.textContent = flashcards;
   if (ne) ne.textContent = notes;
 }
