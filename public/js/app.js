@@ -17,8 +17,6 @@ let isListening = false;
 const chatArea = document.getElementById("chatArea");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
-const panicBtn = document.getElementById("panicBtnMenu");
-const vivaBtn = document.getElementById("vivaBtnMenu");
 const canvasArea = document.getElementById("canvasArea");
 const canvasEmpty = document.getElementById("canvasEmpty");
 const clearCanvas = document.getElementById("clearCanvas");
@@ -681,41 +679,26 @@ if ("serviceWorker" in navigator) {
 
 
 function toggleViva() {
-  vivaBtn.click ? null : null;
-  vivaMode = !vivaMode;
-  if (panicMode) {
-    panicMode = false;
-    document.getElementById("panicBtnMenu").classList.remove("active");
-  }
-  document.getElementById("vivaBtnMenu").classList.toggle("active", vivaMode);
-  document.getElementById("vivaBtnMenu").textContent = vivaMode
-    ? "🎓 Viva ON"
-    : "🎓 Viva Mode";
   if (vivaMode) {
-    chatHistory = [];
-    appendSystemNotice(
-      "🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.",
-    );
+    setMode('normal');
+    appendSystemNotice('Viva Mode off.');
   } else {
-    appendSystemNotice("Viva Mode off. Good session!");
+    setMode('viva');
+    chatHistory = [];
+    appendSystemNotice('🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I\'ll fire questions at you.');
   }
+  switchNav('chat');
 }
 
 function togglePanic() {
-  panicMode = !panicMode;
-  if (vivaMode) {
-    vivaMode = false;
-    document.getElementById("vivaBtnMenu").classList.remove("active");
+  if (panicMode) {
+    setMode('normal');
+    appendSystemNotice('Panic Mode off. Back to normal explanations.');
+  } else {
+    setMode('panic');
+    appendSystemNotice('⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only.');
   }
-  document.getElementById("panicBtnMenu").classList.toggle("active", panicMode);
-  document.getElementById("panicBtnMenu").textContent = panicMode
-    ? "⚡ Panic ON"
-    : "⚡ Panic Mode";
-  appendSystemNotice(
-    panicMode
-      ? "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only."
-      : "Panic Mode off. Back to normal explanations.",
-  );
+  switchNav('chat');
 }
 
 function appendSystemNotice(html) {
@@ -853,7 +836,148 @@ function setLanguage(lang) {
   }
 })();
 
-// ── STUDY PLANNER — MongoDB backed, cross-device ──
+// ── PROGRESS TRACKER — MongoDB backed, cross-device ──
+let progressItems = [];
+let editingProgressId = null;
+
+const PROGRESS_COLORS = [
+  '#534AB7', '#20b882', '#e55a4e', '#f0997b',
+  '#5b9bd5', '#9b59b6', '#f39c12', '#1abc9c'
+];
+
+async function loadProgress() {
+  try {
+    const res = await fetch('/api/progress', { headers: { 'Cache-Control': 'no-cache' } });
+    if (res.ok) {
+      progressItems = await res.json();
+      renderProgress();
+    }
+  } catch (e) {
+    progressItems = JSON.parse(localStorage.getItem('cortex-progress') || '[]');
+    renderProgress();
+  }
+}
+
+function renderProgress() {
+  const list = document.getElementById('progressList');
+  if (!list) return;
+  if (!progressItems.length) {
+    list.innerHTML = '<p class="empty-hint">No subjects added yet. Tap + Add to track your progress.</p>';
+    return;
+  }
+  list.innerHTML = progressItems.map((item, i) => {
+    const color = item.color || PROGRESS_COLORS[i % PROGRESS_COLORS.length];
+    const pct = Math.min(100, Math.max(0, item.percent || 0));
+    return `<div class="progress-item" onclick="openProgressEditModal('${item._id}', '${item.subject.replace(/'/g, "\\'")}', ${pct})">
+      <div class="progress-label-row">
+        <span class="progress-subject-name">${item.subject}</span>
+        <span class="progress-pct">${pct}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="pbar-${item._id}" style="width:0%;background:linear-gradient(90deg,${color}88,${color})"></div>
+      </div>
+      <div class="progress-edit-hint">Tap to edit</div>
+    </div>`;
+  }).join('');
+  // Animate bars in after render
+  requestAnimationFrame(() => {
+    progressItems.forEach(item => {
+      const fill = document.getElementById(`pbar-${item._id}`);
+      if (fill) setTimeout(() => { fill.style.width = `${item.percent || 0}%`; }, 60);
+    });
+  });
+}
+
+function openProgressModal() {
+  document.getElementById('progressSubject').value = '';
+  document.getElementById('progressPercent').value = 50;
+  document.getElementById('progressSliderVal').textContent = '50';
+  document.getElementById('progressModal')?.classList.remove('hidden');
+}
+
+function closeProgressModal() {
+  document.getElementById('progressModal')?.classList.add('hidden');
+}
+
+async function saveProgress() {
+  const subject = document.getElementById('progressSubject').value.trim();
+  const percent = parseInt(document.getElementById('progressPercent').value) || 0;
+  if (!subject) {
+    document.getElementById('progressSubject').focus();
+    return;
+  }
+  try {
+    const res = await fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, percent })
+    });
+    const data = await res.json();
+    if (data.ok && data.item) {
+      progressItems.push(data.item);
+      renderProgress();
+      closeProgressModal();
+    } else {
+      alert(data.error || 'Could not add subject.');
+    }
+  } catch (e) {
+    // Offline fallback
+    const item = { _id: 'local-' + Date.now(), subject, percent, color: PROGRESS_COLORS[progressItems.length % PROGRESS_COLORS.length] };
+    progressItems.push(item);
+    localStorage.setItem('cortex-progress', JSON.stringify(progressItems));
+    renderProgress();
+    closeProgressModal();
+  }
+}
+
+function openProgressEditModal(id, subject, percent) {
+  editingProgressId = id;
+  document.getElementById('progressEditTitle').textContent = subject;
+  document.getElementById('progressEditPercent').value = percent;
+  document.getElementById('progressEditVal').textContent = percent;
+  document.getElementById('progressEditModal')?.classList.remove('hidden');
+}
+
+function closeProgressEditModal() {
+  editingProgressId = null;
+  document.getElementById('progressEditModal')?.classList.add('hidden');
+}
+
+async function updateProgress() {
+  if (!editingProgressId) return;
+  const percent = parseInt(document.getElementById('progressEditPercent').value) || 0;
+  try {
+    const res = await fetch(`/api/progress/${editingProgressId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ percent })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const idx = progressItems.findIndex(p => String(p._id) === String(editingProgressId));
+      if (idx !== -1) progressItems[idx].percent = percent;
+      renderProgress();
+    }
+  } catch (e) {
+    const idx = progressItems.findIndex(p => String(p._id) === String(editingProgressId));
+    if (idx !== -1) { progressItems[idx].percent = percent; renderProgress(); }
+  }
+  closeProgressEditModal();
+}
+
+async function deleteProgress() {
+  if (!editingProgressId) return;
+  if (!confirm('Remove this subject from progress tracker?')) return;
+  try {
+    await fetch(`/api/progress/${editingProgressId}`, { method: 'DELETE' });
+  } catch (e) { /* ignore */ }
+  progressItems = progressItems.filter(p => String(p._id) !== String(editingProgressId));
+  localStorage.setItem('cortex-progress', JSON.stringify(progressItems));
+  renderProgress();
+  closeProgressEditModal();
+}
+
+loadProgress();
 let plannerSessions = [];
 
 async function loadPlanner() {

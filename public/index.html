@@ -139,20 +139,21 @@
       <!-- ── TOPBAR ── -->
       <header class="topbar">
         <div class="topbar-left">
-          <!-- Cortex V3 Double Ring Mark — topbar -->
-          <svg width="26" height="26" viewBox="-30 -30 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0;width:26px;height:26px;">
-            <circle cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.5"/>
-            <circle cx="0"   cy="-26" r="3.2" fill="#AFA9EC"/>
-            <circle cx="26"  cy="0"   r="3.2" fill="#AFA9EC"/>
-            <circle cx="0"   cy="26"  r="3.2" fill="#AFA9EC"/>
-            <circle cx="-26" cy="0"   r="3.2" fill="#AFA9EC"/>
-            <circle cx="0" cy="0" r="16" stroke="#534AB7" stroke-width="5.5"/>
-            <line x1="0"    y1="-6.5" x2="0"    y2="-12.5" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-            <line x1="6.5"  y1="0"    x2="12.5" y2="0"     stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-            <line x1="0"    y1="6.5"  x2="0"    y2="12.5"  stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-            <line x1="-6.5" y1="0"    x2="-12.5" y2="0"    stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
-            <circle cx="0" cy="0" r="5.5" fill="#534AB7"/>
-          </svg>
+          <div class="logo-mark-wrap">
+            <svg width="26" height="26" viewBox="-30 -30 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.5"/>
+              <circle cx="0"   cy="-26" r="3.2" fill="#AFA9EC"/>
+              <circle cx="26"  cy="0"   r="3.2" fill="#AFA9EC"/>
+              <circle cx="0"   cy="26"  r="3.2" fill="#AFA9EC"/>
+              <circle cx="-26" cy="0"   r="3.2" fill="#AFA9EC"/>
+              <circle cx="0" cy="0" r="16" stroke="#534AB7" stroke-width="5.5"/>
+              <line x1="0"    y1="-6.5" x2="0"    y2="-12.5" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+              <line x1="6.5"  y1="0"    x2="12.5" y2="0"     stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+              <line x1="0"    y1="6.5"  x2="0"    y2="12.5"  stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+              <line x1="-6.5" y1="0"    x2="-12.5" y2="0"    stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="0" cy="0" r="5.5" fill="#534AB7"/>
+            </svg>
+          </div>
           <span class="logo-text">Cortex</span>
         </div>
         <div class="topbar-right">
@@ -198,21 +199,6 @@
                   <p class="dropdown-email" id="dropdownEmail"></p>
                 </div>
               </div>
-              <hr class="dropdown-divider" />
-              <button
-                class="dropdown-item"
-                id="vivaBtnMenu"
-                onclick="toggleViva()"
-              >
-                🎓 Viva Mode
-              </button>
-              <button
-                class="dropdown-item"
-                id="panicBtnMenu"
-                onclick="togglePanic()"
-              >
-                ⚡ Panic Mode
-              </button>
               <hr class="dropdown-divider" />
               <button class="dropdown-item" onclick="switchNav('settings')">
                 ⚙ Settings
@@ -387,37 +373,14 @@
                   </p>
                 </div>
               </div>
-              <!-- Progress -->
+              <!-- Progress Tracker -->
               <div class="home-card progress-tracker">
-                <h3 class="card-heading">Progress</h3>
+                <div class="card-heading-row">
+                  <h3 class="card-heading">Progress</h3>
+                  <button class="card-action-btn" onclick="openProgressModal()">+ Add</button>
+                </div>
                 <div id="progressList" class="progress-list">
-                  <div class="progress-item">
-                    <div class="progress-label-row">
-                      <span>Data Structures</span
-                      ><span class="progress-pct">65%</span>
-                    </div>
-                    <div class="progress-bar">
-                      <div class="progress-fill" style="width: 65%"></div>
-                    </div>
-                  </div>
-                  <div class="progress-item">
-                    <div class="progress-label-row">
-                      <span>Operating Systems</span
-                      ><span class="progress-pct">40%</span>
-                    </div>
-                    <div class="progress-bar">
-                      <div class="progress-fill" style="width: 40%"></div>
-                    </div>
-                  </div>
-                  <div class="progress-item">
-                    <div class="progress-label-row">
-                      <span>Computer Networks</span
-                      ><span class="progress-pct">20%</span>
-                    </div>
-                    <div class="progress-bar">
-                      <div class="progress-fill" style="width: 20%"></div>
-                    </div>
-                  </div>
+                  <p class="empty-hint">No subjects added yet. Add one to track your progress.</p>
                 </div>
               </div>
               <!-- Stats -->
@@ -883,6 +846,53 @@
           <button class="modal-btn-primary" onclick="savePlannerSession()">
             Add Session
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS MODAL -->
+    <div class="modal-overlay hidden" id="progressModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Add Subject</h3>
+          <button class="modal-close" onclick="closeProgressModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <input class="modal-input" id="progressSubject" type="text" placeholder="Subject (e.g. Data Structures)"/>
+          <div class="progress-slider-wrap">
+            <label class="progress-slider-label">
+              Progress: <span id="progressSliderVal">50</span>%
+            </label>
+            <input class="progress-slider" id="progressPercent" type="range" min="0" max="100" value="50"
+              oninput="document.getElementById('progressSliderVal').textContent = this.value"/>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn-secondary" onclick="closeProgressModal()">Cancel</button>
+          <button class="modal-btn-primary" onclick="saveProgress()">Add Subject</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS EDIT MODAL -->
+    <div class="modal-overlay hidden" id="progressEditModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="progressEditTitle">Edit Progress</h3>
+          <button class="modal-close" onclick="closeProgressEditModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="progress-slider-wrap">
+            <label class="progress-slider-label">
+              Progress: <span id="progressEditVal">50</span>%
+            </label>
+            <input class="progress-slider" id="progressEditPercent" type="range" min="0" max="100" value="50"
+              oninput="document.getElementById('progressEditVal').textContent = this.value"/>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn-secondary" onclick="deleteProgress()" style="color:var(--panic-light);border-color:var(--panic)">Delete</button>
+          <button class="modal-btn-primary" onclick="updateProgress()">Update</button>
         </div>
       </div>
     </div>
