@@ -12,7 +12,7 @@ const multer = require("multer");
 const fs = require("fs");
 
 const isProduction =
-  process.env.NODE_ENV === "production" || !!process.env.RENDER;
+  process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
 
 // ── FILE UPLOAD CONFIG ──
 const upload = multer({
@@ -58,19 +58,6 @@ const PlannerSessionSchema = new mongoose.Schema({
 const PlannerSession =
   mongoose.models.PlannerSession ||
   mongoose.model("PlannerSession", PlannerSessionSchema);
-
-// ── PROGRESS SCHEMA ──
-const ProgressItemSchema = new mongoose.Schema({
-  userId:   String,
-  subject:  String,
-  percent:  { type: Number, default: 0, min: 0, max: 100 },
-  color:    { type: String, default: '#534AB7' },
-  updatedAt: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now },
-});
-const ProgressItem =
-  mongoose.models.ProgressItem ||
-  mongoose.model("ProgressItem", ProgressItemSchema);
 
 // ── MIDDLEWARE ──
 app.use(express.json());
@@ -334,18 +321,37 @@ app.get("/api/history/:id", isLoggedIn, async (req, res) => {
 
 app.post("/api/history/save", isLoggedIn, async (req, res) => {
   try {
-    const { messages, title } = req.body;
+    const { messages, title, id } = req.body;
     if (!messages || messages.length < 2) return res.json({ ok: false });
+
+    // Strip _id and MongoDB fields — Groq only accepts {role, content}
+    const cleanMessages = messages
+      .filter(m => m && m.role && m.content)
+      .map(({ role, content }) => ({ role, content }));
+
     const autoTitle =
-      messages.find((m) => m.role === "user")?.content?.slice(0, 60) ||
+      cleanMessages.find(m => m.role === "user")?.content?.slice(0, 60) ||
       "Chat session";
+
+    if (id) {
+      // Update existing session — this is the key fix for duplicate sessions
+      const updated = await ChatSession.findOneAndUpdate(
+        { _id: id, userId: req.user.id },
+        { messages: cleanMessages, title: title || autoTitle, updatedAt: new Date() },
+        { new: true }
+      );
+      if (updated) return res.json({ ok: true, id: updated._id });
+    }
+
+    // Only create new session if no id provided or session not found
     const session = await ChatSession.create({
       userId: req.user.id,
       title: title || autoTitle,
-      messages,
+      messages: cleanMessages,
     });
     res.json({ ok: true, id: session._id });
   } catch (e) {
+    console.error("History save error:", e.message);
     res.json({ ok: false });
   }
 });
@@ -371,59 +377,99 @@ app.get("/api/user", isLoggedIn, (req, res) => {
 });
 
 // ── SYSTEM PROMPTS ──
-const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built specifically for engineering students.
-Your personality: sharp, clear, and intelligent — like a friendly brilliant senior student helping a junior.
-Rules:
-- Keep responses SHORT, simple to understand and focused — max 3-4 sentences for simple questions
-- Only give long responses when the question genuinely requires detail
-- For code requests, always use proper code blocks with backticks
-- For concepts, give a clear 2-3 line explanation in simple words first, then bullet points only if needed
-- Never add unnecessary padding or filler sentences`;
+const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built exclusively for MSBTE (Maharashtra State Board of Technical Education) diploma engineering students in India.
 
-const PANIC_PROMPT = `You are Cortex in PANIC MODE. The student has an exam in 2 hours.
-Rules:
-- Be extremely concise — bullet points only
-- Give only the most important points
-- No long explanations — just facts, formulas, and key terms
-- Start every response with "⚡ PANIC MODE:"`;
+You have deep knowledge of the MSBTE K-Scheme diploma engineering curriculum:
+- All 6 semesters across branches: Computer Engineering, Mechanical, Civil, Electrical, E&TC
+- Current scheme: K-Scheme (competency-based, Course Outcomes, theory + practical, micro projects)
+- Computer Engineering K-Scheme subjects:
+  Sem 1-2: Applied Mathematics, Applied Science, Engineering Drawing, Communication Skills
+  Sem 3: Data Structures using C, Digital Techniques, Computer Organization, Web Design, OOP with C++
+  Sem 4: DBMS, Operating System, Java Programming, Computer Networks, Python Programming
+  Sem 5: Software Engineering, Microprocessor & Interfacing, Advanced Java, Linux Administration, Project
+  Sem 6: Cloud Computing, Cyber Security, Mobile App Development, AI & ML Basics, Major Project
+- MSBTE K-Scheme exam: theory 70 marks, internal 30 marks, practicals, micro projects
+- Deep knowledge of PYQs, important topics, and frequently asked exam questions
 
-const VIVA_PROMPT = `You are a strict engineering professor conducting a viva exam.
+Your personality: sharp, clear, intelligent — like a brilliant senior student helping a junior crack MSBTE exams.
+
 Rules:
-- Ask ONE question at a time — never multiple questions
-- Wait for the student's answer before asking the next question
-- After each answer, give brief feedback (correct/incorrect/partial)
-- Then immediately ask the next question
-- Questions should go from easy to hard
-- Start by asking: "Ready for your viva? Tell me the topic you want to be examined on."
-- Keep feedback short and sharp — max 2 sentences`;
+- Always refer to K-Scheme syllabus and exam perspective
+- Mention unit/chapter when relevant
+- Definitions: textbook-style first, then simple explanation
+- Keep responses focused — 3-4 sentences for simple questions
+- Long responses only when genuinely needed
+- Always use proper code blocks for code
+- Flag topics as "important for MSBTE K-Scheme exam" when frequently asked
+- If asked to fetch syllabus, explain from your knowledge instead`;
+
+const PANIC_PROMPT = `You are Cortex in PANIC MODE — for MSBTE K-Scheme students with exams in hours.
+Rules:
+- Bullet points ONLY — no paragraphs ever
+- Most important points, definitions, and formulas only
+- Focus on frequently asked MSBTE K-Scheme exam topics
+- Include key terms the examiner expects
+- Start every response with "⚡ PANIC MODE:"
+- Max 8-10 bullets per response`;
+
+const VIVA_PROMPT = `You are a strict MSBTE K-Scheme engineering professor conducting an oral viva.
+Rules:
+- Ask ONE question at a time — never multiple
+- Wait for the student answer before asking next
+- After each answer: one line feedback (Correct / Partially correct / Incorrect), then next question
+- Progress: basic definitions → applications → tricky conceptual
+- Ask questions common in MSBTE K-Scheme viva exams
+- Start: "Ready for your viva? Tell me the subject you want to be examined on."
+- Be strict but fair — exactly like a real MSBTE K-Scheme examiner`;
 
 // ── CHAT API ──
 app.post("/api/chat", isLoggedIn, async (req, res) => {
   const { message, history, mode } = req.body;
+
+  if (!message || typeof message !== "string" || !message.trim()) {
+    return res.status(400).json({ error: "Message is required." });
+  }
+
   try {
     const systemPrompt =
-      mode === "panic"
-        ? PANIC_PROMPT
-        : mode === "viva"
-          ? VIVA_PROMPT
-          : SYSTEM_PROMPT;
+      mode === "panic" ? PANIC_PROMPT :
+      mode === "viva"  ? VIVA_PROMPT  : SYSTEM_PROMPT;
+
+    // Strip _id and MongoDB fields — Groq only accepts {role, content}
+    const cleanHistory = Array.isArray(history)
+      ? history
+          .filter(m => m && typeof m.role === "string" && typeof m.content === "string")
+          .map(({ role, content }) => ({ role, content }))
+          .slice(-20)
+      : [];
 
     const messages = [
       { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: message },
+      ...cleanHistory,
+      { role: "user", content: message.trim() },
     ];
 
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages,
-      max_tokens: 1024,
+      max_tokens: 1500,
+      temperature: 0.7,
     });
 
-    res.json({ reply: response.choices[0].message.content });
+    const reply = response.choices?.[0]?.message?.content;
+    if (!reply) throw new Error("Empty response from Groq");
+
+    res.json({ reply });
   } catch (error) {
-    console.error("Groq error:", error);
-    res.status(500).json({ error: "Something went wrong." });
+    console.error("Groq chat error:", error?.message || error);
+    const msg = error?.message?.includes("_id")
+      ? "Session data error — please start a new chat."
+      : error?.message?.includes("rate_limit")
+      ? "Cortex is busy right now. Try again in a moment."
+      : error?.message?.includes("context_length")
+      ? "This conversation is too long. Please start a new chat."
+      : "Cortex could not respond. Please try again.";
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -620,62 +666,8 @@ app.delete("/api/planner/:id", isLoggedIn, async (req, res) => {
   }
 });
 
-// ── PROGRESS TRACKER API ──
-app.get("/api/progress", isLoggedIn, async (req, res) => {
-  try {
-    const items = await ProgressItem.find({ userId: req.user.id }).sort({ createdAt: 1 });
-    res.json(items);
-  } catch (e) {
-    console.error("Progress get error:", e.message);
-    res.status(500).json([]);
-  }
-});
-
-app.post("/api/progress", isLoggedIn, async (req, res) => {
-  try {
-    const { subject, percent } = req.body;
-    if (!subject) return res.status(400).json({ ok: false, error: "Subject required" });
-    // Prevent duplicates
-    const existing = await ProgressItem.findOne({ userId: req.user.id, subject: subject.trim() });
-    if (existing) return res.status(400).json({ ok: false, error: "Subject already exists" });
-    const item = await ProgressItem.create({
-      userId: req.user.id,
-      subject: subject.trim(),
-      percent: Math.min(100, Math.max(0, parseInt(percent) || 0)),
-    });
-    res.json({ ok: true, item });
-  } catch (e) {
-    console.error("Progress save error:", e.message);
-    res.status(500).json({ ok: false });
-  }
-});
-
-app.patch("/api/progress/:id", isLoggedIn, async (req, res) => {
-  try {
-    const { percent } = req.body;
-    const item = await ProgressItem.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      { percent: Math.min(100, Math.max(0, parseInt(percent) || 0)), updatedAt: new Date() },
-      { new: true }
-    );
-    res.json({ ok: !!item, item });
-  } catch (e) {
-    console.error("Progress update error:", e.message);
-    res.status(500).json({ ok: false });
-  }
-});
-
-app.delete("/api/progress/:id", isLoggedIn, async (req, res) => {
-  try {
-    await ProgressItem.deleteOne({ _id: req.params.id, userId: req.user.id });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ ok: false });
-  }
-});
-
 // ── START ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Cortex is running at http://localhost:${PORT}`);
+  console.log(`🧠 Cortex running → http://localhost:${PORT}`);
 });
