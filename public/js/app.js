@@ -85,6 +85,7 @@ async function sendMessage() {
         message: text,
         history: chatHistory,
         mode: panicMode ? "panic" : vivaMode ? "viva" : "normal",
+        language: selectedLanguage || "English",
       }),
     });
     const data = await res.json();
@@ -303,8 +304,47 @@ async function makeFlashcard(btn) {
   btn.disabled = false;
 }
 
-// ── PUSH FLASHCARDS ──
-function pushFlashcardsToCanvas(flashcards) {
+// ── PUSH FLASHCARDS — saves to MongoDB + Canvas tab ──
+async function pushFlashcardsToCanvas(flashcards) {
+  // Save each flashcard to MongoDB for persistence
+  const savedFlashcards = document.getElementById("savedFlashcards");
+  if (savedFlashcards) {
+    const existing = savedFlashcards.querySelector(".empty-section-hint");
+    if (existing) existing.remove();
+
+    for (const fc of flashcards) {
+      let dbId = null;
+      try {
+        const res = await fetch("/api/canvas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "flashcard", content: { q: fc.q, a: fc.a } }),
+        });
+        const data = await res.json();
+        if (data.ok) dbId = data.id;
+      } catch (e) {}
+
+      const card = document.createElement("div");
+      card.className = "saved-flashcard-card";
+      card.dataset.dbId = dbId || "";
+      card.innerHTML = `
+        <div class="question">Q: ${fc.q}</div>
+        <div class="answer">A: ${fc.a}</div>
+        <button class="note-delete-btn" onclick="deleteCanvasItem(this,'flashcard')">×</button>
+      `;
+      card.addEventListener("click", (e) => {
+        if (e.target.classList.contains("note-delete-btn")) return;
+        card.classList.toggle("revealed");
+      });
+      savedFlashcards.insertBefore(card, savedFlashcards.firstChild);
+    }
+    updateFlashcardCount();
+    const n = parseInt(localStorage.getItem("cortex-stat-flashcards") || "0") + flashcards.length;
+    localStorage.setItem("cortex-stat-flashcards", n);
+    updateStats();
+  }
+
+  // Also show in chat canvas panel
   canvasEmpty.style.display = "none";
   const card = document.createElement("div");
   card.className = "canvas-card";
@@ -327,6 +367,197 @@ function pushFlashcardsToCanvas(flashcards) {
   scrollCanvas();
   if (isMobile()) switchTab("canvas");
 }
+
+// ── PIN NOTE ──
+async function pinNote(btn) {
+  const actionsDiv = btn.parentElement;
+  const text = actionsDiv.dataset.fullText || actionsDiv.previousElementSibling?.innerText || "";
+  if (!text.trim()) return;
+  const origHTML = btn.innerHTML;
+  btn.textContent = "...";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, type: "shorter" }),
+    });
+    const data = await res.json();
+    await saveNoteToCanvas(data.reply || text);
+  } catch (e) {
+    await saveNoteToCanvas(text);
+  }
+  btn.innerHTML = origHTML;
+  btn.disabled = false;
+}
+
+// ── SAVE NOTE TO CANVAS — MongoDB persisted ──
+async function saveNoteToCanvas(text) {
+  const savedNotes = document.getElementById("savedNotes");
+  if (savedNotes) {
+    const hint = savedNotes.querySelector(".empty-section-hint");
+    if (hint) hint.remove();
+
+    const time = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    const bullets = text.split("\n")
+      .filter(l => l.trim())
+      .map(l => l.replace(/^[\*\-\d\.]+\s*/, "").trim())
+      .filter(Boolean)
+      .slice(0, 6);
+
+    // Save to MongoDB
+    let dbId = null;
+    try {
+      const res = await fetch("/api/canvas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "note", content: { text, bullets, time } }),
+      });
+      const data = await res.json();
+      if (data.ok) dbId = data.id;
+    } catch (e) {}
+
+    const card = document.createElement("div");
+    card.className = "saved-note-card";
+    card.dataset.dbId = dbId || "";
+    card.innerHTML = `
+      <div class="note-title">📌 Note — ${time}</div>
+      <div class="note-bullets">${bullets.map(b => `<div class="note-bullet">• ${b}</div>`).join("")}</div>
+      <button class="note-delete-btn" onclick="deleteCanvasItem(this,'note')">×</button>
+    `;
+    savedNotes.insertBefore(card, savedNotes.firstChild);
+    updateNotesCount();
+    const n = parseInt(localStorage.getItem("cortex-stat-notes") || "0") + 1;
+    localStorage.setItem("cortex-stat-notes", n);
+    updateStats();
+  }
+  pushToCanvas(text);
+}
+
+// ── DELETE CANVAS ITEM ──
+async function deleteCanvasItem(btn, type) {
+  const card = btn.parentElement;
+  const dbId = card.dataset.dbId;
+  if (dbId) {
+    try { await fetch(`/api/canvas/${dbId}`, { method: "DELETE" }); } catch (e) {}
+  }
+  card.style.opacity = "0";
+  card.style.transform = "translateX(10px)";
+  card.style.transition = "all 0.2s ease";
+  setTimeout(() => {
+    card.remove();
+    if (type === "note") updateNotesCount();
+    else updateFlashcardCount();
+  }, 200);
+}
+
+function updateNotesCount() {
+  const savedNotes = document.getElementById("savedNotes");
+  const count = savedNotes ? savedNotes.querySelectorAll(".saved-note-card").length : 0;
+  const el = document.getElementById("notesCount");
+  if (el) el.textContent = count + " saved";
+}
+
+function updateFlashcardCount() {
+  const grid = document.getElementById("savedFlashcards");
+  const count = grid ? grid.querySelectorAll(".saved-flashcard-card").length : 0;
+  const el = document.getElementById("flashcardCount");
+  if (el) el.textContent = count + " saved";
+}
+
+// ── LOAD CANVAS FROM MONGODB — persists across sessions ──
+async function loadCanvasItems() {
+  try {
+    const res = await fetch("/api/canvas", { headers: { "Cache-Control": "no-cache" } });
+    if (!res.ok) return;
+    const items = await res.json();
+    if (!items.length) return;
+
+    const savedNotes = document.getElementById("savedNotes");
+    const savedFlashcards = document.getElementById("savedFlashcards");
+
+    items.forEach(item => {
+      if (item.type === "note" && savedNotes) {
+        const hint = savedNotes.querySelector(".empty-section-hint");
+        if (hint) hint.remove();
+        const card = document.createElement("div");
+        card.className = "saved-note-card";
+        card.dataset.dbId = item._id;
+        const bullets = item.content?.bullets || [];
+        const time = item.content?.time || "";
+        card.innerHTML = `
+          <div class="note-title">📌 Note — ${time}</div>
+          <div class="note-bullets">${bullets.map(b => `<div class="note-bullet">• ${b}</div>`).join("")}</div>
+          <button class="note-delete-btn" onclick="deleteCanvasItem(this,'note')">×</button>
+        `;
+        savedNotes.appendChild(card);
+      } else if (item.type === "flashcard" && savedFlashcards) {
+        const hint = savedFlashcards.querySelector(".empty-section-hint");
+        if (hint) hint.remove();
+        const card = document.createElement("div");
+        card.className = "saved-flashcard-card";
+        card.dataset.dbId = item._id;
+        card.innerHTML = `
+          <div class="question">Q: ${item.content?.q || ""}</div>
+          <div class="answer">A: ${item.content?.a || ""}</div>
+          <button class="note-delete-btn" onclick="deleteCanvasItem(this,'flashcard')">×</button>
+        `;
+        card.addEventListener("click", (e) => {
+          if (e.target.classList.contains("note-delete-btn")) return;
+          card.classList.toggle("revealed");
+        });
+        savedFlashcards.appendChild(card);
+      }
+    });
+    updateNotesCount();
+    updateFlashcardCount();
+  } catch (e) { /* silently fail */ }
+}
+loadCanvasItems();
+
+// ── HISTORY DEDUPLICATION ──
+async function dedupeHistory() {
+  const btn = document.getElementById("dedupeBtn");
+  if (btn) { btn.textContent = "Cleaning..."; btn.disabled = true; }
+  try {
+    const res = await fetch("/api/history/dedupe", { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      await loadHistory();
+      if (btn) btn.textContent = `Removed ${data.removed} duplicates`;
+      setTimeout(() => {
+        if (btn) { btn.textContent = "Remove Duplicates"; btn.disabled = false; }
+      }, 3000);
+    }
+  } catch (e) {
+    if (btn) { btn.textContent = "Remove Duplicates"; btn.disabled = false; }
+  }
+}
+
+// ── MOBILE KEYBOARD FIX — shrink input area when keyboard opens ──
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    const inputArea = document.querySelector(".input-area");
+    if (!inputArea) return;
+    const kbHeight = window.innerHeight - window.visualViewport.height;
+    inputArea.style.paddingBottom = kbHeight > 100 ? kbHeight + "px" : "";
+    if (kbHeight > 100) scrollChat();
+  });
+}
+
+// ── ANDROID BACK BUTTON — navigate tabs instead of closing app ──
+(function () {
+  history.replaceState({ tab: "home" }, "", "#home");
+  const _orig = window.switchNav;
+  window.switchNav = function (tab) {
+    _orig(tab);
+    history.pushState({ tab }, "", "#" + tab);
+  };
+  window.addEventListener("popstate", function (e) {
+    const tab = e.state?.tab || "home";
+    _orig(tab);
+  });
+})();
 
 // ── VOICE INPUT ──
 function initVoice() {

@@ -195,69 +195,28 @@ app.get("/sw-kill", (req, res) => {
   </body></html>`);
 });
 
-app.get(["/icons/icon-192.png", "/icons/icon-512.png"], (req, res) => {
-  res.sendFile(path.join(__dirname, "public/icons/cortex-logo.svg"));
-});
+// ── PWA ICON ROUTES (V3 Double Ring) ──
+const LOGO_SVG_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="115" fill="#534AB7"/>
+  <g transform="translate(256,256) scale(8.5)">
+    <circle cx="0" cy="0" r="26" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" fill="none"/>
+    <circle cx="0" cy="-26" r="3" fill="rgba(255,255,255,0.5)"/>
+    <circle cx="26" cy="0" r="3" fill="rgba(255,255,255,0.5)"/>
+    <circle cx="0" cy="26" r="3" fill="rgba(255,255,255,0.5)"/>
+    <circle cx="-26" cy="0" r="3" fill="rgba(255,255,255,0.5)"/>
+    <circle cx="0" cy="0" r="16" stroke="white" stroke-width="5.5" fill="none"/>
+    <line x1="0" y1="-6.5" x2="0" y2="-12.5" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <line x1="6.5" y1="0" x2="12.5" y2="0" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <line x1="0" y1="6.5" x2="0" y2="12.5" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <line x1="-6.5" y1="0" x2="-12.5" y2="0" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="5.5" fill="white"/>
+  </g>
+</svg>`;
 
-// ── ICONS ──
-app.get("/icons/icon-192.png", (req, res) => {
+app.get(["/icons/icon-192.png", "/icons/icon-512.png", "/icons/cortex-logo.svg"], (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="192" height="192" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#1a1a2e"/>
-        <stop offset="100%" style="stop-color:#0d0d14"/>
-      </radialGradient>
-      <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#6699ff"/>
-        <stop offset="100%" style="stop-color:#4433aa"/>
-      </linearGradient>
-      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
-        <stop offset="0%" style="stop-color:#88aaff"/>
-        <stop offset="100%" style="stop-color:#5544cc"/>
-      </linearGradient>
-    </defs>
-    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
-    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
-    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
-    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-  </svg>`);
-});
-
-app.get("/icons/icon-512.png", (req, res) => {
-  res.setHeader("Content-Type", "image/svg+xml");
-  res.send(`<svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="bg" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#1a1a2e"/>
-        <stop offset="100%" style="stop-color:#0d0d14"/>
-      </radialGradient>
-      <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#6699ff"/>
-        <stop offset="100%" style="stop-color:#4433aa"/>
-      </linearGradient>
-      <linearGradient id="bg2" x1="20%" y1="0%" x2="80%" y2="100%">
-        <stop offset="0%" style="stop-color:#88aaff"/>
-        <stop offset="100%" style="stop-color:#5544cc"/>
-      </linearGradient>
-    </defs>
-    <rect width="200" height="200" fill="url(#bg)" rx="40"/>
-    <polygon points="100,18 172,60 172,140 100,182 28,140 28,60" fill="none" stroke="url(#hg)" stroke-width="6" stroke-linejoin="round"/>
-    <path d="M96,62 C96,62 74,63 66,76 C58,89 58,104 62,116 C66,128 72,136 80,140 C84,142 92,143 96,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M96,80 C88,81 80,86 78,94 C76,102 80,109 88,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M96,112 C91,113 86,117 86,123 C86,129 90,133 96,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M104,62 C104,62 126,63 134,76 C142,89 142,104 138,116 C134,128 128,136 120,140 C116,142 108,143 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M104,80 C112,81 120,86 122,94 C124,102 120,109 112,111" fill="none" stroke="url(#bg2)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M104,112 C109,113 114,117 114,123 C114,129 110,133 104,134" fill="none" stroke="url(#bg2)" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="100" y1="62" x2="100" y2="143" stroke="#5544aa" stroke-width="2.5" stroke-dasharray="5,5"/>
-    <path d="M96,143 C97,150 103,150 104,143" fill="none" stroke="url(#bg2)" stroke-width="5" stroke-linecap="round"/>
-  </svg>`);
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send(LOGO_SVG_ICON);
 });
 // ── AUTH ROUTES ──
 app.get("/auth/google", (req, res, next) => {
@@ -424,7 +383,7 @@ Rules:
 
 // ── CHAT API ──
 app.post("/api/chat", isLoggedIn, async (req, res) => {
-  const { message, history, mode } = req.body;
+  const { message, history, mode, language } = req.body;
 
   if (!message || typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "Message is required." });
@@ -435,6 +394,11 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
       mode === "panic" ? PANIC_PROMPT :
       mode === "viva"  ? VIVA_PROMPT  : SYSTEM_PROMPT;
 
+    // Language instruction — injected into system prompt
+    const langInstruction = (language && language !== "English")
+      ? `\n\nIMPORTANT: Respond entirely in ${language}. All explanations, examples, and text must be in ${language} only.`
+      : "";
+
     // Strip _id and MongoDB fields — Groq only accepts {role, content}
     const cleanHistory = Array.isArray(history)
       ? history
@@ -444,7 +408,7 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
       : [];
 
     const messages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: systemPrompt + langInstruction },
       ...cleanHistory,
       { role: "user", content: message.trim() },
     ];
@@ -665,6 +629,96 @@ app.delete("/api/planner/:id", isLoggedIn, async (req, res) => {
     res.status(500).json({ ok: false });
   }
 });
+
+// ── CANVAS/NOTES PERSISTENCE API ──
+const CanvasItemSchema = new mongoose.Schema({
+  userId:   String,
+  type:     { type: String, enum: ["flashcard", "note"], required: true },
+  content:  mongoose.Schema.Types.Mixed,
+  createdAt: { type: Date, default: Date.now },
+});
+const CanvasItem = mongoose.models.CanvasItem || mongoose.model("CanvasItem", CanvasItemSchema);
+
+app.get("/api/canvas", isLoggedIn, async (req, res) => {
+  try {
+    const items = await CanvasItem.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(100);
+    res.json(items);
+  } catch (e) { res.json([]); }
+});
+
+app.post("/api/canvas", isLoggedIn, async (req, res) => {
+  try {
+    const { type, content } = req.body;
+    if (!type || !content) return res.status(400).json({ ok: false });
+    const item = await CanvasItem.create({ userId: req.user.id, type, content });
+    res.json({ ok: true, id: item._id });
+  } catch (e) { res.status(500).json({ ok: false }); }
+});
+
+app.delete("/api/canvas/:id", isLoggedIn, async (req, res) => {
+  try {
+    await CanvasItem.deleteOne({ _id: req.params.id, userId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ ok: false }); }
+});
+
+// ── AUTO-CLEANUP: delete chat sessions older than 60 days ──
+async function cleanupOldSessions() {
+  try {
+    const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const result = await ChatSession.deleteMany({ createdAt: { $lt: cutoff } });
+    if (result.deletedCount > 0) console.log(`Cleaned up ${result.deletedCount} old sessions`);
+  } catch (e) { console.error("Cleanup error:", e.message); }
+}
+// Run cleanup once on startup, then every 24 hours
+cleanupOldSessions();
+setInterval(cleanupOldSessions, 24 * 60 * 60 * 1000);
+
+// ── HISTORY: DELETE DUPLICATE SESSIONS ──
+app.post("/api/history/dedupe", isLoggedIn, async (req, res) => {
+  try {
+    const sessions = await ChatSession.find({ userId: req.user.id }).sort({ createdAt: 1 });
+    const seen = new Map();
+    const toDelete = [];
+    for (const s of sessions) {
+      const key = s.title?.trim()?.slice(0, 40) || "untitled";
+      const timeKey = Math.floor(new Date(s.createdAt).getTime() / (5 * 60 * 1000));
+      const dedupKey = `${key}-${timeKey}`;
+      if (seen.has(dedupKey)) {
+        toDelete.push(s._id);
+      } else {
+        seen.set(dedupKey, s._id);
+      }
+    }
+    if (toDelete.length > 0) {
+      await ChatSession.deleteMany({ _id: { $in: toDelete } });
+    }
+    res.json({ ok: true, removed: toDelete.length });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+// ── SIMPLE RATE LIMITING ──
+const rateLimitMap = new Map();
+function rateLimit(maxReqs, windowMs) {
+  return (req, res, next) => {
+    const key = req.user?.id || req.ip;
+    const now = Date.now();
+    const record = rateLimitMap.get(key) || { count: 0, reset: now + windowMs };
+    if (now > record.reset) { record.count = 0; record.reset = now + windowMs; }
+    record.count++;
+    rateLimitMap.set(key, record);
+    if (record.count > maxReqs) {
+      return res.status(429).json({ error: "Too many requests. Please slow down." });
+    }
+    next();
+  };
+}
+// Apply rate limiting: 30 chat requests per minute per user
+app.use("/api/chat", rateLimit(30, 60 * 1000));
+app.use("/api/flashcard", rateLimit(20, 60 * 1000));
+app.use("/api/summarize", rateLimit(20, 60 * 1000));
 
 // ── START ──
 const PORT = process.env.PORT || 3000;
