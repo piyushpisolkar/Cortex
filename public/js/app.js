@@ -10,6 +10,25 @@ let panicMode = false;
 let vivaMode = false;
 let isListening = false;
 
+// ── CORTEX SPINNER MARK SVG — used in chat bubbles while thinking ──
+const CX_MARK_SVG = `<svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g class="cx-spin-orbit">
+    <circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/>
+    <circle cx="14"   cy="1.5"  r="1.6" fill="#AFA9EC"/>
+    <circle cx="26.5" cy="14"   r="1.6" fill="#AFA9EC"/>
+    <circle cx="14"   cy="26.5" r="1.6" fill="#AFA9EC"/>
+    <circle cx="1.5"  cy="14"   r="1.6" fill="#AFA9EC"/>
+  </g>
+  <g class="cx-breathe">
+    <circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/>
+    <line x1="14"   y1="9.8"  x2="14"   y2="7"    stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="18.2" y1="14"   x2="21"   y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="14"   y1="18.2" x2="14"   y2="21"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="9.8"  y1="14"   x2="7"    y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="14" cy="14" r="2.8" fill="#534AB7"/>
+  </g>
+</svg>`;
+
 // ── ELEMENTS ──
 const chatArea = document.getElementById("chatArea");
 const userInput = document.getElementById("userInput");
@@ -116,25 +135,25 @@ function appendUserMessage(text) {
 
 // ── APPEND AI MESSAGE ──
 function appendAIMessage(text) {
+  const lockedMark = CX_MARK_SVG.replace('cx-chat-mark', 'cx-chat-mark done');
   const isLong = text.includes("```") && text.length > 800;
   if (isLong) {
     pushToCanvas(text);
     const div = document.createElement("div");
     div.className = "msg msg-ai";
-    div.innerHTML = `<span class="msg-label">Cortex</span>Pushed to <strong style="color:var(--teal)">Canvas →</strong>`;
+    div.innerHTML = `<div class="msg-ai-spinner">${lockedMark}<span>Pushed to <strong style="color:var(--teal)">Canvas →</strong></span></div>`;
     chatArea.appendChild(div);
     const actions = makeActions(text);
     chatArea.appendChild(actions);
   } else {
     const div = document.createElement("div");
     div.className = "msg msg-ai";
-    div.innerHTML = `<span class="msg-label">Cortex</span>${formatMessage(text)}`;
+    div.innerHTML = `<div class="msg-ai-spinner">${lockedMark}<div class="msg-ai-content">${formatMessage(text)}</div></div>`;
     chatArea.appendChild(div);
     const actions = makeActions(text);
     chatArea.appendChild(actions);
   }
   scrollChat();
-  // Read aloud if enabled
   if (
     document.getElementById("readAloudToggle") &&
     document.getElementById("readAloudToggle").checked
@@ -148,10 +167,15 @@ function makeActions(text) {
   actions.className = "msg-actions";
   actions.dataset.fullText = text;
   actions.innerHTML = `
-    <button class="action-btn" data-tooltip="Shorter summary" onclick="summarize(this,'shorter')">Shorter</button>
-    <button class="action-btn" data-tooltip="More detail" onclick="summarize(this,'longer')">More detail</button>
-    <button class="action-btn" data-tooltip="Make flashcards" onclick="makeFlashcard(this)">⊞ Flashcard</button>
-    <button class="action-btn read-aloud-btn" data-tooltip="Read aloud" onclick="speakText(this)" data-speaking="false">
+    <button class="action-btn" onclick="summarize(this,'shorter')">Shorter</button>
+    <button class="action-btn" onclick="summarize(this,'longer')">More detail</button>
+    <button class="action-btn" onclick="makeFlashcard(this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Flashcard
+    </button>
+    <button class="action-btn" onclick="pinNote(this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Pin Note
+    </button>
+    <button class="action-btn read-aloud-btn" onclick="speakText(this)" data-speaking="false">
       <svg class="icon-speaker" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
@@ -238,12 +262,17 @@ function escapeHtml(t) {
 // ── TYPING INDICATOR ──
 function showTyping() {
   const div = document.createElement("div");
-  div.className = "typing";
-  div.innerHTML = "<span></span><span></span><span></span>";
+  div.className = "msg msg-ai";
+  div.id = "__cxThinking";
+  div.innerHTML = `<div class="msg-ai-spinner">
+    ${CX_MARK_SVG}
+    <div class="cx-thinking-dots"><span></span><span></span><span></span></div>
+  </div>`;
   chatArea.appendChild(div);
   scrollChat();
   return div;
 }
+
 function removeTyping(el) {
   if (el?.parentNode) el.parentNode.removeChild(el);
 }
@@ -938,7 +967,8 @@ function togglePanic() {
 function appendSystemNotice(html) {
   const notice = document.createElement("div");
   notice.className = "msg msg-ai";
-  notice.innerHTML = `<span class="msg-label">Cortex</span>${html}`;
+  const lockedMark = CX_MARK_SVG.replace('cx-chat-mark', 'cx-chat-mark done');
+  notice.innerHTML = `<div class="msg-ai-spinner">${lockedMark}<span>${html}</span></div>`;
   chatArea.appendChild(notice);
   scrollChat();
 }
