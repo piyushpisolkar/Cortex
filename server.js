@@ -12,7 +12,7 @@ const multer = require("multer");
 const fs = require("fs");
 
 const isProduction =
-  process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+  process.env.NODE_ENV === "production" || !!process.env.RENDER;
 
 // ── FILE UPLOAD CONFIG ──
 const upload = multer({
@@ -58,6 +58,19 @@ const PlannerSessionSchema = new mongoose.Schema({
 const PlannerSession =
   mongoose.models.PlannerSession ||
   mongoose.model("PlannerSession", PlannerSessionSchema);
+
+// ── PROGRESS SCHEMA ──
+const ProgressItemSchema = new mongoose.Schema({
+  userId:   String,
+  subject:  String,
+  percent:  { type: Number, default: 0, min: 0, max: 100 },
+  color:    { type: String, default: "#534AB7" },
+  updatedAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now },
+});
+const ProgressItem =
+  mongoose.models.ProgressItem ||
+  mongoose.model("ProgressItem", ProgressItemSchema);
 
 // ── MIDDLEWARE ──
 app.use(express.json());
@@ -624,6 +637,59 @@ app.post("/api/planner", isLoggedIn, async (req, res) => {
 app.delete("/api/planner/:id", isLoggedIn, async (req, res) => {
   try {
     await PlannerSession.deleteOne({ _id: req.params.id, userId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+// ── PROGRESS TRACKER API ──
+app.get("/api/progress", isLoggedIn, async (req, res) => {
+  try {
+    const items = await ProgressItem.find({ userId: req.user.id }).sort({ createdAt: 1 });
+    res.json(items);
+  } catch (e) {
+    console.error("Progress get error:", e.message);
+    res.status(500).json([]);
+  }
+});
+
+app.post("/api/progress", isLoggedIn, async (req, res) => {
+  try {
+    const { subject, percent } = req.body;
+    if (!subject) return res.status(400).json({ ok: false, error: "Subject required" });
+    const existing = await ProgressItem.findOne({ userId: req.user.id, subject: subject.trim() });
+    if (existing) return res.status(400).json({ ok: false, error: "Subject already exists" });
+    const item = await ProgressItem.create({
+      userId: req.user.id,
+      subject: subject.trim(),
+      percent: Math.min(100, Math.max(0, parseInt(percent) || 0)),
+    });
+    res.json({ ok: true, item });
+  } catch (e) {
+    console.error("Progress save error:", e.message);
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.patch("/api/progress/:id", isLoggedIn, async (req, res) => {
+  try {
+    const { percent } = req.body;
+    const item = await ProgressItem.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { percent: Math.min(100, Math.max(0, parseInt(percent) || 0)), updatedAt: new Date() },
+      { new: true }
+    );
+    res.json({ ok: !!item, item });
+  } catch (e) {
+    console.error("Progress update error:", e.message);
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.delete("/api/progress/:id", isLoggedIn, async (req, res) => {
+  try {
+    await ProgressItem.deleteOne({ _id: req.params.id, userId: req.user.id });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false });

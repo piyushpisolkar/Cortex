@@ -210,48 +210,62 @@ function pushToCanvas(text) {
 
 // ── FORMAT MESSAGE ──
 function formatMessage(text) {
-  // Code blocks
-  text = text.replace(
-    /```(\w+)?\n([\s\S]*?)```/g,
-    (_, lang, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`,
-  );
-  // Inline code
-  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-  // Headers
-  text = text.replace(
-    /^### (.+)$/gm,
-    '<p style="font-weight:600;font-size:15px;color:var(--text);margin:10px 0 4px">$1</p>',
-  );
-  text = text.replace(
-    /^## (.+)$/gm,
-    '<p style="font-weight:600;font-size:16px;color:var(--text);margin:10px 0 4px">$1</p>',
-  );
-  text = text.replace(
-    /^# (.+)$/gm,
-    '<p style="font-weight:700;font-size:17px;color:var(--accent);margin:10px 0 4px">$1</p>',
-  );
-  // Bold
-  text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  // Italic
-  text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
-  // Numbered list
-  text = text.replace(
-    /^\d+\.\s+(.+)$/gm,
-    '<div class="numbered-item">$1</div>',
-  );
-  // Bullet points
-  text = text
-    .split("\n")
-    .map((line) =>
-      line.match(/^\s*[\*\-]\s+/)
-        ? '<div class="bullet">' + line.replace(/^\s*[\*\-]\s+/, "") + "</div>"
-        : line,
-    )
-    .join("\n");
-  // Clean up extra line breaks
-  text = text.replace(/(<\/div>|<\/pre>|<\/p>)\n/g, "$1");
-  text = text.replace(/\n{2,}/g, "<br><br>");
-  text = text.replace(/\n/g, "<br>");
+  // 1. Protect code blocks first
+  const codeBlocks = [];
+  text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre><code class="lang-${lang||''}">${escapeHtml(code.trim())}</code></pre>`);
+    return `%%CB${idx}%%`;
+  });
+  // 2. Inline code
+  text = text.replace(/`([^`]+)`/g, (_, c) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<code>${escapeHtml(c)}</code>`);
+    return `%%CB${idx}%%`;
+  });
+  // 3. Headers
+  text = text.replace(/^### (.+)$/gm, '<p class="msg-h3">$1</p>');
+  text = text.replace(/^## (.+)$/gm,  '<p class="msg-h2">$1</p>');
+  text = text.replace(/^# (.+)$/gm,   '<p class="msg-h1">$1</p>');
+  // 4. Bold / Italic
+  text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g,   '<em>$1</em>');
+  // 5. Process line by line — group consecutive list items into proper ol/ul
+  const lines = text.split('\n');
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(`<li>${lines[i].replace(/^\d+\.\s+/, '')}</li>`);
+        i++;
+      }
+      out.push(`<ol>${items.join('')}</ol>`);
+      continue;
+    }
+    if (/^\s*[\*\-]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[\*\-]\s+/.test(lines[i])) {
+        items.push(`<li>${lines[i].replace(/^\s*[\*\-]\s+/, '')}</li>`);
+        i++;
+      }
+      out.push(`<ul>${items.join('')}</ul>`);
+      continue;
+    }
+    if (/^>\s/.test(line)) {
+      out.push(`<blockquote>${line.replace(/^>\s/, '')}</blockquote>`);
+      i++; continue;
+    }
+    if (line.trim() === '') { out.push('<br>'); i++; continue; }
+    out.push(line);
+    i++;
+  }
+  text = out.join('');
+  // 6. Restore code blocks
+  text = text.replace(/%%CB(\d+)%%/g, (_, idx) => codeBlocks[parseInt(idx)]);
   return text;
 }
 
@@ -573,20 +587,6 @@ if (window.visualViewport) {
     if (kbHeight > 100) scrollChat();
   });
 }
-
-// ── ANDROID BACK BUTTON — navigate tabs instead of closing app ──
-(function () {
-  history.replaceState({ tab: "home" }, "", "#home");
-  const _orig = window.switchNav;
-  window.switchNav = function (tab) {
-    _orig(tab);
-    history.pushState({ tab }, "", "#" + tab);
-  };
-  window.addEventListener("popstate", function (e) {
-    const tab = e.state?.tab || "home";
-    _orig(tab);
-  });
-})();
 
 // ── VOICE INPUT ──
 function initVoice() {
@@ -996,6 +996,21 @@ function switchNav(tab) {
   if (tab === "history") loadHistory();
 }
 
+// ── ANDROID BACK BUTTON — navigate tabs instead of closing app ──
+// Must run after switchNav is defined
+(function () {
+  history.replaceState({ tab: "home" }, "", "#home");
+  const _orig = switchNav;
+  window.switchNav = function (tab) {
+    _orig(tab);
+    history.pushState({ tab }, "", "#" + tab);
+  };
+  window.addEventListener("popstate", function (e) {
+    const tab = e.state?.tab || "home";
+    _orig(tab);
+  });
+})();
+
 function updateGreeting() {
   const h = new Date().getHours();
   const greet =
@@ -1211,7 +1226,9 @@ async function loadHistory() {
   if (!list) return;
 
   try {
-    const res = await fetch("/api/history");
+    const res = await fetch("/api/history", {
+      headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+    });
     if (!res.ok) throw new Error("not ok");
     const sessions = await res.json();
 
@@ -1447,3 +1464,153 @@ async function autoSaveHistory() {
     }
   }, 1000);
 }
+
+// ── PROGRESS TRACKER — MongoDB backed, cross-device ──
+let progressItems = [];
+let editingProgressId = null;
+
+const PROGRESS_COLORS = [
+  '#534AB7', '#20b882', '#e55a4e', '#f0997b',
+  '#5b9bd5', '#9b59b6', '#f39c12', '#1abc9c'
+];
+
+async function loadProgress() {
+  try {
+    const res = await fetch('/api/progress', { headers: { 'Cache-Control': 'no-cache' } });
+    if (res.ok) {
+      progressItems = await res.json();
+      renderProgress();
+    }
+  } catch (e) {
+    progressItems = JSON.parse(localStorage.getItem('cortex-progress') || '[]');
+    renderProgress();
+  }
+}
+
+function renderProgress() {
+  const list = document.getElementById('progressList');
+  if (!list) return;
+  if (!progressItems.length) {
+    list.innerHTML = '<p class="empty-hint">No subjects added yet. Tap + Add to track your progress.</p>';
+    return;
+  }
+  list.innerHTML = progressItems.map((item, i) => {
+    const color = item.color || PROGRESS_COLORS[i % PROGRESS_COLORS.length];
+    const pct = Math.min(100, Math.max(0, item.percent || 0));
+    return `<div class="progress-item" onclick="openProgressEditModal('${item._id}','${item.subject.replace(/'/g,"\\'")}',${pct})">
+      <div class="progress-label-row">
+        <span class="progress-subject-name">${item.subject}</span>
+        <span class="progress-pct">${pct}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="pbar-${item._id}" style="width:0%;background:linear-gradient(90deg,${color}88,${color})"></div>
+      </div>
+      <div class="progress-edit-hint">Tap to edit</div>
+    </div>`;
+  }).join('');
+  // Animate bars after render
+  requestAnimationFrame(() => {
+    progressItems.forEach(item => {
+      const fill = document.getElementById(`pbar-${item._id}`);
+      if (fill) setTimeout(() => { fill.style.width = `${item.percent || 0}%`; }, 60);
+    });
+  });
+}
+
+function openProgressModal() {
+  const subj = document.getElementById('progressSubject');
+  const pct  = document.getElementById('progressPercent');
+  const val  = document.getElementById('progressSliderVal');
+  if (subj) subj.value = '';
+  if (pct)  pct.value  = 50;
+  if (val)  val.textContent = '50';
+  document.getElementById('progressModal')?.classList.remove('hidden');
+  if (subj) subj.focus();
+}
+
+function closeProgressModal() {
+  document.getElementById('progressModal')?.classList.add('hidden');
+}
+
+async function saveProgress() {
+  const subject = document.getElementById('progressSubject')?.value.trim();
+  const percent = parseInt(document.getElementById('progressPercent')?.value) || 0;
+  if (!subject) {
+    document.getElementById('progressSubject')?.focus();
+    return;
+  }
+  try {
+    const res = await fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, percent })
+    });
+    const data = await res.json();
+    if (data.ok && data.item) {
+      progressItems.push(data.item);
+      renderProgress();
+      closeProgressModal();
+    } else {
+      alert(data.error || 'Could not add subject.');
+    }
+  } catch (e) {
+    // Offline fallback
+    const item = { _id: 'local-' + Date.now(), subject, percent, color: PROGRESS_COLORS[progressItems.length % PROGRESS_COLORS.length] };
+    progressItems.push(item);
+    localStorage.setItem('cortex-progress', JSON.stringify(progressItems));
+    renderProgress();
+    closeProgressModal();
+  }
+}
+
+function openProgressEditModal(id, subject, percent) {
+  editingProgressId = id;
+  const title = document.getElementById('progressEditTitle');
+  const pct   = document.getElementById('progressEditPercent');
+  const val   = document.getElementById('progressEditVal');
+  if (title) title.textContent = subject;
+  if (pct)   pct.value         = percent;
+  if (val)   val.textContent   = percent;
+  document.getElementById('progressEditModal')?.classList.remove('hidden');
+}
+
+function closeProgressEditModal() {
+  editingProgressId = null;
+  document.getElementById('progressEditModal')?.classList.add('hidden');
+}
+
+async function updateProgress() {
+  if (!editingProgressId) return;
+  const percent = parseInt(document.getElementById('progressEditPercent')?.value) || 0;
+  try {
+    const res = await fetch(`/api/progress/${editingProgressId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ percent })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const idx = progressItems.findIndex(p => String(p._id) === String(editingProgressId));
+      if (idx !== -1) progressItems[idx].percent = percent;
+      renderProgress();
+    }
+  } catch (e) {
+    const idx = progressItems.findIndex(p => String(p._id) === String(editingProgressId));
+    if (idx !== -1) { progressItems[idx].percent = percent; renderProgress(); }
+  }
+  closeProgressEditModal();
+}
+
+async function deleteProgress() {
+  if (!editingProgressId) return;
+  if (!confirm('Remove this subject from tracker?')) return;
+  try {
+    await fetch(`/api/progress/${editingProgressId}`, { method: 'DELETE' });
+  } catch (e) {}
+  progressItems = progressItems.filter(p => String(p._id) !== String(editingProgressId));
+  localStorage.setItem('cortex-progress', JSON.stringify(progressItems));
+  renderProgress();
+  closeProgressEditModal();
+}
+
+loadProgress();
