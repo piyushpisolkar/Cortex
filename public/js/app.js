@@ -9,6 +9,8 @@ let chatHistory = [];
 let panicMode = false;
 let vivaMode = false;
 let isListening = false;
+let currentSessionId = null;  // tracks active chat session for history saving
+let _saveTimer = null;        // debounce timer for autoSaveHistory
 
 // ── CORTEX SPINNER MARK SVG — used in chat bubbles while thinking ──
 const CX_MARK_SVG = `<svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1429,9 +1431,6 @@ document.addEventListener("click", function (e) {
 })();
 
 // ── AUTO-SAVE HISTORY ──
-// currentSessionId tracks the current session — set once, reused for updates
-let currentSessionId = null;
-let _saveTimer = null;
 
 async function autoSaveHistory() {
   // Debounce — wait 1s after last message before saving
