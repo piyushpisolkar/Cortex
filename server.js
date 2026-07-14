@@ -49,9 +49,9 @@ const ChatSession =
 
 // ── PLANNER SCHEMA ──
 const PlannerSessionSchema = new mongoose.Schema({
-  userId:   String,
-  subject:  String,
-  date:     String,
+  userId: String,
+  subject: String,
+  date: String,
   duration: String,
   createdAt: { type: Date, default: Date.now },
 });
@@ -61,10 +61,10 @@ const PlannerSession =
 
 // ── PROGRESS SCHEMA ──
 const ProgressItemSchema = new mongoose.Schema({
-  userId:   String,
-  subject:  String,
-  percent:  { type: Number, default: 0, min: 0, max: 100 },
-  color:    { type: String, default: "#534AB7" },
+  userId: String,
+  subject: String,
+  percent: { type: Number, default: 0, min: 0, max: 100 },
+  color: { type: String, default: "#534AB7" },
   updatedAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
 });
@@ -210,27 +210,34 @@ app.get("/sw-kill", (req, res) => {
 
 // ── PWA ICON ROUTES (V3 Double Ring) ──
 const LOGO_SVG_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
   <rect width="512" height="512" rx="115" fill="#534AB7"/>
-  <g transform="translate(256,256) scale(8.5)">
-    <circle cx="0" cy="0" r="26" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" fill="none"/>
-    <circle cx="0" cy="-26" r="3" fill="rgba(255,255,255,0.5)"/>
-    <circle cx="26" cy="0" r="3" fill="rgba(255,255,255,0.5)"/>
-    <circle cx="0" cy="26" r="3" fill="rgba(255,255,255,0.5)"/>
-    <circle cx="-26" cy="0" r="3" fill="rgba(255,255,255,0.5)"/>
-    <circle cx="0" cy="0" r="16" stroke="white" stroke-width="5.5" fill="none"/>
-    <line x1="0" y1="-6.5" x2="0" y2="-12.5" stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <line x1="6.5" y1="0" x2="12.5" y2="0" stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <line x1="0" y1="6.5" x2="0" y2="12.5" stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <line x1="-6.5" y1="0" x2="-12.5" y2="0" stroke="white" stroke-width="4" stroke-linecap="round"/>
-    <circle cx="0" cy="0" r="5.5" fill="white"/>
-  </g>
+  <!-- Outer orbit ring — thin, subtle -->
+  <circle cx="256" cy="256" r="210" stroke="rgba(255,255,255,0.28)" stroke-width="6" fill="none"/>
+  <!-- Orbit dots at 4 cardinal points -->
+  <circle cx="256" cy="46"  r="18" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="466" cy="256" r="18" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="256" cy="466" r="18" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="46"  cy="256" r="18" fill="rgba(255,255,255,0.5)"/>
+  <!-- Inner bold ring -->
+  <circle cx="256" cy="256" r="128" stroke="white" stroke-width="28" fill="none"/>
+  <!-- 4 arms — from edge of core to inner edge of ring -->
+  <line x1="256" y1="196" x2="256" y2="128" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <line x1="316" y1="256" x2="384" y2="256" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <line x1="256" y1="316" x2="256" y2="384" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <line x1="196" y1="256" x2="128" y2="256" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <!-- Core dot -->
+  <circle cx="256" cy="256" r="38" fill="white"/>
 </svg>`;
 
-app.get(["/icons/icon-192.png", "/icons/icon-512.png", "/icons/cortex-logo.svg"], (req, res) => {
-  res.setHeader("Content-Type", "image/svg+xml");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.send(LOGO_SVG_ICON);
-});
+app.get(
+  ["/icons/icon-192.png", "/icons/icon-512.png", "/icons/cortex-logo.svg"],
+  (req, res) => {
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(LOGO_SVG_ICON);
+  },
+);
 // ── AUTH ROUTES ──
 app.get("/auth/google", (req, res, next) => {
   passport.authenticate("google", {
@@ -298,19 +305,23 @@ app.post("/api/history/save", isLoggedIn, async (req, res) => {
 
     // Strip _id and MongoDB fields — Groq only accepts {role, content}
     const cleanMessages = messages
-      .filter(m => m && m.role && m.content)
+      .filter((m) => m && m.role && m.content)
       .map(({ role, content }) => ({ role, content }));
 
     const autoTitle =
-      cleanMessages.find(m => m.role === "user")?.content?.slice(0, 60) ||
+      cleanMessages.find((m) => m.role === "user")?.content?.slice(0, 60) ||
       "Chat session";
 
     if (id) {
       // Update existing session — this is the key fix for duplicate sessions
       const updated = await ChatSession.findOneAndUpdate(
         { _id: id, userId: req.user.id },
-        { messages: cleanMessages, title: title || autoTitle, updatedAt: new Date() },
-        { new: true }
+        {
+          messages: cleanMessages,
+          title: title || autoTitle,
+          updatedAt: new Date(),
+        },
+        { new: true },
       );
       if (updated) return res.json({ ok: true, id: updated._id });
     }
@@ -363,7 +374,7 @@ You have deep knowledge of the MSBTE K-Scheme diploma engineering curriculum:
 - MSBTE K-Scheme exam: theory 70 marks, internal 30 marks, practicals, micro projects
 - Deep knowledge of PYQs, important topics, and frequently asked exam questions
 
-Your personality: sharp, clear, intelligent — like a brilliant senior student helping a junior crack MSBTE exams.
+Your personality: sharp, clear, friendly, intelligent — like a brilliant senior student helping a junior crack MSBTE exams.
 
 Rules:
 - Always refer to K-Scheme syllabus and exam perspective
@@ -404,18 +415,25 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
 
   try {
     const systemPrompt =
-      mode === "panic" ? PANIC_PROMPT :
-      mode === "viva"  ? VIVA_PROMPT  : SYSTEM_PROMPT;
+      mode === "panic"
+        ? PANIC_PROMPT
+        : mode === "viva"
+          ? VIVA_PROMPT
+          : SYSTEM_PROMPT;
 
     // Language instruction — injected into system prompt
-    const langInstruction = (language && language !== "English")
-      ? `\n\nIMPORTANT: Respond entirely in ${language}. All explanations, examples, and text must be in ${language} only.`
-      : "";
+    const langInstruction =
+      language && language !== "English"
+        ? `\n\nIMPORTANT: Respond entirely in ${language}. All explanations, examples, and text must be in ${language} only.`
+        : "";
 
     // Strip _id and MongoDB fields — Groq only accepts {role, content}
     const cleanHistory = Array.isArray(history)
       ? history
-          .filter(m => m && typeof m.role === "string" && typeof m.content === "string")
+          .filter(
+            (m) =>
+              m && typeof m.role === "string" && typeof m.content === "string",
+          )
           .map(({ role, content }) => ({ role, content }))
           .slice(-20)
       : [];
@@ -442,10 +460,10 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
     const msg = error?.message?.includes("_id")
       ? "Session data error — please start a new chat."
       : error?.message?.includes("rate_limit")
-      ? "Cortex is busy right now. Try again in a moment."
-      : error?.message?.includes("context_length")
-      ? "This conversation is too long. Please start a new chat."
-      : "Cortex could not respond. Please try again.";
+        ? "Cortex is busy right now. Try again in a moment."
+        : error?.message?.includes("context_length")
+          ? "This conversation is too long. Please start a new chat."
+          : "Cortex could not respond. Please try again.";
     res.status(500).json({ error: msg });
   }
 });
@@ -609,7 +627,9 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
 // ── PLANNER API ──
 app.get("/api/planner", isLoggedIn, async (req, res) => {
   try {
-    const sessions = await PlannerSession.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const sessions = await PlannerSession.find({ userId: req.user.id }).sort({
+      createdAt: -1,
+    });
     res.json(sessions);
   } catch (e) {
     console.error("Planner get error:", e.message);
@@ -646,7 +666,9 @@ app.delete("/api/planner/:id", isLoggedIn, async (req, res) => {
 // ── PROGRESS TRACKER API ──
 app.get("/api/progress", isLoggedIn, async (req, res) => {
   try {
-    const items = await ProgressItem.find({ userId: req.user.id }).sort({ createdAt: 1 });
+    const items = await ProgressItem.find({ userId: req.user.id }).sort({
+      createdAt: 1,
+    });
     res.json(items);
   } catch (e) {
     console.error("Progress get error:", e.message);
@@ -657,9 +679,16 @@ app.get("/api/progress", isLoggedIn, async (req, res) => {
 app.post("/api/progress", isLoggedIn, async (req, res) => {
   try {
     const { subject, percent } = req.body;
-    if (!subject) return res.status(400).json({ ok: false, error: "Subject required" });
-    const existing = await ProgressItem.findOne({ userId: req.user.id, subject: subject.trim() });
-    if (existing) return res.status(400).json({ ok: false, error: "Subject already exists" });
+    if (!subject)
+      return res.status(400).json({ ok: false, error: "Subject required" });
+    const existing = await ProgressItem.findOne({
+      userId: req.user.id,
+      subject: subject.trim(),
+    });
+    if (existing)
+      return res
+        .status(400)
+        .json({ ok: false, error: "Subject already exists" });
     const item = await ProgressItem.create({
       userId: req.user.id,
       subject: subject.trim(),
@@ -677,8 +706,11 @@ app.patch("/api/progress/:id", isLoggedIn, async (req, res) => {
     const { percent } = req.body;
     const item = await ProgressItem.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.id },
-      { percent: Math.min(100, Math.max(0, parseInt(percent) || 0)), updatedAt: new Date() },
-      { new: true }
+      {
+        percent: Math.min(100, Math.max(0, parseInt(percent) || 0)),
+        updatedAt: new Date(),
+      },
+      { new: true },
     );
     res.json({ ok: !!item, item });
   } catch (e) {
@@ -698,34 +730,47 @@ app.delete("/api/progress/:id", isLoggedIn, async (req, res) => {
 
 // ── CANVAS/NOTES PERSISTENCE API ──
 const CanvasItemSchema = new mongoose.Schema({
-  userId:   String,
-  type:     { type: String, enum: ["flashcard", "note"], required: true },
-  content:  mongoose.Schema.Types.Mixed,
+  userId: String,
+  type: { type: String, enum: ["flashcard", "note"], required: true },
+  content: mongoose.Schema.Types.Mixed,
   createdAt: { type: Date, default: Date.now },
 });
-const CanvasItem = mongoose.models.CanvasItem || mongoose.model("CanvasItem", CanvasItemSchema);
+const CanvasItem =
+  mongoose.models.CanvasItem || mongoose.model("CanvasItem", CanvasItemSchema);
 
 app.get("/api/canvas", isLoggedIn, async (req, res) => {
   try {
-    const items = await CanvasItem.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(100);
+    const items = await CanvasItem.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(100);
     res.json(items);
-  } catch (e) { res.json([]); }
+  } catch (e) {
+    res.json([]);
+  }
 });
 
 app.post("/api/canvas", isLoggedIn, async (req, res) => {
   try {
     const { type, content } = req.body;
     if (!type || !content) return res.status(400).json({ ok: false });
-    const item = await CanvasItem.create({ userId: req.user.id, type, content });
+    const item = await CanvasItem.create({
+      userId: req.user.id,
+      type,
+      content,
+    });
     res.json({ ok: true, id: item._id });
-  } catch (e) { res.status(500).json({ ok: false }); }
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
 });
 
 app.delete("/api/canvas/:id", isLoggedIn, async (req, res) => {
   try {
     await CanvasItem.deleteOne({ _id: req.params.id, userId: req.user.id });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ ok: false }); }
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
 });
 
 // ── AUTO-CLEANUP: delete chat sessions older than 60 days ──
@@ -733,8 +778,11 @@ async function cleanupOldSessions() {
   try {
     const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     const result = await ChatSession.deleteMany({ createdAt: { $lt: cutoff } });
-    if (result.deletedCount > 0) console.log(`Cleaned up ${result.deletedCount} old sessions`);
-  } catch (e) { console.error("Cleanup error:", e.message); }
+    if (result.deletedCount > 0)
+      console.log(`Cleaned up ${result.deletedCount} old sessions`);
+  } catch (e) {
+    console.error("Cleanup error:", e.message);
+  }
 }
 // Run cleanup once on startup, then every 24 hours
 cleanupOldSessions();
@@ -743,12 +791,16 @@ setInterval(cleanupOldSessions, 24 * 60 * 60 * 1000);
 // ── HISTORY: DELETE DUPLICATE SESSIONS ──
 app.post("/api/history/dedupe", isLoggedIn, async (req, res) => {
   try {
-    const sessions = await ChatSession.find({ userId: req.user.id }).sort({ createdAt: 1 });
+    const sessions = await ChatSession.find({ userId: req.user.id }).sort({
+      createdAt: 1,
+    });
     const seen = new Map();
     const toDelete = [];
     for (const s of sessions) {
       const key = s.title?.trim()?.slice(0, 40) || "untitled";
-      const timeKey = Math.floor(new Date(s.createdAt).getTime() / (5 * 60 * 1000));
+      const timeKey = Math.floor(
+        new Date(s.createdAt).getTime() / (5 * 60 * 1000),
+      );
       const dedupKey = `${key}-${timeKey}`;
       if (seen.has(dedupKey)) {
         toDelete.push(s._id);
@@ -772,11 +824,16 @@ function rateLimit(maxReqs, windowMs) {
     const key = req.user?.id || req.ip;
     const now = Date.now();
     const record = rateLimitMap.get(key) || { count: 0, reset: now + windowMs };
-    if (now > record.reset) { record.count = 0; record.reset = now + windowMs; }
+    if (now > record.reset) {
+      record.count = 0;
+      record.reset = now + windowMs;
+    }
     record.count++;
     rateLimitMap.set(key, record);
     if (record.count > maxReqs) {
-      return res.status(429).json({ error: "Too many requests. Please slow down." });
+      return res
+        .status(429)
+        .json({ error: "Too many requests. Please slow down." });
     }
     next();
   };

@@ -143,6 +143,7 @@ body::before {
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 100%;
 }
 
 .logo-mark-wrap {
@@ -152,12 +153,18 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  position: relative;
 }
 
 .logo-mark-wrap svg {
   display: block;
   width: 26px;
   height: 26px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .topbar-left svg {
@@ -171,7 +178,9 @@ body::before {
   font-size: 17px;
   letter-spacing: -0.02em;
   color: var(--text);
-  line-height: 1;
+  line-height: 26px;
+  display: inline-flex;
+  align-items: center;
 }
 .logo-sub {
   font-size: 11px;
