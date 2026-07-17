@@ -1,10 +1,10 @@
 {
   "name": "Cortex - Study Intelligence",
   "short_name": "Cortex",
-  "description": "AI-powered study assistant for engineering students",
+  "description": "AI-powered study assistant for MSBTE engineering students",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d0d14",
+  "background_color": "#534AB7",
   "theme_color": "#534AB7",
   "orientation": "portrait",
   "icons": [
