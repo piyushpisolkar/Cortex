@@ -35,6 +35,20 @@ if (process.env.MONGODB_URI) {
   console.log("MONGODB_URI missing, continuing with local-only sessions");
 }
 
+// ── USER PROFILE SCHEMA — tracks every Google login ──
+const UserProfileSchema = new mongoose.Schema({
+  userId:    { type: String, unique: true },
+  name:      String,
+  email:     String,
+  photo:     String,
+  firstSeen: { type: Date, default: Date.now },
+  lastSeen:  { type: Date, default: Date.now },
+  loginCount:{ type: Number, default: 1 },
+});
+const UserProfile =
+  mongoose.models.UserProfile ||
+  mongoose.model("UserProfile", UserProfileSchema);
+
 // ── SCHEMAS ──
 const ChatSessionSchema = new mongoose.Schema({
   userId: String,
@@ -135,6 +149,18 @@ passport.use(
         "https://cortex-y7m6.onrender.com/auth/google/callback",
     },
     (accessToken, refreshToken, profile, done) => {
+      // Record user profile in MongoDB on every login
+      const email = profile.emails?.[0]?.value || "";
+      const photo = (profile.photos?.[0]?.value || "").replace("=s96-c", "=s200-c");
+      UserProfile.findOneAndUpdate(
+        { userId: profile.id },
+        {
+          $set:  { name: profile.displayName, email, photo, lastSeen: new Date() },
+          $inc:  { loginCount: 1 },
+          $setOnInsert: { firstSeen: new Date() },
+        },
+        { upsert: true, new: true }
+      ).catch(e => console.error("UserProfile update error:", e.message));
       return done(null, profile);
     },
   ),
@@ -296,6 +322,176 @@ app.get("/logout", (req, res) => {
 app.get("/login", (req, res) => {
   if (req.isAuthenticated()) return res.redirect("/");
   res.sendFile(path.join(__dirname, "public/login.html"));
+});
+
+// ── ADMIN MIDDLEWARE — only your Google account can access ──
+function isAdmin(req, res, next) {
+  if (!req.isAuthenticated()) return res.redirect("/login");
+  const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+  const userEmail = req.user?.emails?.[0]?.value?.toLowerCase() || "";
+  if (!adminEmails.includes(userEmail)) {
+    return res.status(403).send(`
+      <html><body style="background:#0d0d14;color:#e8e8f0;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:12px;">
+        <p style="font-size:24px;">⛔ Access Denied</p>
+        <p style="color:#666;">This page is for Cortex developers only.</p>
+        <a href="/" style="color:#534AB7;">← Back to Cortex</a>
+      </body></html>
+    `);
+  }
+  next();
+}
+
+// ── DEVELOPER DASHBOARD ──
+app.get("/admin", isAdmin, async (req, res) => {
+  try {
+    const [users, totalChats, totalPlanner, totalProgress, totalCanvas] = await Promise.all([
+      UserProfile.find().sort({ lastSeen: -1 }),
+      ChatSession.countDocuments(),
+      PlannerSession.countDocuments(),
+      ProgressItem.countDocuments(),
+      CanvasItem.countDocuments(),
+    ]);
+
+    // Per-user stats
+    const userIds = users.map(u => u.userId);
+    const [chatCounts, plannerCounts, progressCounts] = await Promise.all([
+      ChatSession.aggregate([{ $match: { userId: { $in: userIds } } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+      PlannerSession.aggregate([{ $match: { userId: { $in: userIds } } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+      ProgressItem.aggregate([{ $match: { userId: { $in: userIds } } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+    ]);
+
+    const chatMap     = Object.fromEntries(chatCounts.map(x => [x._id, x.count]));
+    const plannerMap  = Object.fromEntries(plannerCounts.map(x => [x._id, x.count]));
+    const progressMap = Object.fromEntries(progressCounts.map(x => [x._id, x.count]));
+
+    const fmt = d => d ? new Date(d).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—";
+
+    const rows = users.map(u => `
+      <tr>
+        <td><img src="${u.photo || ""}" width="36" height="36" style="border-radius:50%;vertical-align:middle;margin-right:10px;" onerror="this.style.display='none'">${u.name || "—"}</td>
+        <td>${u.email || "—"}</td>
+        <td style="text-align:center">${chatMap[u.userId] || 0}</td>
+        <td style="text-align:center">${plannerMap[u.userId] || 0}</td>
+        <td style="text-align:center">${progressMap[u.userId] || 0}</td>
+        <td style="text-align:center">${u.loginCount || 1}</td>
+        <td>${fmt(u.firstSeen)}</td>
+        <td>${fmt(u.lastSeen)}</td>
+      </tr>
+    `).join("");
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cortex Admin</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh}
+  .topbar{background:#13131e;border-bottom:1px solid #1e1e30;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
+  .topbar h1{font-size:18px;font-weight:600;color:#e8e8f0;display:flex;align-items:center;gap:10px}
+  .topbar a{color:#534AB7;font-size:13px;text-decoration:none}
+  .topbar a:hover{color:#AFA9EC}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;padding:32px 32px 0}
+  .stat-card{background:#13131e;border:1px solid #1e1e30;border-radius:12px;padding:20px;text-align:center}
+  .stat-num{font-size:32px;font-weight:700;color:#534AB7;line-height:1}
+  .stat-label{font-size:12px;color:#666;margin-top:6px;letter-spacing:0.06em;text-transform:uppercase}
+  .section{padding:32px}
+  .section h2{font-size:14px;font-weight:600;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px}
+  .table-wrap{overflow-x:auto;border-radius:12px;border:1px solid #1e1e30}
+  table{width:100%;border-collapse:collapse;background:#13131e;font-size:13px}
+  th{background:#0d0d14;color:#666;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;font-size:11px;padding:12px 16px;text-align:left;border-bottom:1px solid #1e1e30}
+  td{padding:14px 16px;border-bottom:1px solid #1a1a28;vertical-align:middle;color:#c8c8e0}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#15151f}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(83,74,183,0.2);color:#AFA9EC}
+  .refresh{background:#534AB7;color:white;border:none;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}
+  .refresh:hover{background:#4038a0}
+  @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.section{padding:16px}th,td{padding:10px 12px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>
+    <svg width="22" height="22" viewBox="-30 -30 60 60" fill="none">
+      <circle cx="0" cy="0" r="26" stroke="#AFA9EC" stroke-width="1.5"/>
+      <circle cx="0" cy="-26" r="3.2" fill="#AFA9EC"/>
+      <circle cx="26" cy="0" r="3.2" fill="#AFA9EC"/>
+      <circle cx="0" cy="26" r="3.2" fill="#AFA9EC"/>
+      <circle cx="-26" cy="0" r="3.2" fill="#AFA9EC"/>
+      <circle cx="0" cy="0" r="16" stroke="#534AB7" stroke-width="5.5"/>
+      <line x1="0" y1="-6.5" x2="0" y2="-12.5" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+      <line x1="6.5" y1="0" x2="12.5" y2="0" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+      <line x1="0" y1="6.5" x2="0" y2="12.5" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+      <line x1="-6.5" y1="0" x2="-12.5" y2="0" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="5.5" fill="#534AB7"/>
+    </svg>
+    Cortex Developer Dashboard
+  </h1>
+  <div style="display:flex;align-items:center;gap:16px">
+    <button class="refresh" onclick="location.reload()">↻ Refresh</button>
+    <a href="/">← Back to App</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-num">${users.length}</div>
+    <div class="stat-label">Total Users</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">${totalChats}</div>
+    <div class="stat-label">Chat Sessions</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">${totalPlanner}</div>
+    <div class="stat-label">Planner Items</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">${totalProgress}</div>
+    <div class="stat-label">Progress Items</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">${totalCanvas}</div>
+    <div class="stat-label">Canvas Items</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">${users.reduce((a,u) => a + (u.loginCount||1), 0)}</div>
+    <div class="stat-label">Total Logins</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>All Users (${users.length})</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Email</th>
+          <th style="text-align:center">Chats</th>
+          <th style="text-align:center">Planner</th>
+          <th style="text-align:center">Progress</th>
+          <th style="text-align:center">Logins</th>
+          <th>First Seen</th>
+          <th>Last Active</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#444;padding:32px">No users yet</td></tr>'}</tbody>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center;padding:24px;color:#333;font-size:12px">
+  Cortex Admin · ${new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" })}
+</div>
+
+</body></html>`);
+  } catch (e) {
+    console.error("Admin error:", e);
+    res.status(500).send("Dashboard error: " + e.message);
+  }
 });
 
 // ── MAIN APP ──
@@ -828,4 +1024,22 @@ app.use("/api/summarize", rateLimit(20, 60 * 1000));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🧠 Cortex running → http://localhost:${PORT}`);
+
+  // ── KEEP-ALIVE PING (free Render tier fix) ──
+  // Pings itself every 10 minutes so Render never spins down
+  if (isProduction) {
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || "https://cortex-y7m6.onrender.com";
+    setInterval(async () => {
+      try {
+        const https = require("https");
+        https.get(`${RENDER_URL}/ping`, (res) => {
+          console.log(`🔄 Keep-alive ping → ${res.statusCode}`);
+        }).on("error", () => {});
+      } catch (e) {}
+    }, 10 * 60 * 1000); // every 10 minutes
+    console.log("✓ Keep-alive ping active");
+  }
 });
+
+// ── PING ROUTE ──
+app.get("/ping", (req, res) => res.status(200).send("OK"));
