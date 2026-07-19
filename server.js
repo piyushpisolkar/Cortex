@@ -344,8 +344,20 @@ function isAdmin(req, res, next) {
 // ── DEVELOPER DASHBOARD ──
 app.get("/admin", isAdmin, async (req, res) => {
   try {
-    const [users, totalChats, totalPlanner, totalProgress, totalCanvas] = await Promise.all([
+    // Collect all userIds across collections — catches users before UserProfile tracking
+    const [profileUsers, sessionUserIds] = await Promise.all([
       UserProfile.find().sort({ lastSeen: -1 }),
+      ChatSession.distinct("userId"),
+    ]);
+
+    const profileMap = Object.fromEntries(profileUsers.map(u => [u.userId, u]));
+    const allUserIds = [...new Set([
+      ...profileUsers.map(u => u.userId),
+      ...sessionUserIds,
+    ])];
+
+    // Global totals
+    const [totalChats, totalPlanner, totalProgress, totalCanvas] = await Promise.all([
       ChatSession.countDocuments(),
       PlannerSession.countDocuments(),
       ProgressItem.countDocuments(),
@@ -353,31 +365,58 @@ app.get("/admin", isAdmin, async (req, res) => {
     ]);
 
     // Per-user stats
-    const userIds = users.map(u => u.userId);
     const [chatCounts, plannerCounts, progressCounts] = await Promise.all([
-      ChatSession.aggregate([{ $match: { userId: { $in: userIds } } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
-      PlannerSession.aggregate([{ $match: { userId: { $in: userIds } } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
-      ProgressItem.aggregate([{ $match: { userId: { $in: userIds } } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+      ChatSession.aggregate([
+        { $match: { userId: { $in: allUserIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 }, lastChat: { $max: "$updatedAt" } } }
+      ]),
+      PlannerSession.aggregate([
+        { $match: { userId: { $in: allUserIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } }
+      ]),
+      ProgressItem.aggregate([
+        { $match: { userId: { $in: allUserIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } }
+      ]),
     ]);
 
-    const chatMap     = Object.fromEntries(chatCounts.map(x => [x._id, x.count]));
+    const chatMap     = Object.fromEntries(chatCounts.map(x => [x._id, { count: x.count, lastChat: x.lastChat }]));
     const plannerMap  = Object.fromEntries(plannerCounts.map(x => [x._id, x.count]));
     const progressMap = Object.fromEntries(progressCounts.map(x => [x._id, x.count]));
 
-    const fmt = d => d ? new Date(d).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—";
+    // Format date in IST
+    const fmt = d => {
+      if (!d) return "—";
+      return new Date(d).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: true
+      });
+    };
 
-    const rows = users.map(u => `
-      <tr>
-        <td><img src="${u.photo || ""}" width="36" height="36" style="border-radius:50%;vertical-align:middle;margin-right:10px;" onerror="this.style.display='none'">${u.name || "—"}</td>
-        <td>${u.email || "—"}</td>
-        <td style="text-align:center">${chatMap[u.userId] || 0}</td>
-        <td style="text-align:center">${plannerMap[u.userId] || 0}</td>
-        <td style="text-align:center">${progressMap[u.userId] || 0}</td>
-        <td style="text-align:center">${u.loginCount || 1}</td>
-        <td>${fmt(u.firstSeen)}</td>
-        <td>${fmt(u.lastSeen)}</td>
-      </tr>
-    `).join("");
+    const rows = allUserIds.map(uid => {
+      const u = profileMap[uid];
+      const chats = chatMap[uid]?.count || 0;
+      const lastActive = u?.lastSeen || chatMap[uid]?.lastChat;
+      return `
+        <tr>
+          <td>
+            ${u?.photo ? `<img src="${u.photo}" width="36" height="36" style="border-radius:50%;vertical-align:middle;margin-right:10px;" onerror="this.style.display='none'">` : `<span style="display:inline-block;width:36px;height:36px;border-radius:50%;background:#1e1e30;vertical-align:middle;margin-right:10px;"></span>`}
+            ${u?.name || '<span style="color:#444">Unknown</span>'}
+          </td>
+          <td>${u?.email || '<span style="color:#444">—</span>'}</td>
+          <td style="text-align:center"><span class="badge">${chats}</span></td>
+          <td style="text-align:center">${plannerMap[uid] || 0}</td>
+          <td style="text-align:center">${progressMap[uid] || 0}</td>
+          <td style="text-align:center">${u?.loginCount || "—"}</td>
+          <td style="font-size:12px;color:#888">${fmt(u?.firstSeen)}</td>
+          <td style="font-size:12px;color:#888">${fmt(lastActive)}</td>
+        </tr>`;
+    }).join("");
+
+    const totalUsers = allUserIds.length;
+    const totalLogins = profileUsers.reduce((a, u) => a + (u.loginCount || 1), 0);
+    const nowIST = new Date().toLocaleString("en-IN", { timeZone:"Asia/Kolkata", day:"numeric", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit", hour12:true });
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -388,30 +427,32 @@ app.get("/admin", isAdmin, async (req, res) => {
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh}
-  .topbar{background:#13131e;border-bottom:1px solid #1e1e30;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
+  .topbar{background:#13131e;border-bottom:1px solid #1e1e30;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
   .topbar h1{font-size:18px;font-weight:600;color:#e8e8f0;display:flex;align-items:center;gap:10px}
   .topbar a{color:#534AB7;font-size:13px;text-decoration:none}
   .topbar a:hover{color:#AFA9EC}
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;padding:32px 32px 0}
-  .stat-card{background:#13131e;border:1px solid #1e1e30;border-radius:12px;padding:20px;text-align:center}
-  .stat-num{font-size:32px;font-weight:700;color:#534AB7;line-height:1}
-  .stat-label{font-size:12px;color:#666;margin-top:6px;letter-spacing:0.06em;text-transform:uppercase}
-  .section{padding:32px}
-  .section h2{font-size:14px;font-weight:600;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;padding:28px 32px 0}
+  .stat-card{background:#13131e;border:1px solid #1e1e30;border-radius:12px;padding:18px;text-align:center}
+  .stat-num{font-size:30px;font-weight:700;color:#534AB7;line-height:1}
+  .stat-label{font-size:11px;color:#555;margin-top:6px;letter-spacing:0.06em;text-transform:uppercase}
+  .section{padding:28px 32px}
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+  .section h2{font-size:12px;font-weight:600;color:#555;letter-spacing:0.1em;text-transform:uppercase}
+  .tz-note{font-size:11px;color:#3a3a55;font-style:italic}
   .table-wrap{overflow-x:auto;border-radius:12px;border:1px solid #1e1e30}
   table{width:100%;border-collapse:collapse;background:#13131e;font-size:13px}
-  th{background:#0d0d14;color:#666;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;font-size:11px;padding:12px 16px;text-align:left;border-bottom:1px solid #1e1e30}
-  td{padding:14px 16px;border-bottom:1px solid #1a1a28;vertical-align:middle;color:#c8c8e0}
+  th{background:#0a0a12;color:#444;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;font-size:11px;padding:12px 16px;text-align:left;border-bottom:1px solid #1e1e30;white-space:nowrap}
+  td{padding:13px 16px;border-bottom:1px solid #181825;vertical-align:middle;color:#c0c0d8}
   tr:last-child td{border-bottom:none}
-  tr:hover td{background:#15151f}
-  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(83,74,183,0.2);color:#AFA9EC}
-  .refresh{background:#534AB7;color:white;border:none;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}
+  tr:hover td{background:#14141e}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(83,74,183,0.2);color:#AFA9EC}
+  .refresh{background:#534AB7;color:white;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;transition:background 0.2s}
   .refresh:hover{background:#4038a0}
-  @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.section{padding:16px}th,td{padding:10px 12px}}
+  .footer{text-align:center;padding:24px;color:#252535;font-size:12px}
+  @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.section{padding:16px 16px}th,td{padding:10px 10px;font-size:12px}}
 </style>
 </head>
 <body>
-
 <div class="topbar">
   <h1>
     <svg width="22" height="22" viewBox="-30 -30 60 60" fill="none">
@@ -427,69 +468,48 @@ app.get("/admin", isAdmin, async (req, res) => {
       <line x1="-6.5" y1="0" x2="-12.5" y2="0" stroke="#534AB7" stroke-width="4" stroke-linecap="round"/>
       <circle cx="0" cy="0" r="5.5" fill="#534AB7"/>
     </svg>
-    Cortex Developer Dashboard
+    Cortex — Developer Dashboard
   </h1>
-  <div style="display:flex;align-items:center;gap:16px">
+  <div style="display:flex;align-items:center;gap:14px">
     <button class="refresh" onclick="location.reload()">↻ Refresh</button>
-    <a href="/">← Back to App</a>
+    <a href="/">← App</a>
   </div>
 </div>
 
 <div class="stats">
-  <div class="stat-card">
-    <div class="stat-num">${users.length}</div>
-    <div class="stat-label">Total Users</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-num">${totalChats}</div>
-    <div class="stat-label">Chat Sessions</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-num">${totalPlanner}</div>
-    <div class="stat-label">Planner Items</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-num">${totalProgress}</div>
-    <div class="stat-label">Progress Items</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-num">${totalCanvas}</div>
-    <div class="stat-label">Canvas Items</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-num">${users.reduce((a,u) => a + (u.loginCount||1), 0)}</div>
-    <div class="stat-label">Total Logins</div>
-  </div>
+  <div class="stat-card"><div class="stat-num">${totalUsers}</div><div class="stat-label">Total Users</div></div>
+  <div class="stat-card"><div class="stat-num">${totalChats}</div><div class="stat-label">Chat Sessions</div></div>
+  <div class="stat-card"><div class="stat-num">${totalPlanner}</div><div class="stat-label">Planner Items</div></div>
+  <div class="stat-card"><div class="stat-num">${totalProgress}</div><div class="stat-label">Progress Items</div></div>
+  <div class="stat-card"><div class="stat-num">${totalCanvas}</div><div class="stat-label">Canvas Items</div></div>
+  <div class="stat-card"><div class="stat-num">${totalLogins}</div><div class="stat-label">Total Logins</div></div>
 </div>
 
 <div class="section">
-  <h2>All Users (${users.length})</h2>
+  <div class="section-header">
+    <h2>All Users (${totalUsers})</h2>
+    <span class="tz-note">All times in IST (UTC+5:30)</span>
+  </div>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>User</th>
-          <th>Email</th>
-          <th style="text-align:center">Chats</th>
-          <th style="text-align:center">Planner</th>
-          <th style="text-align:center">Progress</th>
-          <th style="text-align:center">Logins</th>
-          <th>First Seen</th>
-          <th>Last Active</th>
+          <th>User</th><th>Email</th>
+          <th style="text-align:center">💬 Chats</th>
+          <th style="text-align:center">📅 Planner</th>
+          <th style="text-align:center">📊 Progress</th>
+          <th style="text-align:center">🔑 Logins</th>
+          <th>First Seen</th><th>Last Active</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#444;padding:32px">No users yet</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#2a2a40;padding:40px">No users yet</td></tr>'}</tbody>
     </table>
   </div>
 </div>
-
-<div style="text-align:center;padding:24px;color:#333;font-size:12px">
-  Cortex Admin · ${new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" })}
-</div>
-
+<div class="footer">Cortex Admin · All times IST · ${nowIST}</div>
 </body></html>`);
   } catch (e) {
-    console.error("Admin error:", e);
+    console.error("Admin dashboard error:", e);
     res.status(500).send("Dashboard error: " + e.message);
   }
 });
@@ -927,6 +947,45 @@ app.delete("/api/progress/:id", isLoggedIn, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false });
+  }
+});
+
+// ── STATS API — this week counts from MongoDB ──
+app.get("/api/stats", isLoggedIn, async (req, res) => {
+  try {
+    // Start of current week (Monday 00:00 IST)
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + istOffset);
+    const dayOfWeek = nowIST.getUTCDay(); // 0=Sun, 1=Mon...
+    const daysSinceMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+    const weekStart = new Date(nowIST);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+    // Convert back to UTC for MongoDB query
+    const weekStartUTC = new Date(weekStart.getTime() - istOffset);
+
+    const [chats, flashcards, notes] = await Promise.all([
+      ChatSession.countDocuments({
+        userId: req.user.id,
+        createdAt: { $gte: weekStartUTC }
+      }),
+      CanvasItem.countDocuments({
+        userId: req.user.id,
+        type: "flashcard",
+        createdAt: { $gte: weekStartUTC }
+      }),
+      CanvasItem.countDocuments({
+        userId: req.user.id,
+        type: "note",
+        createdAt: { $gte: weekStartUTC }
+      }),
+    ]);
+
+    res.json({ chats, flashcards, notes, weekStart: weekStartUTC });
+  } catch (e) {
+    console.error("Stats error:", e.message);
+    res.status(500).json({ chats: 0, flashcards: 0, notes: 0 });
   }
 });
 

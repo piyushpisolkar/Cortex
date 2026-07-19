@@ -384,8 +384,6 @@ async function pushFlashcardsToCanvas(flashcards) {
       savedFlashcards.insertBefore(card, savedFlashcards.firstChild);
     }
     updateFlashcardCount();
-    const n = parseInt(localStorage.getItem("cortex-stat-flashcards") || "0") + flashcards.length;
-    localStorage.setItem("cortex-stat-flashcards", n);
     updateStats();
   }
 
@@ -472,8 +470,6 @@ async function saveNoteToCanvas(text) {
     `;
     savedNotes.insertBefore(card, savedNotes.firstChild);
     updateNotesCount();
-    const n = parseInt(localStorage.getItem("cortex-stat-notes") || "0") + 1;
-    localStorage.setItem("cortex-stat-notes", n);
     updateStats();
   }
   pushToCanvas(text);
@@ -993,7 +989,7 @@ function switchNav(tab) {
     section.classList.toggle("hidden", section.id !== `tab-${tab}`);
   });
   // Update home greeting
-  if (tab === "home") updateGreeting();
+  if (tab === "home") { updateGreeting(); updateStats(); }
   // Load history when switching to history tab
   if (tab === "history") loadHistory();
 }
@@ -1321,29 +1317,20 @@ async function deleteSession(id) {
 }
 
 // ── STATS — fetch from server for cross-device sync ──
+// ── STATS — all counts from MongoDB, this week only ──
 async function updateStats() {
   try {
-    const res = await fetch("/api/history", {
-      headers: { "Cache-Control": "no-cache" },
-    });
+    const res = await fetch("/api/stats", { headers: { "Cache-Control": "no-cache" } });
     if (res.ok) {
-      const sessions = await res.json();
-      const chats = sessions.length || 0;
+      const { chats, flashcards, notes } = await res.json();
       const ce = document.getElementById("statChats");
+      const fe = document.getElementById("statFlashcards");
+      const ne = document.getElementById("statNotes");
       if (ce) ce.textContent = chats;
+      if (fe) fe.textContent = flashcards;
+      if (ne) ne.textContent = notes;
     }
-  } catch {
-    /* silently fail */
-  }
-  // Flashcards and notes still local for now
-  const flashcards = parseInt(
-    localStorage.getItem("cortex-stat-flashcards") || "0",
-  );
-  const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
-  const fe = document.getElementById("statFlashcards");
-  const ne = document.getElementById("statNotes");
-  if (fe) fe.textContent = flashcards;
-  if (ne) ne.textContent = notes;
+  } catch { /* silently fail */ }
 }
 updateStats();
 
