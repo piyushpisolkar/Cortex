@@ -27,12 +27,51 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 if (process.env.MONGODB_URI) {
   mongoose
     .connect(process.env.MONGODB_URI)
-    .then(() => console.log("MongoDB connected"))
+    .then(async () => {
+      console.log("MongoDB connected");
+      // Auto-backfill unknown users from session data on every startup
+      await autoBackfillProfiles();
+    })
     .catch((err) =>
       console.error("MongoDB unavailable, continuing locally:", err.message),
     );
 } else {
   console.log("MONGODB_URI missing, continuing with local-only sessions");
+}
+
+// ── AUTO BACKFILL — runs on startup silently ──
+async function autoBackfillProfiles() {
+  try {
+    const db = mongoose.connection.db;
+    const sessionsCol = db.collection("sessions");
+    const allSessions = await sessionsCol.find({}).toArray();
+    let fixed = 0;
+    const seen = new Set();
+    for (const s of allSessions) {
+      try {
+        let sessionData = s.session;
+        if (typeof sessionData === "string") {
+          try { sessionData = JSON.parse(sessionData); } catch { continue; }
+        }
+        const user = sessionData?.passport?.user;
+        if (!user?.id || seen.has(user.id)) continue;
+        seen.add(user.id);
+        const email = user.emails?.[0]?.value || "";
+        const photo = (user.photos?.[0]?.value || "").replace("=s96-c", "=s200-c");
+        const name  = user.displayName || "";
+        if (!name && !email) continue;
+        const result = await UserProfile.findOneAndUpdate(
+          { userId: user.id },
+          { $set: { name: name || undefined, email: email || undefined, photo: photo || undefined }, $setOnInsert: { firstSeen: new Date(), loginCount: 1 } },
+          { upsert: true, new: true }
+        );
+        if (result) fixed++;
+      } catch {}
+    }
+    if (fixed > 0) console.log(`✓ Auto-backfill: fixed ${fixed} user profiles`);
+  } catch (e) {
+    console.error("Auto-backfill error:", e.message);
+  }
 }
 
 // ── USER PROFILE SCHEMA — tracks every Google login ──
@@ -399,13 +438,13 @@ app.get("/admin", isAdmin, async (req, res) => {
       const chats = chatMap[uid]?.count || 0;
       const lastActive = u?.lastSeen || chatMap[uid]?.lastChat;
       return `
-        <tr>
+        <tr style="cursor:pointer" onclick="window.location='/admin/user/${uid}/chats'" title="Click to view chats">
           <td>
             ${u?.photo ? `<img src="${u.photo}" width="36" height="36" style="border-radius:50%;vertical-align:middle;margin-right:10px;" onerror="this.style.display='none'">` : `<span style="display:inline-block;width:36px;height:36px;border-radius:50%;background:#1e1e30;vertical-align:middle;margin-right:10px;"></span>`}
-            ${u?.name || '<span style="color:#444">Unknown</span>'}
+            <span style="color:#AFA9EC;font-size:11px;margin-right:6px">💬</span>${u?.name || '<span style="color:#444">Unknown</span>'}
           </td>
           <td>${u?.email || '<span style="color:#444">—</span>'}</td>
-          <td style="text-align:center"><span class="badge">${chats}</span></td>
+          <td style="text-align:center"><span class="badge" style="cursor:pointer">${chats}</span></td>
           <td style="text-align:center">${plannerMap[uid] || 0}</td>
           <td style="text-align:center">${progressMap[uid] || 0}</td>
           <td style="text-align:center">${u?.loginCount || "—"}</td>
@@ -471,6 +510,7 @@ app.get("/admin", isAdmin, async (req, res) => {
     Cortex — Developer Dashboard
   </h1>
   <div style="display:flex;align-items:center;gap:14px">
+    <a href="/admin/backfill" style="background:#1a1a2a;color:#AFA9EC;border:1px solid #2a2a45;padding:8px 16px;border-radius:8px;font-size:13px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.borderColor='#534AB7'" onmouseout="this.style.borderColor='#2a2a45'">⚙ Fix Unknown Users</a>
     <button class="refresh" onclick="location.reload()">↻ Refresh</button>
     <a href="/">← App</a>
   </div>
@@ -488,7 +528,7 @@ app.get("/admin", isAdmin, async (req, res) => {
 <div class="section">
   <div class="section-header">
     <h2>All Users (${totalUsers})</h2>
-    <span class="tz-note">All times in IST (UTC+5:30)</span>
+    <span class="tz-note">All times IST · Click a row to view chats</span>
   </div>
   <div class="table-wrap">
     <table>
@@ -511,6 +551,347 @@ app.get("/admin", isAdmin, async (req, res) => {
   } catch (e) {
     console.error("Admin dashboard error:", e);
     res.status(500).send("Dashboard error: " + e.message);
+  }
+});
+
+// ── ADMIN: BACKFILL USER PROFILES FROM SESSIONS ──
+async function backfillUserProfiles() {
+  try {
+    // Read raw sessions from MongoDB
+    const db = mongoose.connection.db;
+    if (!db) return 0;
+
+    const sessionDocs = await db.collection("sessions").find({}).toArray();
+    let created = 0;
+    let updated = 0;
+
+    for (const doc of sessionDocs) {
+      try {
+        // Session data is stored as JSON string
+        const raw = typeof doc.session === "string" ? JSON.parse(doc.session) : doc.session;
+        const profile = raw?.passport?.user;
+        if (!profile || !profile.id) continue;
+
+        const email = profile.emails?.[0]?.value || "";
+        const photo = (profile.photos?.[0]?.value || "").replace("=s96-c", "=s200-c");
+        const name  = profile.displayName || "";
+
+        if (!email && !name) continue;
+
+        const existing = await UserProfile.findOne({ userId: profile.id });
+        if (!existing) {
+          await UserProfile.create({
+            userId:     profile.id,
+            name,
+            email,
+            photo,
+            firstSeen:  doc.expires ? new Date(doc.expires.getTime() - 7*24*60*60*1000) : new Date(),
+            lastSeen:   doc.expires || new Date(),
+            loginCount: 1,
+          });
+          created++;
+        } else if (!existing.name || !existing.email) {
+          // Fill in missing fields on partial profiles
+          await UserProfile.findOneAndUpdate(
+            { userId: profile.id },
+            { $set: { name: existing.name || name, email: existing.email || email, photo: existing.photo || photo } }
+          );
+          updated++;
+        }
+      } catch (e) { /* skip malformed session */ }
+    }
+    console.log(`✓ Backfill complete: ${created} created, ${updated} updated`);
+    return { created, updated };
+  } catch (e) {
+    console.error("Backfill error:", e.message);
+    return { created: 0, updated: 0, error: e.message };
+  }
+}
+
+// Run backfill automatically on every startup — fills in any missing profiles
+mongoose.connection.once("open", () => {
+  setTimeout(backfillUserProfiles, 3000); // wait 3s for models to register
+});
+
+app.get("/admin/backfill", isAdmin, async (req, res) => {
+  const result = await backfillUserProfiles();
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Backfill Complete</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:20px}
+  .card{background:#13131e;border:1px solid #1e1e30;border-radius:16px;padding:40px 48px;text-align:center;max-width:400px}
+  .icon{font-size:48px;margin-bottom:12px}
+  h1{font-size:20px;font-weight:600;color:#e8e8f0;margin-bottom:8px}
+  p{font-size:14px;color:#666;margin-bottom:6px}
+  .stat{font-size:28px;font-weight:700;color:#534AB7}
+  .links{display:flex;gap:14px;justify-content:center;margin-top:24px}
+  a{color:#534AB7;font-size:13px;text-decoration:none;padding:8px 18px;border:1px solid #534AB7;border-radius:8px;transition:all 0.2s}
+  a:hover{background:#534AB7;color:white}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${result.error ? "⚠️" : "✅"}</div>
+    <h1>${result.error ? "Backfill Error" : "Backfill Complete"}</h1>
+    ${result.error ? `<p style="color:#e55a4e">${result.error}</p>` : `
+    <p>Profiles created</p>
+    <div class="stat">${result.created}</div>
+    <p style="margin-top:16px">Profiles updated</p>
+    <div class="stat">${result.updated}</div>
+    `}
+    <div class="links">
+      <a href="/admin">← Dashboard</a>
+      <a href="/admin/backfill">Run Again</a>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
+// ── ADMIN: BACKFILL USER PROFILES FROM SESSION DATA ──
+app.get("/admin/backfill", isAdmin, async (req, res) => {
+  try {
+    // Read all sessions from MongoDB session store
+    const db = mongoose.connection.db;
+    const sessionsCol = db.collection("sessions");
+    const allSessions = await sessionsCol.find({}).toArray();
+
+    let created = 0, updated = 0, skipped = 0, errors = 0;
+    const seen = new Set();
+
+    for (const s of allSessions) {
+      try {
+        // Session data is stored as JSON string in 'session' field
+        let sessionData = s.session;
+        if (typeof sessionData === "string") {
+          try { sessionData = JSON.parse(sessionData); } catch { continue; }
+        }
+
+        const passport = sessionData?.passport;
+        const user = passport?.user;
+        if (!user || !user.id) { skipped++; continue; }
+        if (seen.has(user.id)) { skipped++; continue; }
+        seen.add(user.id);
+
+        const email = user.emails?.[0]?.value || "";
+        const photo = (user.photos?.[0]?.value || "").replace("=s96-c", "=s200-c");
+        const name  = user.displayName || "";
+
+        if (!email && !name) { skipped++; continue; }
+
+        const existing = await UserProfile.findOne({ userId: user.id });
+        if (existing) {
+          // Update if name/email/photo missing
+          if (!existing.name || !existing.email) {
+            await UserProfile.findOneAndUpdate(
+              { userId: user.id },
+              { $set: { name: name || existing.name, email: email || existing.email, photo: photo || existing.photo } }
+            );
+            updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          await UserProfile.create({
+            userId: user.id,
+            name, email, photo,
+            firstSeen: s.expires ? new Date(s.expires - 7 * 24 * 60 * 60 * 1000) : new Date(),
+            lastSeen:  new Date(),
+            loginCount: 1,
+          });
+          created++;
+        }
+      } catch (e) {
+        errors++;
+      }
+    }
+
+    // Also check chat sessions for any userIds still missing profiles
+    const chatUserIds = await ChatSession.distinct("userId");
+    let chatBackfill = 0;
+    for (const uid of chatUserIds) {
+      const exists = await UserProfile.findOne({ userId: uid });
+      if (!exists) {
+        // Create a placeholder so they show in dashboard (will fill when they log in)
+        await UserProfile.create({
+          userId: uid,
+          name: "",
+          email: "",
+          photo: "",
+          loginCount: 0,
+        }).catch(() => {});
+        chatBackfill++;
+      }
+    }
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Backfill Complete</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px;padding:32px}
+  .card{background:#13131e;border:1px solid #1e1e30;border-radius:16px;padding:32px 40px;max-width:480px;width:100%;text-align:center}
+  h1{font-size:18px;font-weight:600;margin-bottom:24px;color:#e8e8f0}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1a1a28;font-size:14px}
+  .row:last-child{border-bottom:none}
+  .row span:first-child{color:#666}
+  .num{font-weight:700;font-size:18px}
+  .created{color:#20b882}
+  .updated{color:#534AB7}
+  .skipped{color:#444}
+  .errors{color:#e55a4e}
+  .btn{display:inline-block;margin-top:24px;background:#534AB7;color:white;text-decoration:none;padding:10px 24px;border-radius:10px;font-size:14px;transition:background 0.2s}
+  .btn:hover{background:#4038a0}
+  .note{font-size:12px;color:#444;margin-top:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>✅ Backfill Complete</h1>
+  <div class="row"><span>Profiles created</span><span class="num created">${created}</span></div>
+  <div class="row"><span>Profiles updated</span><span class="num updated">${updated}</span></div>
+  <div class="row"><span>Chat-only placeholders</span><span class="num updated">${chatBackfill}</span></div>
+  <div class="row"><span>Already complete</span><span class="num skipped">${skipped}</span></div>
+  <div class="row"><span>Errors</span><span class="num errors">${errors}</span></div>
+  <a href="/admin" class="btn">← Back to Dashboard</a>
+  <p class="note">Users who were "Unknown" will now show their name and email.<br>Any remaining unknowns will auto-fill on their next login.</p>
+</div>
+</body></html>`);
+  } catch (e) {
+    console.error("Backfill error:", e);
+    res.status(500).send("Backfill failed: " + e.message);
+  }
+});
+
+// ── ADMIN: VIEW USER CHATS ──
+app.get("/admin/user/:userId/chats", isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await UserProfile.findOne({ userId });
+    const sessions = await ChatSession.find({ userId })
+      .sort({ updatedAt: -1 })
+      .limit(50);
+
+    const fmt = d => d ? new Date(d).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata", day: "numeric", month: "short",
+      year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true
+    }) : "—";
+
+    const sessionCards = sessions.map(s => {
+      const msgCount = s.messages?.length || 0;
+      const preview = s.title || s.messages?.find(m => m.role === "user")?.content?.slice(0, 80) || "Chat session";
+      return `
+        <div class="session-card" onclick="toggleChat('${s._id}')">
+          <div class="session-header">
+            <div class="session-info">
+              <div class="session-title">${preview}</div>
+              <div class="session-meta">${fmt(s.updatedAt)} · ${msgCount} messages</div>
+            </div>
+            <span class="toggle-icon" id="icon-${s._id}">▶</span>
+          </div>
+          <div class="chat-messages hidden" id="chat-${s._id}">
+            ${(s.messages || []).map(m => `
+              <div class="msg-row ${m.role}">
+                <div class="msg-role">${m.role === "user" ? "👤 User" : "🧠 Cortex"}</div>
+                <div class="msg-content">${m.content?.replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>") || ""}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${user?.name || "User"} — Chats</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh}
+  .topbar{background:#13131e;border-bottom:1px solid #1e1e30;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .topbar-left{display:flex;align-items:center;gap:12px}
+  .topbar h1{font-size:16px;font-weight:600;color:#e8e8f0}
+  .topbar a{color:#534AB7;font-size:13px;text-decoration:none;transition:color 0.2s}
+  .topbar a:hover{color:#AFA9EC}
+  .user-chip{display:flex;align-items:center;gap:8px;background:#1a1a2a;border:1px solid #1e1e30;border-radius:24px;padding:6px 14px 6px 8px}
+  .user-chip img{width:28px;height:28px;border-radius:50%}
+  .user-chip span{font-size:13px;color:#c0c0d8}
+  .user-email{font-size:11px;color:#444;margin-top:2px}
+  .content{padding:28px 28px}
+  .stat-row{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+  .stat-pill{background:#13131e;border:1px solid #1e1e30;border-radius:10px;padding:12px 20px;text-align:center}
+  .stat-pill .num{font-size:22px;font-weight:700;color:#534AB7}
+  .stat-pill .lbl{font-size:11px;color:#555;letter-spacing:0.06em;text-transform:uppercase;margin-top:3px}
+  .section-title{font-size:12px;font-weight:600;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px}
+  .session-card{background:#13131e;border:1px solid #1e1e30;border-radius:12px;margin-bottom:10px;overflow:hidden;transition:border-color 0.2s}
+  .session-card:hover{border-color:#2a2a45}
+  .session-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;gap:12px}
+  .session-title{font-size:13px;color:#c8c8e0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:560px}
+  .session-meta{font-size:11px;color:#444;margin-top:4px}
+  .toggle-icon{color:#444;font-size:12px;flex-shrink:0;transition:transform 0.2s}
+  .toggle-icon.open{transform:rotate(90deg);color:#534AB7}
+  .chat-messages{border-top:1px solid #1a1a28;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+  .chat-messages.hidden{display:none}
+  .msg-row{display:flex;flex-direction:column;gap:4px}
+  .msg-role{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#444}
+  .msg-row.user .msg-role{color:#AFA9EC}
+  .msg-row.assistant .msg-role{color:#20b882}
+  .msg-content{font-size:13px;line-height:1.65;color:#b8b8d0;background:#0d0d14;border-radius:8px;padding:10px 14px;border-left:2px solid #1e1e30;white-space:pre-wrap;word-break:break-word}
+  .msg-row.user .msg-content{border-left-color:#534AB7;color:#c8c8e0}
+  .msg-row.assistant .msg-content{border-left-color:#20b882}
+  .empty{text-align:center;padding:60px 20px;color:#2a2a40;font-size:14px}
+  @media(max-width:600px){.content{padding:16px}.session-title{max-width:220px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="/admin">← Dashboard</a>
+    <div class="user-chip">
+      ${user?.photo ? `<img src="${user.photo}" onerror="this.style.display='none'">` : ""}
+      <div>
+        <span>${user?.name || "Unknown User"}</span>
+        <div class="user-email">${user?.email || userId}</div>
+      </div>
+    </div>
+  </div>
+  <h1>${sessions.length} chat session${sessions.length !== 1 ? "s" : ""}</h1>
+</div>
+
+<div class="content">
+  <div class="stat-row">
+    <div class="stat-pill"><div class="num">${sessions.length}</div><div class="lbl">Sessions</div></div>
+    <div class="stat-pill"><div class="num">${sessions.reduce((a,s) => a+(s.messages?.length||0),0)}</div><div class="lbl">Total Messages</div></div>
+    <div class="stat-pill"><div class="num">${user?.loginCount||"—"}</div><div class="lbl">Logins</div></div>
+  </div>
+
+  <div class="section-title">Chat Sessions (newest first)</div>
+  ${sessionCards || '<div class="empty">No chat sessions found for this user</div>'}
+</div>
+
+<script>
+function toggleChat(id) {
+  const msgs = document.getElementById('chat-' + id);
+  const icon = document.getElementById('icon-' + id);
+  const isHidden = msgs.classList.contains('hidden');
+  msgs.classList.toggle('hidden', !isHidden);
+  icon.classList.toggle('open', isHidden);
+}
+</script>
+</body></html>`);
+  } catch (e) {
+    console.error("Admin chats error:", e);
+    res.status(500).send("Error: " + e.message);
   }
 });
 
