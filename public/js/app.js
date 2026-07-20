@@ -9,27 +9,6 @@ let chatHistory = [];
 let panicMode = false;
 let vivaMode = false;
 let isListening = false;
-let currentSessionId = null;  // tracks active chat session for history saving
-let _saveTimer = null;        // debounce timer for autoSaveHistory
-
-// ── CORTEX SPINNER MARK SVG — used in chat bubbles while thinking ──
-const CX_MARK_SVG = `<svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g class="cx-spin-orbit">
-    <circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/>
-    <circle cx="14"   cy="1.5"  r="1.6" fill="#AFA9EC"/>
-    <circle cx="26.5" cy="14"   r="1.6" fill="#AFA9EC"/>
-    <circle cx="14"   cy="26.5" r="1.6" fill="#AFA9EC"/>
-    <circle cx="1.5"  cy="14"   r="1.6" fill="#AFA9EC"/>
-  </g>
-  <g class="cx-breathe">
-    <circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/>
-    <line x1="14"   y1="9.8"  x2="14"   y2="7"    stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="18.2" y1="14"   x2="21"   y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="14"   y1="18.2" x2="14"   y2="21"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="9.8"  y1="14"   x2="7"    y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
-    <circle cx="14" cy="14" r="2.8" fill="#534AB7"/>
-  </g>
-</svg>`;
 
 // ── ELEMENTS ──
 const chatArea = document.getElementById("chatArea");
@@ -62,6 +41,10 @@ clearCanvas.addEventListener("click", () => {
   canvasArea.innerHTML = "";
   canvasArea.appendChild(canvasEmpty);
   canvasEmpty.style.display = "flex";
+  canvasItemCount = 0;
+  const badge = document.getElementById("canvasBadge");
+  if (badge) badge.style.display = "none";
+  closeCanvasDrawer();
 });
 
 // ── NEW CHAT ──
@@ -106,7 +89,6 @@ async function sendMessage() {
         message: text,
         history: chatHistory,
         mode: panicMode ? "panic" : vivaMode ? "viva" : "normal",
-        language: selectedLanguage || "English",
       }),
     });
     const data = await res.json();
@@ -137,25 +119,25 @@ function appendUserMessage(text) {
 
 // ── APPEND AI MESSAGE ──
 function appendAIMessage(text) {
-  const lockedMark = CX_MARK_SVG.replace('cx-chat-mark', 'cx-chat-mark done');
   const isLong = text.includes("```") && text.length > 800;
   if (isLong) {
     pushToCanvas(text);
     const div = document.createElement("div");
     div.className = "msg msg-ai";
-    div.innerHTML = `<div class="msg-ai-spinner">${lockedMark}<span>Pushed to <strong style="color:var(--teal)">Canvas →</strong></span></div>`;
+    div.innerHTML = `<span class="msg-label">Cortex</span>Pushed to <strong style="color:var(--teal)">Canvas →</strong>`;
     chatArea.appendChild(div);
     const actions = makeActions(text);
     chatArea.appendChild(actions);
   } else {
     const div = document.createElement("div");
     div.className = "msg msg-ai";
-    div.innerHTML = `<div class="msg-ai-spinner">${lockedMark}<div class="msg-ai-content">${formatMessage(text)}</div></div>`;
+    div.innerHTML = `<span class="msg-label">Cortex</span>${formatMessage(text)}`;
     chatArea.appendChild(div);
     const actions = makeActions(text);
     chatArea.appendChild(actions);
   }
   scrollChat();
+  // Read aloud if enabled
   if (
     document.getElementById("readAloudToggle") &&
     document.getElementById("readAloudToggle").checked
@@ -169,15 +151,10 @@ function makeActions(text) {
   actions.className = "msg-actions";
   actions.dataset.fullText = text;
   actions.innerHTML = `
-    <button class="action-btn" onclick="summarize(this,'shorter')">Shorter</button>
-    <button class="action-btn" onclick="summarize(this,'longer')">More detail</button>
-    <button class="action-btn" onclick="makeFlashcard(this)">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Flashcard
-    </button>
-    <button class="action-btn" onclick="pinNote(this)">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Pin Note
-    </button>
-    <button class="action-btn read-aloud-btn" onclick="speakText(this)" data-speaking="false">
+    <button class="action-btn" data-tooltip="Shorter summary" onclick="summarize(this,'shorter')">Shorter</button>
+    <button class="action-btn" data-tooltip="More detail" onclick="summarize(this,'longer')">More detail</button>
+    <button class="action-btn" data-tooltip="Make flashcards" onclick="makeFlashcard(this)">⊞ Flashcard</button>
+    <button class="action-btn read-aloud-btn" data-tooltip="Read aloud" onclick="speakText(this)" data-speaking="false">
       <svg class="icon-speaker" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
@@ -190,6 +167,49 @@ function makeActions(text) {
     </button>
   `;
   return actions;
+}
+
+// ── CANVAS DRAWER (mobile) ──
+let canvasItemCount = 0;
+
+function toggleCanvasDrawer() {
+  const panel = document.getElementById("canvasPanel");
+  const backdrop = document.getElementById("canvasBackdrop");
+  const isOpen = panel?.classList.contains("drawer-open");
+  if (isOpen) {
+    closeCanvasDrawer();
+  } else {
+    panel?.classList.add("drawer-open");
+    backdrop.style.display = "block";
+    document.body.style.overflow = "hidden";
+    // Reset badge when user views canvas
+    canvasItemCount = 0;
+    const badge = document.getElementById("canvasBadge");
+    if (badge) badge.style.display = "none";
+  }
+}
+
+function closeCanvasDrawer() {
+  const panel = document.getElementById("canvasPanel");
+  const backdrop = document.getElementById("canvasBackdrop");
+  panel?.classList.remove("drawer-open");
+  if (backdrop) backdrop.style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function updateCanvasBadge() {
+  canvasItemCount++;
+  const badge = document.getElementById("canvasBadge");
+  const btn = document.getElementById("canvasToggleBtn");
+  if (badge) {
+    badge.textContent = canvasItemCount;
+    badge.style.display = "inline-block";
+  }
+  if (btn) {
+    // Pulse animation to draw attention
+    btn.style.transform = "scale(1.12)";
+    setTimeout(() => { btn.style.transform = ""; }, 200);
+  }
 }
 
 // ── PUSH TO CANVAS ──
@@ -207,67 +227,57 @@ function pushToCanvas(text) {
   card.appendChild(body);
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  if (isMobile()) switchTab("canvas");
+  updateCanvasBadge();
+  // On mobile auto-open the drawer so user sees the content
+  if (isMobile()) {
+    setTimeout(() => toggleCanvasDrawer(), 300);
+  }
 }
 
 // ── FORMAT MESSAGE ──
 function formatMessage(text) {
-  // 1. Protect code blocks first
-  const codeBlocks = [];
-  text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
-    const idx = codeBlocks.length;
-    codeBlocks.push(`<pre><code class="lang-${lang||''}">${escapeHtml(code.trim())}</code></pre>`);
-    return `%%CB${idx}%%`;
-  });
-  // 2. Inline code
-  text = text.replace(/`([^`]+)`/g, (_, c) => {
-    const idx = codeBlocks.length;
-    codeBlocks.push(`<code>${escapeHtml(c)}</code>`);
-    return `%%CB${idx}%%`;
-  });
-  // 3. Headers
-  text = text.replace(/^### (.+)$/gm, '<p class="msg-h3">$1</p>');
-  text = text.replace(/^## (.+)$/gm,  '<p class="msg-h2">$1</p>');
-  text = text.replace(/^# (.+)$/gm,   '<p class="msg-h1">$1</p>');
-  // 4. Bold / Italic
-  text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/\*(.+?)\*/g,   '<em>$1</em>');
-  // 5. Process line by line — group consecutive list items into proper ol/ul
-  const lines = text.split('\n');
-  const out = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (/^\d+\.\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(`<li>${lines[i].replace(/^\d+\.\s+/, '')}</li>`);
-        i++;
-      }
-      out.push(`<ol>${items.join('')}</ol>`);
-      continue;
-    }
-    if (/^\s*[\*\-]\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\s*[\*\-]\s+/.test(lines[i])) {
-        items.push(`<li>${lines[i].replace(/^\s*[\*\-]\s+/, '')}</li>`);
-        i++;
-      }
-      out.push(`<ul>${items.join('')}</ul>`);
-      continue;
-    }
-    if (/^>\s/.test(line)) {
-      out.push(`<blockquote>${line.replace(/^>\s/, '')}</blockquote>`);
-      i++; continue;
-    }
-    if (line.trim() === '') { out.push('<br>'); i++; continue; }
-    out.push(line);
-    i++;
-  }
-  text = out.join('');
-  // 6. Restore code blocks
-  text = text.replace(/%%CB(\d+)%%/g, (_, idx) => codeBlocks[parseInt(idx)]);
+  // Code blocks
+  text = text.replace(
+    /```(\w+)?\n([\s\S]*?)```/g,
+    (_, lang, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`,
+  );
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Headers
+  text = text.replace(
+    /^### (.+)$/gm,
+    '<p style="font-weight:600;font-size:15px;color:var(--text);margin:10px 0 4px">$1</p>',
+  );
+  text = text.replace(
+    /^## (.+)$/gm,
+    '<p style="font-weight:600;font-size:16px;color:var(--text);margin:10px 0 4px">$1</p>',
+  );
+  text = text.replace(
+    /^# (.+)$/gm,
+    '<p style="font-weight:700;font-size:17px;color:var(--accent);margin:10px 0 4px">$1</p>',
+  );
+  // Bold
+  text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // Italic
+  text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
+  // Numbered list
+  text = text.replace(
+    /^\d+\.\s+(.+)$/gm,
+    '<div class="numbered-item">$1</div>',
+  );
+  // Bullet points
+  text = text
+    .split("\n")
+    .map((line) =>
+      line.match(/^\s*[\*\-]\s+/)
+        ? '<div class="bullet">' + line.replace(/^\s*[\*\-]\s+/, "") + "</div>"
+        : line,
+    )
+    .join("\n");
+  // Clean up extra line breaks
+  text = text.replace(/(<\/div>|<\/pre>|<\/p>)\n/g, "$1");
+  text = text.replace(/\n{2,}/g, "<br><br>");
+  text = text.replace(/\n/g, "<br>");
   return text;
 }
 
@@ -278,17 +288,12 @@ function escapeHtml(t) {
 // ── TYPING INDICATOR ──
 function showTyping() {
   const div = document.createElement("div");
-  div.className = "msg msg-ai";
-  div.id = "__cxThinking";
-  div.innerHTML = `<div class="msg-ai-spinner">
-    ${CX_MARK_SVG}
-    <div class="cx-thinking-dots"><span></span><span></span><span></span></div>
-  </div>`;
+  div.className = "typing";
+  div.innerHTML = "<span></span><span></span><span></span>";
   chatArea.appendChild(div);
   scrollChat();
   return div;
 }
-
 function removeTyping(el) {
   if (el?.parentNode) el.parentNode.removeChild(el);
 }
@@ -349,45 +354,8 @@ async function makeFlashcard(btn) {
   btn.disabled = false;
 }
 
-// ── PUSH FLASHCARDS — saves to MongoDB + Canvas tab ──
-async function pushFlashcardsToCanvas(flashcards) {
-  // Save each flashcard to MongoDB for persistence
-  const savedFlashcards = document.getElementById("savedFlashcards");
-  if (savedFlashcards) {
-    const existing = savedFlashcards.querySelector(".empty-section-hint");
-    if (existing) existing.remove();
-
-    for (const fc of flashcards) {
-      let dbId = null;
-      try {
-        const res = await fetch("/api/canvas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "flashcard", content: { q: fc.q, a: fc.a } }),
-        });
-        const data = await res.json();
-        if (data.ok) dbId = data.id;
-      } catch (e) {}
-
-      const card = document.createElement("div");
-      card.className = "saved-flashcard-card";
-      card.dataset.dbId = dbId || "";
-      card.innerHTML = `
-        <div class="question">Q: ${fc.q}</div>
-        <div class="answer">A: ${fc.a}</div>
-        <button class="note-delete-btn" onclick="deleteCanvasItem(this,'flashcard')">×</button>
-      `;
-      card.addEventListener("click", (e) => {
-        if (e.target.classList.contains("note-delete-btn")) return;
-        card.classList.toggle("revealed");
-      });
-      savedFlashcards.insertBefore(card, savedFlashcards.firstChild);
-    }
-    updateFlashcardCount();
-    updateStats();
-  }
-
-  // Also show in chat canvas panel
+// ── PUSH FLASHCARDS ──
+function pushFlashcardsToCanvas(flashcards) {
   canvasEmpty.style.display = "none";
   const card = document.createElement("div");
   card.className = "canvas-card";
@@ -408,182 +376,10 @@ async function pushFlashcardsToCanvas(flashcards) {
   });
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  if (isMobile()) switchTab("canvas");
-}
-
-// ── PIN NOTE ──
-async function pinNote(btn) {
-  const actionsDiv = btn.parentElement;
-  const text = actionsDiv.dataset.fullText || actionsDiv.previousElementSibling?.innerText || "";
-  if (!text.trim()) return;
-  const origHTML = btn.innerHTML;
-  btn.textContent = "...";
-  btn.disabled = true;
-  try {
-    const res = await fetch("/api/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, type: "shorter" }),
-    });
-    const data = await res.json();
-    await saveNoteToCanvas(data.reply || text);
-  } catch (e) {
-    await saveNoteToCanvas(text);
+  updateCanvasBadge();
+  if (isMobile()) {
+    setTimeout(() => toggleCanvasDrawer(), 300);
   }
-  btn.innerHTML = origHTML;
-  btn.disabled = false;
-}
-
-// ── SAVE NOTE TO CANVAS — MongoDB persisted ──
-async function saveNoteToCanvas(text) {
-  const savedNotes = document.getElementById("savedNotes");
-  if (savedNotes) {
-    const hint = savedNotes.querySelector(".empty-section-hint");
-    if (hint) hint.remove();
-
-    const time = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    const bullets = text.split("\n")
-      .filter(l => l.trim())
-      .map(l => l.replace(/^[\*\-\d\.]+\s*/, "").trim())
-      .filter(Boolean)
-      .slice(0, 6);
-
-    // Save to MongoDB
-    let dbId = null;
-    try {
-      const res = await fetch("/api/canvas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "note", content: { text, bullets, time } }),
-      });
-      const data = await res.json();
-      if (data.ok) dbId = data.id;
-    } catch (e) {}
-
-    const card = document.createElement("div");
-    card.className = "saved-note-card";
-    card.dataset.dbId = dbId || "";
-    card.innerHTML = `
-      <div class="note-title">📌 Note — ${time}</div>
-      <div class="note-bullets">${bullets.map(b => `<div class="note-bullet">• ${b}</div>`).join("")}</div>
-      <button class="note-delete-btn" onclick="deleteCanvasItem(this,'note')">×</button>
-    `;
-    savedNotes.insertBefore(card, savedNotes.firstChild);
-    updateNotesCount();
-    updateStats();
-  }
-  pushToCanvas(text);
-}
-
-// ── DELETE CANVAS ITEM ──
-async function deleteCanvasItem(btn, type) {
-  const card = btn.parentElement;
-  const dbId = card.dataset.dbId;
-  if (dbId) {
-    try { await fetch(`/api/canvas/${dbId}`, { method: "DELETE" }); } catch (e) {}
-  }
-  card.style.opacity = "0";
-  card.style.transform = "translateX(10px)";
-  card.style.transition = "all 0.2s ease";
-  setTimeout(() => {
-    card.remove();
-    if (type === "note") updateNotesCount();
-    else updateFlashcardCount();
-  }, 200);
-}
-
-function updateNotesCount() {
-  const savedNotes = document.getElementById("savedNotes");
-  const count = savedNotes ? savedNotes.querySelectorAll(".saved-note-card").length : 0;
-  const el = document.getElementById("notesCount");
-  if (el) el.textContent = count + " saved";
-}
-
-function updateFlashcardCount() {
-  const grid = document.getElementById("savedFlashcards");
-  const count = grid ? grid.querySelectorAll(".saved-flashcard-card").length : 0;
-  const el = document.getElementById("flashcardCount");
-  if (el) el.textContent = count + " saved";
-}
-
-// ── LOAD CANVAS FROM MONGODB — persists across sessions ──
-async function loadCanvasItems() {
-  try {
-    const res = await fetch("/api/canvas", { headers: { "Cache-Control": "no-cache" } });
-    if (!res.ok) return;
-    const items = await res.json();
-    if (!items.length) return;
-
-    const savedNotes = document.getElementById("savedNotes");
-    const savedFlashcards = document.getElementById("savedFlashcards");
-
-    items.forEach(item => {
-      if (item.type === "note" && savedNotes) {
-        const hint = savedNotes.querySelector(".empty-section-hint");
-        if (hint) hint.remove();
-        const card = document.createElement("div");
-        card.className = "saved-note-card";
-        card.dataset.dbId = item._id;
-        const bullets = item.content?.bullets || [];
-        const time = item.content?.time || "";
-        card.innerHTML = `
-          <div class="note-title">📌 Note — ${time}</div>
-          <div class="note-bullets">${bullets.map(b => `<div class="note-bullet">• ${b}</div>`).join("")}</div>
-          <button class="note-delete-btn" onclick="deleteCanvasItem(this,'note')">×</button>
-        `;
-        savedNotes.appendChild(card);
-      } else if (item.type === "flashcard" && savedFlashcards) {
-        const hint = savedFlashcards.querySelector(".empty-section-hint");
-        if (hint) hint.remove();
-        const card = document.createElement("div");
-        card.className = "saved-flashcard-card";
-        card.dataset.dbId = item._id;
-        card.innerHTML = `
-          <div class="question">Q: ${item.content?.q || ""}</div>
-          <div class="answer">A: ${item.content?.a || ""}</div>
-          <button class="note-delete-btn" onclick="deleteCanvasItem(this,'flashcard')">×</button>
-        `;
-        card.addEventListener("click", (e) => {
-          if (e.target.classList.contains("note-delete-btn")) return;
-          card.classList.toggle("revealed");
-        });
-        savedFlashcards.appendChild(card);
-      }
-    });
-    updateNotesCount();
-    updateFlashcardCount();
-  } catch (e) { /* silently fail */ }
-}
-loadCanvasItems();
-
-// ── HISTORY DEDUPLICATION ──
-async function dedupeHistory() {
-  const btn = document.getElementById("dedupeBtn");
-  if (btn) { btn.textContent = "Cleaning..."; btn.disabled = true; }
-  try {
-    const res = await fetch("/api/history/dedupe", { method: "POST" });
-    const data = await res.json();
-    if (data.ok) {
-      await loadHistory();
-      if (btn) btn.textContent = `Removed ${data.removed} duplicates`;
-      setTimeout(() => {
-        if (btn) { btn.textContent = "Remove Duplicates"; btn.disabled = false; }
-      }, 3000);
-    }
-  } catch (e) {
-    if (btn) { btn.textContent = "Remove Duplicates"; btn.disabled = false; }
-  }
-}
-
-// ── MOBILE KEYBOARD FIX — shrink input area when keyboard opens ──
-if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", () => {
-    const inputArea = document.querySelector(".input-area");
-    if (!inputArea) return;
-    const kbHeight = window.innerHeight - window.visualViewport.height;
-    inputArea.style.paddingBottom = kbHeight > 100 ? kbHeight + "px" : "";
-    if (kbHeight > 100) scrollChat();
-  });
 }
 
 // ── VOICE INPUT ──
@@ -965,8 +761,7 @@ function togglePanic() {
 function appendSystemNotice(html) {
   const notice = document.createElement("div");
   notice.className = "msg msg-ai";
-  const lockedMark = CX_MARK_SVG.replace('cx-chat-mark', 'cx-chat-mark done');
-  notice.innerHTML = `<div class="msg-ai-spinner">${lockedMark}<span>${html}</span></div>`;
+  notice.innerHTML = `<span class="msg-label">Cortex</span>${html}`;
   chatArea.appendChild(notice);
   scrollChat();
 }
@@ -989,25 +784,10 @@ function switchNav(tab) {
     section.classList.toggle("hidden", section.id !== `tab-${tab}`);
   });
   // Update home greeting
-  if (tab === "home") { updateGreeting(); updateStats(); }
+  if (tab === "home") updateGreeting();
   // Load history when switching to history tab
   if (tab === "history") loadHistory();
 }
-
-// ── ANDROID BACK BUTTON — navigate tabs instead of closing app ──
-// Must run after switchNav is defined
-(function () {
-  history.replaceState({ tab: "home" }, "", "#home");
-  const _orig = switchNav;
-  window.switchNav = function (tab) {
-    _orig(tab);
-    history.pushState({ tab }, "", "#" + tab);
-  };
-  window.addEventListener("popstate", function (e) {
-    const tab = e.state?.tab || "home";
-    _orig(tab);
-  });
-})();
 
 function updateGreeting() {
   const h = new Date().getHours();
@@ -1224,9 +1004,7 @@ async function loadHistory() {
   if (!list) return;
 
   try {
-    const res = await fetch("/api/history", {
-      headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
-    });
+    const res = await fetch("/api/history");
     if (!res.ok) throw new Error("not ok");
     const sessions = await res.json();
 
@@ -1317,20 +1095,29 @@ async function deleteSession(id) {
 }
 
 // ── STATS — fetch from server for cross-device sync ──
-// ── STATS — all counts from MongoDB, this week only ──
 async function updateStats() {
   try {
-    const res = await fetch("/api/stats", { headers: { "Cache-Control": "no-cache" } });
+    const res = await fetch("/api/history", {
+      headers: { "Cache-Control": "no-cache" },
+    });
     if (res.ok) {
-      const { chats, flashcards, notes } = await res.json();
+      const sessions = await res.json();
+      const chats = sessions.length || 0;
       const ce = document.getElementById("statChats");
-      const fe = document.getElementById("statFlashcards");
-      const ne = document.getElementById("statNotes");
       if (ce) ce.textContent = chats;
-      if (fe) fe.textContent = flashcards;
-      if (ne) ne.textContent = notes;
     }
-  } catch { /* silently fail */ }
+  } catch {
+    /* silently fail */
+  }
+  // Flashcards and notes still local for now
+  const flashcards = parseInt(
+    localStorage.getItem("cortex-stat-flashcards") || "0",
+  );
+  const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
+  const fe = document.getElementById("statFlashcards");
+  const ne = document.getElementById("statNotes");
+  if (fe) fe.textContent = flashcards;
+  if (ne) ne.textContent = notes;
 }
 updateStats();
 
@@ -1418,6 +1205,9 @@ document.addEventListener("click", function (e) {
 })();
 
 // ── AUTO-SAVE HISTORY ──
+// currentSessionId tracks the current session — set once, reused for updates
+let currentSessionId = null;
+let _saveTimer = null;
 
 async function autoSaveHistory() {
   // Debounce — wait 1s after last message before saving
@@ -1450,153 +1240,3 @@ async function autoSaveHistory() {
     }
   }, 1000);
 }
-
-// ── PROGRESS TRACKER — MongoDB backed, cross-device ──
-let progressItems = [];
-let editingProgressId = null;
-
-const PROGRESS_COLORS = [
-  '#534AB7', '#20b882', '#e55a4e', '#f0997b',
-  '#5b9bd5', '#9b59b6', '#f39c12', '#1abc9c'
-];
-
-async function loadProgress() {
-  try {
-    const res = await fetch('/api/progress', { headers: { 'Cache-Control': 'no-cache' } });
-    if (res.ok) {
-      progressItems = await res.json();
-      renderProgress();
-    }
-  } catch (e) {
-    progressItems = JSON.parse(localStorage.getItem('cortex-progress') || '[]');
-    renderProgress();
-  }
-}
-
-function renderProgress() {
-  const list = document.getElementById('progressList');
-  if (!list) return;
-  if (!progressItems.length) {
-    list.innerHTML = '<p class="empty-hint">No subjects added yet. Tap + Add to track your progress.</p>';
-    return;
-  }
-  list.innerHTML = progressItems.map((item, i) => {
-    const color = item.color || PROGRESS_COLORS[i % PROGRESS_COLORS.length];
-    const pct = Math.min(100, Math.max(0, item.percent || 0));
-    return `<div class="progress-item" onclick="openProgressEditModal('${item._id}','${item.subject.replace(/'/g,"\\'")}',${pct})">
-      <div class="progress-label-row">
-        <span class="progress-subject-name">${item.subject}</span>
-        <span class="progress-pct">${pct}%</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="pbar-${item._id}" style="width:0%;background:linear-gradient(90deg,${color}88,${color})"></div>
-      </div>
-      <div class="progress-edit-hint">Tap to edit</div>
-    </div>`;
-  }).join('');
-  // Animate bars after render
-  requestAnimationFrame(() => {
-    progressItems.forEach(item => {
-      const fill = document.getElementById(`pbar-${item._id}`);
-      if (fill) setTimeout(() => { fill.style.width = `${item.percent || 0}%`; }, 60);
-    });
-  });
-}
-
-function openProgressModal() {
-  const subj = document.getElementById('progressSubject');
-  const pct  = document.getElementById('progressPercent');
-  const val  = document.getElementById('progressSliderVal');
-  if (subj) subj.value = '';
-  if (pct)  pct.value  = 50;
-  if (val)  val.textContent = '50';
-  document.getElementById('progressModal')?.classList.remove('hidden');
-  if (subj) subj.focus();
-}
-
-function closeProgressModal() {
-  document.getElementById('progressModal')?.classList.add('hidden');
-}
-
-async function saveProgress() {
-  const subject = document.getElementById('progressSubject')?.value.trim();
-  const percent = parseInt(document.getElementById('progressPercent')?.value) || 0;
-  if (!subject) {
-    document.getElementById('progressSubject')?.focus();
-    return;
-  }
-  try {
-    const res = await fetch('/api/progress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subject, percent })
-    });
-    const data = await res.json();
-    if (data.ok && data.item) {
-      progressItems.push(data.item);
-      renderProgress();
-      closeProgressModal();
-    } else {
-      alert(data.error || 'Could not add subject.');
-    }
-  } catch (e) {
-    // Offline fallback
-    const item = { _id: 'local-' + Date.now(), subject, percent, color: PROGRESS_COLORS[progressItems.length % PROGRESS_COLORS.length] };
-    progressItems.push(item);
-    localStorage.setItem('cortex-progress', JSON.stringify(progressItems));
-    renderProgress();
-    closeProgressModal();
-  }
-}
-
-function openProgressEditModal(id, subject, percent) {
-  editingProgressId = id;
-  const title = document.getElementById('progressEditTitle');
-  const pct   = document.getElementById('progressEditPercent');
-  const val   = document.getElementById('progressEditVal');
-  if (title) title.textContent = subject;
-  if (pct)   pct.value         = percent;
-  if (val)   val.textContent   = percent;
-  document.getElementById('progressEditModal')?.classList.remove('hidden');
-}
-
-function closeProgressEditModal() {
-  editingProgressId = null;
-  document.getElementById('progressEditModal')?.classList.add('hidden');
-}
-
-async function updateProgress() {
-  if (!editingProgressId) return;
-  const percent = parseInt(document.getElementById('progressEditPercent')?.value) || 0;
-  try {
-    const res = await fetch(`/api/progress/${editingProgressId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ percent })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      const idx = progressItems.findIndex(p => String(p._id) === String(editingProgressId));
-      if (idx !== -1) progressItems[idx].percent = percent;
-      renderProgress();
-    }
-  } catch (e) {
-    const idx = progressItems.findIndex(p => String(p._id) === String(editingProgressId));
-    if (idx !== -1) { progressItems[idx].percent = percent; renderProgress(); }
-  }
-  closeProgressEditModal();
-}
-
-async function deleteProgress() {
-  if (!editingProgressId) return;
-  if (!confirm('Remove this subject from tracker?')) return;
-  try {
-    await fetch(`/api/progress/${editingProgressId}`, { method: 'DELETE' });
-  } catch (e) {}
-  progressItems = progressItems.filter(p => String(p._id) !== String(editingProgressId));
-  localStorage.setItem('cortex-progress', JSON.stringify(progressItems));
-  renderProgress();
-  closeProgressEditModal();
-}
-
-loadProgress();
