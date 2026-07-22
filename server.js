@@ -1189,7 +1189,7 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     if (isImage) {
       // Use Groq vision for images
       const response = await groq.chat.completions.create({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        model: "meta-llama/llama-4-maverick-17b-128e-instruct",
         messages: [
           {
             role: "user",
