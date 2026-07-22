@@ -1514,60 +1514,6 @@ code {
   padding: 16px 0;
 }
 
-/* Canvas toggle button — hidden on desktop, shown on mobile */
-.canvas-toggle-btn {
-  display: none;
-  position: fixed;
-  bottom: 76px;
-  right: 16px;
-  z-index: 150;
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 24px;
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: "Inter", sans-serif;
-  cursor: pointer;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 16px rgba(83,74,183,0.5);
-  transition: all 0.2s;
-  letter-spacing: 0.02em;
-}
-.canvas-toggle-btn:hover { background: var(--accent-dark); }
-.canvas-toggle-btn .canvas-badge {
-  background: white;
-  color: var(--accent);
-  border-radius: 10px;
-  padding: 1px 6px;
-  font-size: 11px;
-  font-weight: 700;
-  min-width: 18px;
-  text-align: center;
-}
-
-/* Backdrop behind drawer */
-.canvas-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 199;
-  backdrop-filter: blur(2px);
-}
-
-/* Canvas area scrollable inside drawer */
-.canvas-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 16px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 /* ── CHAT TAB LAYOUT ── */
 #tab-chat {
   flex-direction: row;
@@ -2220,9 +2166,43 @@ body.light .topbar {
   letter-spacing: 0.04em;
 }
 
+/* ── CANVAS TOGGLE BUTTON (mobile only) ── */
+.canvas-toggle-btn {
+  display: none;
+  position: fixed;
+  bottom: 76px;
+  right: 14px;
+  z-index: 180;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "Inter", system-ui, sans-serif;
+  cursor: pointer;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 20px rgba(83,74,183,0.5);
+  transition: transform 0.15s ease, background 0.2s;
+  letter-spacing: 0.02em;
+}
+.canvas-toggle-btn:hover { background: var(--accent-dark); }
+.canvas-badge {
+  background: white;
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
-  /* Canvas panel becomes a slide-up drawer on mobile */
+  /* Canvas becomes a slide-up sheet — NO backdrop, NO blur */
   .canvas-panel {
     position: fixed;
     bottom: 0;
@@ -2230,40 +2210,47 @@ body.light .topbar {
     right: 0;
     top: auto;
     width: 100%;
-    height: 70vh;
+    height: 72vh;
     border-left: none;
     border-top: 1px solid var(--border);
-    border-radius: 16px 16px 0 0;
-    z-index: 200;
+    border-radius: 20px 20px 0 0;
+    z-index: 190;
     transform: translateY(100%);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .canvas-panel.drawer-open {
     transform: translateY(0);
   }
 
-  /* Drag handle at top of drawer */
-  .canvas-panel::before {
-    content: '';
+  /* Drag handle pill */
+  .canvas-drag-handle {
     display: block;
     width: 36px;
     height: 4px;
     background: var(--border);
     border-radius: 2px;
-    margin: 10px auto 0;
+    margin: 10px auto 6px;
     flex-shrink: 0;
   }
 
-  /* Canvas toggle button — floats in chat area */
   .canvas-toggle-btn {
+    display: flex;
+  }
+
+  #canvasCloseBtn {
     display: flex !important;
   }
 
-  /* Backdrop when drawer is open */
-  .canvas-backdrop {
-    display: block;
+  .canvas-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 24px;
   }
 }
 

@@ -169,20 +169,21 @@ function makeActions(text) {
   return actions;
 }
 
-// ── CANVAS DRAWER (mobile) ──
+// ── CANVAS DRAWER (mobile) — no backdrop, no blur ──
 let canvasItemCount = 0;
 
 function toggleCanvasDrawer() {
   const panel = document.getElementById("canvasPanel");
-  const backdrop = document.getElementById("canvasBackdrop");
-  const isOpen = panel?.classList.contains("drawer-open");
+  if (!panel) return;
+  const isOpen = panel.classList.contains("drawer-open");
   if (isOpen) {
     closeCanvasDrawer();
   } else {
-    panel?.classList.add("drawer-open");
-    backdrop.style.display = "block";
-    document.body.style.overflow = "hidden";
-    // Reset badge when user views canvas
+    panel.classList.add("drawer-open");
+    // Show close button on mobile
+    const closeBtn = document.getElementById("canvasCloseBtn");
+    if (closeBtn && isMobile()) closeBtn.style.display = "flex";
+    // Reset badge
     canvasItemCount = 0;
     const badge = document.getElementById("canvasBadge");
     if (badge) badge.style.display = "none";
@@ -191,13 +192,16 @@ function toggleCanvasDrawer() {
 
 function closeCanvasDrawer() {
   const panel = document.getElementById("canvasPanel");
-  const backdrop = document.getElementById("canvasBackdrop");
-  panel?.classList.remove("drawer-open");
-  if (backdrop) backdrop.style.display = "none";
-  document.body.style.overflow = "";
+  if (panel) panel.classList.remove("drawer-open");
+  const closeBtn = document.getElementById("canvasCloseBtn");
+  if (closeBtn) closeBtn.style.display = "none";
 }
 
 function updateCanvasBadge() {
+  if (!isMobile()) return;
+  const panel = document.getElementById("canvasPanel");
+  // Don't show badge if drawer is already open
+  if (panel?.classList.contains("drawer-open")) return;
   canvasItemCount++;
   const badge = document.getElementById("canvasBadge");
   const btn = document.getElementById("canvasToggleBtn");
@@ -206,7 +210,6 @@ function updateCanvasBadge() {
     badge.style.display = "inline-block";
   }
   if (btn) {
-    // Pulse animation to draw attention
     btn.style.transform = "scale(1.12)";
     setTimeout(() => { btn.style.transform = ""; }, 200);
   }
@@ -227,10 +230,10 @@ function pushToCanvas(text) {
   card.appendChild(body);
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  updateCanvasBadge();
-  // On mobile auto-open the drawer so user sees the content
   if (isMobile()) {
     setTimeout(() => toggleCanvasDrawer(), 300);
+  } else {
+    updateCanvasBadge();
   }
 }
 
@@ -376,9 +379,10 @@ function pushFlashcardsToCanvas(flashcards) {
   });
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  updateCanvasBadge();
   if (isMobile()) {
     setTimeout(() => toggleCanvasDrawer(), 300);
+  } else {
+    updateCanvasBadge();
   }
 }
 
@@ -641,6 +645,21 @@ function switchTab(tab) {
 if (isMobile()) {
   document.querySelector(".left-pane")?.classList.add("mobile-active");
 }
+
+// ── SWIPE DOWN TO CLOSE CANVAS DRAWER ──
+let drawerTouchStartY = 0;
+document.addEventListener("touchstart", (e) => {
+  const panel = document.getElementById("canvasPanel");
+  if (panel?.classList.contains("drawer-open")) {
+    drawerTouchStartY = e.touches[0].clientY;
+  }
+}, { passive: true });
+document.addEventListener("touchend", (e) => {
+  const panel = document.getElementById("canvasPanel");
+  if (!panel?.classList.contains("drawer-open")) return;
+  const dy = e.changedTouches[0].clientY - drawerTouchStartY;
+  if (dy > 60) closeCanvasDrawer(); // swipe down 60px closes drawer
+}, { passive: true });
 
 // ── SWIPE GESTURE ──
 let touchStartX = 0,
