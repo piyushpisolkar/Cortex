@@ -235,6 +235,14 @@ function pushToCanvas(text) {
   } else {
     updateCanvasBadge();
   }
+  // Persist to server so it survives reloads/devices and counts toward "This Week" stats
+  fetch("/api/canvas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "note", content: { text } }),
+  })
+    .then(() => updateStats())
+    .catch(() => {});
 }
 
 // ── FORMAT MESSAGE ──
@@ -384,6 +392,14 @@ function pushFlashcardsToCanvas(flashcards) {
   } else {
     updateCanvasBadge();
   }
+  // Persist to server so it survives reloads/devices and counts toward "This Week" stats
+  fetch("/api/canvas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "flashcard", content: { flashcards } }),
+  })
+    .then(() => updateStats())
+    .catch(() => {});
 }
 
 // ── VOICE INPUT ──
@@ -806,6 +822,62 @@ function switchNav(tab) {
   if (tab === "home") updateGreeting();
   // Load history when switching to history tab
   if (tab === "history") loadHistory();
+  // Load saved flashcards/notes when switching to canvas tab
+  if (tab === "canvas") loadCanvasHistory();
+}
+
+// ── CANVAS TAB — saved flashcards & notes (persisted server-side) ──
+async function loadCanvasHistory() {
+  const fcList = document.getElementById("savedFlashcards");
+  const noteList = document.getElementById("savedNotes");
+  const fcCount = document.getElementById("flashcardCount");
+  const noteCount = document.getElementById("notesCount");
+  if (!fcList || !noteList) return;
+
+  try {
+    const res = await fetch("/api/canvas", {
+      headers: { "Cache-Control": "no-cache" },
+    });
+    if (!res.ok) throw new Error("not ok");
+    const items = await res.json();
+
+    const flashSets = items.filter((i) => i.type === "flashcard");
+    const notes = items.filter((i) => i.type === "note");
+
+    if (fcCount) fcCount.textContent = `${flashSets.length} saved`;
+    if (noteCount) noteCount.textContent = `${notes.length} saved`;
+
+    fcList.innerHTML = flashSets.length
+      ? flashSets
+          .map((item) =>
+            (item.content?.flashcards || [])
+              .map(
+                (fc) => `
+              <div class="saved-flashcard-card" onclick="this.classList.toggle('revealed')">
+                <div class="question">Q: ${escapeHtml(fc.q || "")}</div>
+                <div class="answer">A: ${escapeHtml(fc.a || "")}</div>
+              </div>`,
+              )
+              .join(""),
+          )
+          .join("")
+      : '<div class="empty-section-hint">No saved flashcards yet. Chat with Cortex and save cards from the canvas.</div>';
+
+    noteList.innerHTML = notes.length
+      ? notes
+          .map(
+            (item) => `
+          <div class="saved-note-card">
+            <div class="note-title">Study Note</div>
+            <div class="note-bullets"><div class="note-bullet">${escapeHtml((item.content?.text || "").slice(0, 500))}</div></div>
+          </div>`,
+          )
+          .join("")
+      : '<div class="empty-section-hint">No pinned notes yet. Pin important points from any chat response.</div>';
+  } catch (e) {
+    fcList.innerHTML = '<div class="empty-section-hint">Could not load saved items.</div>';
+    noteList.innerHTML = '<div class="empty-section-hint">Could not load saved items.</div>';
+  }
 }
 
 function updateGreeting() {
@@ -1017,6 +1089,145 @@ function renderPlanner() {
 }
 loadPlanner();
 
+// ── PROGRESS TRACKER — MongoDB backed, cross-device ──
+let progressItems = [];
+let _editingProgressId = null;
+
+async function loadProgress() {
+  try {
+    const res = await fetch("/api/progress", {
+      headers: { "Cache-Control": "no-cache" },
+    });
+    if (res.ok) {
+      progressItems = await res.json();
+      renderProgress();
+    }
+  } catch (e) {
+    renderProgress();
+  }
+}
+
+function openProgressModal() {
+  document.getElementById("progressModal")?.classList.remove("hidden");
+}
+
+function closeProgressModal() {
+  document.getElementById("progressModal")?.classList.add("hidden");
+  const subjectEl = document.getElementById("progressSubject");
+  const percentEl = document.getElementById("progressPercent");
+  const valEl = document.getElementById("progressSliderVal");
+  if (subjectEl) subjectEl.value = "";
+  if (percentEl) percentEl.value = 50;
+  if (valEl) valEl.textContent = "50";
+}
+
+async function saveProgress() {
+  const subjectEl = document.getElementById("progressSubject");
+  const percentEl = document.getElementById("progressPercent");
+  const subject = subjectEl?.value.trim();
+  const percent = percentEl?.value;
+  if (!subject) return;
+
+  try {
+    const res = await fetch("/api/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, percent }),
+    });
+    const data = await res.json();
+    if (data.ok && data.item) {
+      progressItems.push(data.item);
+      renderProgress();
+    } else if (data.error) {
+      alert(data.error);
+    }
+  } catch (e) {
+    console.error("Could not save progress", e);
+  }
+  closeProgressModal();
+}
+
+function openProgressEditModal(id) {
+  const item = progressItems.find((p) => String(p._id) === String(id));
+  if (!item) return;
+  _editingProgressId = id;
+  const titleEl = document.getElementById("progressEditTitle");
+  const percentEl = document.getElementById("progressEditPercent");
+  const valEl = document.getElementById("progressEditVal");
+  if (titleEl) titleEl.textContent = item.subject;
+  if (percentEl) percentEl.value = item.percent;
+  if (valEl) valEl.textContent = item.percent;
+  document.getElementById("progressEditModal")?.classList.remove("hidden");
+}
+
+function closeProgressEditModal() {
+  document.getElementById("progressEditModal")?.classList.add("hidden");
+  _editingProgressId = null;
+}
+
+async function updateProgress() {
+  if (!_editingProgressId) return;
+  const percentEl = document.getElementById("progressEditPercent");
+  const percent = percentEl?.value;
+  try {
+    const res = await fetch(`/api/progress/${_editingProgressId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ percent }),
+    });
+    const data = await res.json();
+    if (data.ok && data.item) {
+      const idx = progressItems.findIndex(
+        (p) => String(p._id) === String(_editingProgressId),
+      );
+      if (idx > -1) progressItems[idx] = data.item;
+      renderProgress();
+    }
+  } catch (e) {
+    console.error("Could not update progress", e);
+  }
+  closeProgressEditModal();
+}
+
+async function deleteProgress() {
+  if (!_editingProgressId) return;
+  const idToDelete = _editingProgressId;
+  try {
+    await fetch(`/api/progress/${idToDelete}`, { method: "DELETE" });
+  } catch (e) {
+    /* ignore — still remove locally */
+  }
+  progressItems = progressItems.filter(
+    (p) => String(p._id) !== String(idToDelete),
+  );
+  renderProgress();
+  closeProgressEditModal();
+}
+
+function renderProgress() {
+  const list = document.getElementById("progressList");
+  if (!list) return;
+  if (progressItems.length === 0) {
+    list.innerHTML =
+      '<p class="empty-hint">No subjects added yet. Add one to track your progress.</p>';
+    return;
+  }
+  list.innerHTML = progressItems
+    .map((p) => {
+      const pct = Math.min(100, Math.max(0, parseInt(p.percent) || 0));
+      return `<div class="progress-item" onclick="openProgressEditModal('${p._id}')">
+        <div class="progress-label-row">
+          <span class="progress-subject-name">${escapeHtml(p.subject || "")}</span>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-edit-hint">Tap to update</div>
+      </div>`;
+    })
+    .join("");
+}
+loadProgress();
+
 // ── HISTORY ──
 async function loadHistory() {
   const list = document.getElementById("historyList");
@@ -1115,26 +1326,28 @@ async function deleteSession(id) {
 
 // ── STATS — fetch from server for cross-device sync ──
 async function updateStats() {
+  const ce = document.getElementById("statChats");
+  const fe = document.getElementById("statFlashcards");
+  const ne = document.getElementById("statNotes");
   try {
-    const res = await fetch("/api/history", {
+    const res = await fetch("/api/stats", {
       headers: { "Cache-Control": "no-cache" },
     });
     if (res.ok) {
-      const sessions = await res.json();
-      const chats = sessions.length || 0;
-      const ce = document.getElementById("statChats");
-      if (ce) ce.textContent = chats;
+      const data = await res.json();
+      if (ce) ce.textContent = data.chats || 0;
+      if (fe) fe.textContent = data.flashcards || 0;
+      if (ne) ne.textContent = data.notes || 0;
+      return;
     }
   } catch {
-    /* silently fail */
+    /* fall through to offline fallback below */
   }
-  // Flashcards and notes still local for now
+  // Offline fallback — best-effort local counters
   const flashcards = parseInt(
     localStorage.getItem("cortex-stat-flashcards") || "0",
   );
   const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
-  const fe = document.getElementById("statFlashcards");
-  const ne = document.getElementById("statNotes");
   if (fe) fe.textContent = flashcards;
   if (ne) ne.textContent = notes;
 }

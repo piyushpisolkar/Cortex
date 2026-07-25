@@ -151,7 +151,7 @@ let sessionStore;
 if (isProduction && process.env.MONGODB_URI) {
   sessionStore = MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60,
+    ttl: 7 * 24 * 60 * 60, // matches cookie maxAge below — keeps session store and cookie in sync
     autoRemove: "native",
     touchAfter: 24 * 3600,
   });
@@ -213,6 +213,37 @@ function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.redirect("/login");
 }
+
+// ── SIMPLE RATE LIMITING ──
+// IMPORTANT: this must be registered with app.use() BEFORE the routes it protects
+// (Express runs middleware/handlers in registration order — registering this after
+// the routes, as before, meant it never actually ran).
+const rateLimitMap = new Map();
+function rateLimit(maxReqs, windowMs) {
+  return (req, res, next) => {
+    const key = req.user?.id || req.ip;
+    const now = Date.now();
+    const record = rateLimitMap.get(key) || { count: 0, reset: now + windowMs };
+    if (now > record.reset) { record.count = 0; record.reset = now + windowMs; }
+    record.count++;
+    rateLimitMap.set(key, record);
+    if (record.count > maxReqs) {
+      return res.status(429).json({ error: "Too many requests. Please slow down." });
+    }
+    next();
+  };
+}
+// Apply rate limiting: 30 chat requests per minute per user
+app.use("/api/chat", rateLimit(30, 60 * 1000));
+app.use("/api/flashcard", rateLimit(20, 60 * 1000));
+app.use("/api/summarize", rateLimit(20, 60 * 1000));
+// Periodically purge expired entries so the map can't grow unbounded over long uptime
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitMap) {
+    if (now > record.reset) rateLimitMap.delete(key);
+  }
+}, 10 * 60 * 1000);
 
 // ── PWA FILES ──
 app.get("/manifest.json", (req, res) => {
@@ -611,46 +642,6 @@ async function backfillUserProfiles() {
 // Run backfill automatically on every startup — fills in any missing profiles
 mongoose.connection.once("open", () => {
   setTimeout(backfillUserProfiles, 3000); // wait 3s for models to register
-});
-
-app.get("/admin/backfill", isAdmin, async (req, res) => {
-  const result = await backfillUserProfiles();
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Backfill Complete</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:20px}
-  .card{background:#13131e;border:1px solid #1e1e30;border-radius:16px;padding:40px 48px;text-align:center;max-width:400px}
-  .icon{font-size:48px;margin-bottom:12px}
-  h1{font-size:20px;font-weight:600;color:#e8e8f0;margin-bottom:8px}
-  p{font-size:14px;color:#666;margin-bottom:6px}
-  .stat{font-size:28px;font-weight:700;color:#534AB7}
-  .links{display:flex;gap:14px;justify-content:center;margin-top:24px}
-  a{color:#534AB7;font-size:13px;text-decoration:none;padding:8px 18px;border:1px solid #534AB7;border-radius:8px;transition:all 0.2s}
-  a:hover{background:#534AB7;color:white}
-</style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">${result.error ? "⚠️" : "✅"}</div>
-    <h1>${result.error ? "Backfill Error" : "Backfill Complete"}</h1>
-    ${result.error ? `<p style="color:#e55a4e">${result.error}</p>` : `
-    <p>Profiles created</p>
-    <div class="stat">${result.created}</div>
-    <p style="margin-top:16px">Profiles updated</p>
-    <div class="stat">${result.updated}</div>
-    `}
-    <div class="links">
-      <a href="/admin">← Dashboard</a>
-      <a href="/admin/backfill">Run Again</a>
-    </div>
-  </div>
-</body>
-</html>`);
 });
 
 // ── ADMIN: BACKFILL USER PROFILES FROM SESSION DATA ──
@@ -1438,27 +1429,6 @@ app.post("/api/history/dedupe", isLoggedIn, async (req, res) => {
     res.status(500).json({ ok: false });
   }
 });
-
-// ── SIMPLE RATE LIMITING ──
-const rateLimitMap = new Map();
-function rateLimit(maxReqs, windowMs) {
-  return (req, res, next) => {
-    const key = req.user?.id || req.ip;
-    const now = Date.now();
-    const record = rateLimitMap.get(key) || { count: 0, reset: now + windowMs };
-    if (now > record.reset) { record.count = 0; record.reset = now + windowMs; }
-    record.count++;
-    rateLimitMap.set(key, record);
-    if (record.count > maxReqs) {
-      return res.status(429).json({ error: "Too many requests. Please slow down." });
-    }
-    next();
-  };
-}
-// Apply rate limiting: 30 chat requests per minute per user
-app.use("/api/chat", rateLimit(30, 60 * 1000));
-app.use("/api/flashcard", rateLimit(20, 60 * 1000));
-app.use("/api/summarize", rateLimit(20, 60 * 1000));
 
 // ── START ──
 const PORT = process.env.PORT || 3000;
