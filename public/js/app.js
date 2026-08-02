@@ -1,24 +1,52 @@
 // ══════════════════════════════════════════
 // CORTEX
 // ══════════════════════════════════════════
-// MAIN APP
-// ══════════════════════════════════════════
 
-// ── STATE ──
+// ── STATE (all at top — const is not hoisted) ──
 let chatHistory = [];
-let panicMode = false;
-let vivaMode = false;
+let panicMode   = false;
+let vivaMode    = false;
 let isListening = false;
+let currentSessionId = null;
+let _saveTimer       = null;
+let selectedLanguage = localStorage.getItem("cortex-language") || "English";
+let canvasItemCount  = 0;
+let progressItems    = [];
+let editingProgressId = null;
+let plannerSessions  = [];
+let currentSpeakBtn  = null;
+let selectedFile     = null;
+let drawerTouchStartY = 0;
+
+const PROGRESS_COLORS = ["#534AB7","#20b882","#e55a4e","#f0997b","#5b9bd5","#9b59b6","#f39c12","#1abc9c"];
+
+// ── CORTEX SPINNER MARK ──
+const CX_MARK_SVG = `<svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g class="cx-spin-orbit">
+    <circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/>
+    <circle cx="14" cy="1.5"  r="1.6" fill="#AFA9EC"/>
+    <circle cx="26.5" cy="14" r="1.6" fill="#AFA9EC"/>
+    <circle cx="14" cy="26.5" r="1.6" fill="#AFA9EC"/>
+    <circle cx="1.5"  cy="14" r="1.6" fill="#AFA9EC"/>
+  </g>
+  <g class="cx-breathe">
+    <circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/>
+    <line x1="14"   y1="9.8"  x2="14"   y2="7"    stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="18.2" y1="14"   x2="21"   y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="14"   y1="18.2" x2="14"   y2="21"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="9.8"  y1="14"   x2="7"    y2="14"   stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="14" cy="14" r="2.8" fill="#534AB7"/>
+  </g>
+</svg>`;
 
 // ── ELEMENTS ──
-const chatArea = document.getElementById("chatArea");
-const userInput = document.getElementById("userInput");
-const sendBtn = document.getElementById("sendBtn");
+const chatArea   = document.getElementById("chatArea");
+const userInput  = document.getElementById("userInput");
+const sendBtn    = document.getElementById("sendBtn");
 const canvasArea = document.getElementById("canvasArea");
 const canvasEmpty = document.getElementById("canvasEmpty");
 const clearCanvas = document.getElementById("clearCanvas");
-const dropZone = document.getElementById("dropZone");
-const scanOverlay = document.getElementById("scanOverlay");
+const dropZone   = document.getElementById("dropZone");
 
 // ── AUTO RESIZE TEXTAREA ──
 userInput.addEventListener("input", () => {
@@ -28,12 +56,8 @@ userInput.addEventListener("input", () => {
 
 // ── SEND ON ENTER ──
 userInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
-
 sendBtn.addEventListener("click", sendMessage);
 
 // ── CLEAR CANVAS ──
@@ -50,13 +74,14 @@ clearCanvas.addEventListener("click", () => {
 // ── NEW CHAT ──
 function newChat() {
   chatHistory = [];
-  currentSessionId = null; // Reset so next save creates a NEW session
-  clearTimeout(_saveTimer); // Cancel any pending save from previous chat
+  currentSessionId = null;
+  clearTimeout(_saveTimer);
   if (chatArea) {
     chatArea.innerHTML = "";
     const welcome = document.createElement("div");
     welcome.className = "msg msg-ai";
-    welcome.innerHTML = `<div class="msg-ai-spinner"><svg class="cx-chat-mark done" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><g class="cx-spin-orbit"><circle cx="14" cy="14" r="12.5" stroke="#AFA9EC" stroke-width="0.8" fill="none"/><circle cx="14" cy="1.5" r="1.6" fill="#AFA9EC"/><circle cx="26.5" cy="14" r="1.6" fill="#AFA9EC"/><circle cx="14" cy="26.5" r="1.6" fill="#AFA9EC"/><circle cx="1.5" cy="14" r="1.6" fill="#AFA9EC"/></g><g class="cx-breathe"><circle cx="14" cy="14" r="7.5" stroke="#534AB7" stroke-width="3.2" fill="none" class="cx-pulse"/><line x1="14" y1="9.8" x2="14" y2="7" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="18.2" y1="14" x2="21" y2="14" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="14" y1="18.2" x2="14" y2="21" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><line x1="9.8" y1="14" x2="7" y2="14" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="14" r="2.8" fill="#534AB7"/></g></svg><span>Hey! I'm Cortex, your personal study intelligence. Ask me anything — concepts, code, theory, viva prep. What are we studying today?</span></div>`;
+    const lm = CX_MARK_SVG.replace("cx-chat-mark", "cx-chat-mark done");
+    welcome.innerHTML = `<div class="msg-ai-spinner">${lm}<span>Hey! I'm Cortex, your personal study intelligence. Ask me anything — concepts, code, theory, viva prep. What are we studying today?</span></div>`;
     chatArea.appendChild(welcome);
   }
   setMode("normal");
@@ -66,16 +91,13 @@ function newChat() {
 // ── SEND MESSAGE ──
 async function sendMessage() {
   const text = userInput.value.trim();
-
-  // If file is selected, upload and analyze it
   if (selectedFile) {
-    const message = text || null;
+    const msg = text || null;
     userInput.value = "";
     userInput.style.height = "auto";
-    await uploadAndAnalyze(selectedFile, message);
+    await uploadAndAnalyze(selectedFile, msg);
     return;
   }
-
   if (!text) return;
   appendUserMessage(text);
   userInput.value = "";
@@ -89,6 +111,7 @@ async function sendMessage() {
         message: text,
         history: chatHistory,
         mode: panicMode ? "panic" : vivaMode ? "viva" : "normal",
+        language: selectedLanguage || "English",
       }),
     });
     const data = await res.json();
@@ -97,10 +120,9 @@ async function sendMessage() {
       chatHistory.push({ role: "user", content: text });
       chatHistory.push({ role: "assistant", content: data.reply });
       appendAIMessage(data.reply);
-      // Auto-save to history after every exchange
       autoSaveHistory();
     } else {
-      appendAIMessage("Something went wrong. Try again.");
+      appendAIMessage(data.error || "Something went wrong. Try again.");
     }
   } catch (err) {
     removeTyping(typing);
@@ -119,100 +141,49 @@ function appendUserMessage(text) {
 
 // ── APPEND AI MESSAGE ──
 function appendAIMessage(text) {
+  const lm = CX_MARK_SVG.replace("cx-chat-mark", "cx-chat-mark done");
   const isLong = text.includes("```") && text.length > 800;
+  const div = document.createElement("div");
+  div.className = "msg msg-ai";
   if (isLong) {
     pushToCanvas(text);
-    const div = document.createElement("div");
-    div.className = "msg msg-ai";
-    div.innerHTML = `<span class="msg-label">Cortex</span>Pushed to <strong style="color:var(--teal)">Canvas →</strong>`;
-    chatArea.appendChild(div);
-    const actions = makeActions(text);
-    chatArea.appendChild(actions);
+    div.innerHTML = `<div class="msg-ai-spinner">${lm}<span>Pushed to <strong style="color:var(--teal)">Canvas →</strong></span></div>`;
   } else {
-    const div = document.createElement("div");
-    div.className = "msg msg-ai";
-    div.innerHTML = `<span class="msg-label">Cortex</span>${formatMessage(text)}`;
-    chatArea.appendChild(div);
-    const actions = makeActions(text);
-    chatArea.appendChild(actions);
+    div.innerHTML = `<div class="msg-ai-spinner">${lm}<div class="msg-ai-content">${formatMessage(text)}</div></div>`;
   }
+  chatArea.appendChild(div);
+  chatArea.appendChild(makeActions(text));
   scrollChat();
-  // Read aloud if enabled
-  if (
-    document.getElementById("readAloudToggle") &&
-    document.getElementById("readAloudToggle").checked
-  ) {
+  if (document.getElementById("readAloudToggle")?.checked) {
     speak(text.replace(/[#*`]/g, "").substring(0, 500));
   }
 }
 
+// ── MAKE ACTIONS ──
 function makeActions(text) {
   const actions = document.createElement("div");
   actions.className = "msg-actions";
   actions.dataset.fullText = text;
   actions.innerHTML = `
-    <button class="action-btn" data-tooltip="Shorter summary" onclick="summarize(this,'shorter')">Shorter</button>
-    <button class="action-btn" data-tooltip="More detail" onclick="summarize(this,'longer')">More detail</button>
-    <button class="action-btn" data-tooltip="Make flashcards" onclick="makeFlashcard(this)">⊞ Flashcard</button>
-    <button class="action-btn read-aloud-btn" data-tooltip="Read aloud" onclick="speakText(this)" data-speaking="false">
+    <button class="action-btn" onclick="summarize(this,'shorter')">Shorter</button>
+    <button class="action-btn" onclick="summarize(this,'longer')">More detail</button>
+    <button class="action-btn" onclick="makeFlashcard(this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Flashcard
+    </button>
+    <button class="action-btn" onclick="pinNote(this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Pin Note
+    </button>
+    <button class="action-btn read-aloud-btn" onclick="speakText(this)" data-speaking="false">
       <svg class="icon-speaker" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
       </svg>
       <svg class="icon-pause" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none">
-        <line x1="6" y1="4" x2="6" y2="20"/>
-        <line x1="18" y1="4" x2="18" y2="20"/>
+        <line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>
       </svg>
-    </button>
-  `;
+    </button>`;
   return actions;
-}
-
-// ── CANVAS DRAWER (mobile) — no backdrop, no blur ──
-let canvasItemCount = 0;
-
-function toggleCanvasDrawer() {
-  const panel = document.getElementById("canvasPanel");
-  if (!panel) return;
-  const isOpen = panel.classList.contains("drawer-open");
-  if (isOpen) {
-    closeCanvasDrawer();
-  } else {
-    panel.classList.add("drawer-open");
-    // Show close button on mobile
-    const closeBtn = document.getElementById("canvasCloseBtn");
-    if (closeBtn && isMobile()) closeBtn.style.display = "flex";
-    // Reset badge
-    canvasItemCount = 0;
-    const badge = document.getElementById("canvasBadge");
-    if (badge) badge.style.display = "none";
-  }
-}
-
-function closeCanvasDrawer() {
-  const panel = document.getElementById("canvasPanel");
-  if (panel) panel.classList.remove("drawer-open");
-  const closeBtn = document.getElementById("canvasCloseBtn");
-  if (closeBtn) closeBtn.style.display = "none";
-}
-
-function updateCanvasBadge() {
-  if (!isMobile()) return;
-  const panel = document.getElementById("canvasPanel");
-  // Don't show badge if drawer is already open
-  if (panel?.classList.contains("drawer-open")) return;
-  canvasItemCount++;
-  const badge = document.getElementById("canvasBadge");
-  const btn = document.getElementById("canvasToggleBtn");
-  if (badge) {
-    badge.textContent = canvasItemCount;
-    badge.style.display = "inline-block";
-  }
-  if (btn) {
-    btn.style.transform = "scale(1.12)";
-    setTimeout(() => { btn.style.transform = ""; }, 200);
-  }
 }
 
 // ── PUSH TO CANVAS ──
@@ -230,143 +201,235 @@ function pushToCanvas(text) {
   card.appendChild(body);
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  if (isMobile()) {
-    setTimeout(() => toggleCanvasDrawer(), 300);
-  } else {
-    updateCanvasBadge();
-  }
-  // Persist to server so it survives reloads/devices and counts toward "This Week" stats
-  fetch("/api/canvas", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "note", content: { text } }),
-  })
-    .then(() => updateStats())
-    .catch(() => {});
+  if (isMobile()) setTimeout(() => toggleCanvasDrawer(), 300);
+  else updateCanvasBadge();
 }
 
 // ── FORMAT MESSAGE ──
 function formatMessage(text) {
-  // Code blocks
-  text = text.replace(
-    /```(\w+)?\n([\s\S]*?)```/g,
-    (_, lang, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`,
-  );
-  // Inline code
-  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-  // Headers
-  text = text.replace(
-    /^### (.+)$/gm,
-    '<p style="font-weight:600;font-size:15px;color:var(--text);margin:10px 0 4px">$1</p>',
-  );
-  text = text.replace(
-    /^## (.+)$/gm,
-    '<p style="font-weight:600;font-size:16px;color:var(--text);margin:10px 0 4px">$1</p>',
-  );
-  text = text.replace(
-    /^# (.+)$/gm,
-    '<p style="font-weight:700;font-size:17px;color:var(--accent);margin:10px 0 4px">$1</p>',
-  );
-  // Bold
-  text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  // Italic
-  text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
-  // Numbered list
-  text = text.replace(
-    /^\d+\.\s+(.+)$/gm,
-    '<div class="numbered-item">$1</div>',
-  );
-  // Bullet points
-  text = text
-    .split("\n")
-    .map((line) =>
-      line.match(/^\s*[\*\-]\s+/)
-        ? '<div class="bullet">' + line.replace(/^\s*[\*\-]\s+/, "") + "</div>"
-        : line,
-    )
-    .join("\n");
-  // Clean up extra line breaks
-  text = text.replace(/(<\/div>|<\/pre>|<\/p>)\n/g, "$1");
-  text = text.replace(/\n{2,}/g, "<br><br>");
-  text = text.replace(/\n/g, "<br>");
+  const blocks = [];
+  text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const i = blocks.length;
+    blocks.push(`<pre><code>${escapeHtml(code.trim())}</code></pre>`);
+    return `%%CB${i}%%`;
+  });
+  text = text.replace(/`([^`]+)`/g, (_, c) => {
+    const i = blocks.length;
+    blocks.push(`<code>${escapeHtml(c)}</code>`);
+    return `%%CB${i}%%`;
+  });
+  text = text.replace(/^### (.+)$/gm, '<p class="msg-h3">$1</p>');
+  text = text.replace(/^## (.+)$/gm,  '<p class="msg-h2">$1</p>');
+  text = text.replace(/^# (.+)$/gm,   '<p class="msg-h1">$1</p>');
+  text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g,    '<em>$1</em>');
+  const lines = text.split('\n');
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i]))
+        items.push(`<li>${lines[i++].replace(/^\d+\.\s+/, '')}</li>`);
+      out.push(`<ol>${items.join('')}</ol>`); continue;
+    }
+    if (/^\s*[\*\-]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[\*\-]\s+/.test(lines[i]))
+        items.push(`<li>${lines[i++].replace(/^\s*[\*\-]\s+/, '')}</li>`);
+      out.push(`<ul>${items.join('')}</ul>`); continue;
+    }
+    if (/^>\s/.test(line)) { out.push(`<blockquote>${line.replace(/^>\s/, '')}</blockquote>`); i++; continue; }
+    if (line.trim() === '') { out.push('<br>'); i++; continue; }
+    out.push(line); i++;
+  }
+  text = out.join('');
+  text = text.replace(/%%CB(\d+)%%/g, (_, i) => blocks[parseInt(i)]);
   return text;
 }
 
 function escapeHtml(t) {
-  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
 // ── TYPING INDICATOR ──
 function showTyping() {
   const div = document.createElement("div");
-  div.className = "typing";
-  div.innerHTML = "<span></span><span></span><span></span>";
+  div.className = "msg msg-ai";
+  div.id = "__cxThinking";
+  div.innerHTML = `<div class="msg-ai-spinner">${CX_MARK_SVG}<div class="cx-thinking-dots"><span></span><span></span><span></span></div></div>`;
   chatArea.appendChild(div);
   scrollChat();
   return div;
 }
-function removeTyping(el) {
-  if (el?.parentNode) el.parentNode.removeChild(el);
-}
+function removeTyping(el) { el?.parentNode?.removeChild(el); }
 
 // ── SCROLL ──
-function scrollChat() {
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
-function scrollCanvas() {
-  canvasArea.scrollTop = 0;
-}
+function scrollChat()   { chatArea.scrollTop = chatArea.scrollHeight; }
+function scrollCanvas() { canvasArea.scrollTop = 0; }
 
 // ── SUMMARIZE ──
 async function summarize(btn, type) {
-  const actionsDiv = btn.parentElement;
-  const text =
-    actionsDiv.dataset.fullText ||
-    actionsDiv.previousElementSibling?.innerText ||
-    "";
-  btn.textContent = "...";
-  btn.disabled = true;
+  const text = btn.parentElement.dataset.fullText || btn.parentElement.previousElementSibling?.innerText || "";
+  btn.textContent = "..."; btn.disabled = true;
   try {
     const res = await fetch("/api/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, type }),
     });
     const data = await res.json();
     if (data.reply) pushToCanvas(data.reply);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) {}
   btn.textContent = type === "shorter" ? "Shorter" : "More detail";
   btn.disabled = false;
 }
 
 // ── FLASHCARD ──
 async function makeFlashcard(btn) {
-  const actionsDiv = btn.parentElement;
-  const text =
-    actionsDiv.dataset.fullText ||
-    actionsDiv.previousElementSibling?.innerText ||
-    "";
-  btn.textContent = "...";
-  btn.disabled = true;
+  const text = btn.parentElement.dataset.fullText || btn.parentElement.previousElementSibling?.innerText || "";
+  const origHTML = btn.innerHTML;
+  btn.textContent = "..."; btn.disabled = true;
   try {
     const res = await fetch("/api/flashcard", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
     const data = await res.json();
-    if (data.flashcards) pushFlashcardsToCanvas(data.flashcards);
-  } catch (e) {
-    console.error(e);
-  }
-  btn.textContent = "⊞ Flashcard";
-  btn.disabled = false;
+    if (data.flashcards) await pushFlashcardsToCanvas(data.flashcards);
+  } catch (e) {}
+  btn.innerHTML = origHTML; btn.disabled = false;
 }
 
+// ── PIN NOTE ──
+async function pinNote(btn) {
+  const text = btn.parentElement.dataset.fullText || btn.parentElement.previousElementSibling?.innerText || "";
+  if (!text.trim()) return;
+  const origHTML = btn.innerHTML;
+  btn.textContent = "..."; btn.disabled = true;
+  try {
+    const res = await fetch("/api/summarize", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, type: "shorter" }),
+    });
+    const data = await res.json();
+    await saveNoteToCanvas(data.reply || text);
+  } catch (e) { await saveNoteToCanvas(text); }
+  btn.innerHTML = origHTML; btn.disabled = false;
+}
+
+async function saveNoteToCanvas(text) {
+  const savedNotes = document.getElementById("savedNotes");
+  if (savedNotes) {
+    savedNotes.querySelector(".empty-section-hint")?.remove();
+    const time = new Date().toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
+    const bullets = text.split("\n").filter(l => l.trim()).map(l => l.replace(/^[\*\-\d\.]+\s*/, "").trim()).filter(Boolean).slice(0, 6);
+    let dbId = null;
+    try {
+      const res = await fetch("/api/canvas", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "note", content: { text, bullets, time } }),
+      });
+      const d = await res.json();
+      if (d.ok) dbId = d.id;
+    } catch (e) {}
+    const card = document.createElement("div");
+    card.className = "saved-note-card";
+    card.dataset.dbId = dbId || "";
+    card.innerHTML = `
+      <div class="note-title">📌 Note — ${time}</div>
+      <div class="note-bullets">${bullets.map(b => `<div class="note-bullet">• ${b}</div>`).join("")}</div>
+      <button class="note-delete-btn" onclick="deleteCanvasItem(this,'note')">×</button>`;
+    savedNotes.insertBefore(card, savedNotes.firstChild);
+    updateNotesCount();
+    updateStats();
+  }
+  pushToCanvas(text);
+}
+
+async function deleteCanvasItem(btn, type) {
+  const card = btn.parentElement;
+  if (card.dataset.dbId) {
+    try { await fetch(`/api/canvas/${card.dataset.dbId}`, { method: "DELETE" }); } catch (e) {}
+  }
+  card.style.opacity = "0"; card.style.transition = "opacity 0.2s";
+  setTimeout(() => { card.remove(); type === "note" ? updateNotesCount() : updateFlashcardCount(); }, 200);
+}
+
+function updateNotesCount() {
+  const el = document.getElementById("notesCount");
+  const n  = document.getElementById("savedNotes");
+  if (el && n) el.textContent = n.querySelectorAll(".saved-note-card").length + " saved";
+}
+function updateFlashcardCount() {
+  const el = document.getElementById("flashcardCount");
+  const g  = document.getElementById("savedFlashcards");
+  if (el && g) el.textContent = g.querySelectorAll(".saved-flashcard-card").length + " saved";
+}
+
+async function loadCanvasItems() {
+  try {
+    const res = await fetch("/api/canvas", { headers: { "Cache-Control": "no-cache" } });
+    if (!res.ok) return;
+    const items = await res.json();
+    if (!items.length) return;
+    const savedNotes = document.getElementById("savedNotes");
+    const savedFlashcards = document.getElementById("savedFlashcards");
+    items.forEach(item => {
+      if (item.type === "note" && savedNotes) {
+        savedNotes.querySelector(".empty-section-hint")?.remove();
+        const card = document.createElement("div");
+        card.className = "saved-note-card"; card.dataset.dbId = item._id;
+        const bullets = item.content?.bullets || [];
+        card.innerHTML = `
+          <div class="note-title">📌 Note — ${item.content?.time || ""}</div>
+          <div class="note-bullets">${bullets.map(b => `<div class="note-bullet">• ${b}</div>`).join("")}</div>
+          <button class="note-delete-btn" onclick="deleteCanvasItem(this,'note')">×</button>`;
+        savedNotes.appendChild(card);
+      } else if (item.type === "flashcard" && savedFlashcards) {
+        savedFlashcards.querySelector(".empty-section-hint")?.remove();
+        const card = document.createElement("div");
+        card.className = "saved-flashcard-card"; card.dataset.dbId = item._id;
+        card.innerHTML = `
+          <div class="question">Q: ${item.content?.q || ""}</div>
+          <div class="answer">A: ${item.content?.a || ""}</div>
+          <button class="note-delete-btn" onclick="deleteCanvasItem(this,'flashcard')">×</button>`;
+        card.addEventListener("click", e => { if (!e.target.classList.contains("note-delete-btn")) card.classList.toggle("revealed"); });
+        savedFlashcards.appendChild(card);
+      }
+    });
+    updateNotesCount(); updateFlashcardCount();
+  } catch (e) {}
+}
+loadCanvasItems();
+
 // ── PUSH FLASHCARDS ──
-function pushFlashcardsToCanvas(flashcards) {
+async function pushFlashcardsToCanvas(flashcards) {
+  const savedFlashcards = document.getElementById("savedFlashcards");
+  if (savedFlashcards) {
+    savedFlashcards.querySelector(".empty-section-hint")?.remove();
+    for (const fc of flashcards) {
+      let dbId = null;
+      try {
+        const res = await fetch("/api/canvas", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "flashcard", content: { q: fc.q, a: fc.a } }),
+        });
+        const d = await res.json();
+        if (d.ok) dbId = d.id;
+      } catch (e) {}
+      const card = document.createElement("div");
+      card.className = "saved-flashcard-card"; card.dataset.dbId = dbId || "";
+      card.innerHTML = `
+        <div class="question">Q: ${fc.q}</div>
+        <div class="answer">A: ${fc.a}</div>
+        <button class="note-delete-btn" onclick="deleteCanvasItem(this,'flashcard')">×</button>`;
+      card.addEventListener("click", e => { if (!e.target.classList.contains("note-delete-btn")) card.classList.toggle("revealed"); });
+      savedFlashcards.insertBefore(card, savedFlashcards.firstChild);
+    }
+    updateFlashcardCount(); updateStats();
+  }
   canvasEmpty.style.display = "none";
   const card = document.createElement("div");
   card.className = "canvas-card";
@@ -374,591 +437,286 @@ function pushFlashcardsToCanvas(flashcards) {
   title.className = "canvas-card-title";
   title.textContent = "▸ Flashcard deck — " + new Date().toLocaleTimeString();
   card.appendChild(title);
-  flashcards.forEach((fc) => {
+  flashcards.forEach(fc => {
     const fcDiv = document.createElement("div");
     fcDiv.className = "flashcard";
     fcDiv.innerHTML = `<div class="flashcard-q">Q: ${fc.q}</div><div class="flashcard-a">A: ${fc.a}</div><div class="flashcard-hint">Tap to reveal</div>`;
     fcDiv.addEventListener("click", () => {
       fcDiv.classList.toggle("revealed");
-      fcDiv.querySelector(".flashcard-hint").textContent =
-        fcDiv.classList.contains("revealed") ? "Tap to hide" : "Tap to reveal";
+      fcDiv.querySelector(".flashcard-hint").textContent = fcDiv.classList.contains("revealed") ? "Tap to hide" : "Tap to reveal";
     });
     card.appendChild(fcDiv);
   });
   canvasArea.insertBefore(card, canvasArea.firstChild);
   scrollCanvas();
-  if (isMobile()) {
-    setTimeout(() => toggleCanvasDrawer(), 300);
-  } else {
-    updateCanvasBadge();
-  }
-  // Persist to server so it survives reloads/devices and counts toward "This Week" stats
-  fetch("/api/canvas", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "flashcard", content: { flashcards } }),
-  })
-    .then(() => updateStats())
-    .catch(() => {});
+  if (isMobile()) setTimeout(() => toggleCanvasDrawer(), 300);
 }
+
+// ── CANVAS DRAWER ──
+function toggleCanvasDrawer() {
+  const panel = document.getElementById("canvasPanel");
+  if (!panel) return;
+  if (panel.classList.contains("drawer-open")) {
+    closeCanvasDrawer();
+  } else {
+    panel.classList.add("drawer-open");
+    document.getElementById("canvasCloseBtn")?.style && (document.getElementById("canvasCloseBtn").style.display = "flex");
+    canvasItemCount = 0;
+    const badge = document.getElementById("canvasBadge");
+    if (badge) badge.style.display = "none";
+  }
+}
+function closeCanvasDrawer() {
+  document.getElementById("canvasPanel")?.classList.remove("drawer-open");
+  const cb = document.getElementById("canvasCloseBtn");
+  if (cb) cb.style.display = "none";
+}
+function updateCanvasBadge() {
+  if (!isMobile()) return;
+  if (document.getElementById("canvasPanel")?.classList.contains("drawer-open")) return;
+  canvasItemCount++;
+  const badge = document.getElementById("canvasBadge");
+  const btn   = document.getElementById("canvasToggleBtn");
+  if (badge) { badge.textContent = canvasItemCount; badge.style.display = "inline-block"; }
+  if (btn)   { btn.style.transform = "scale(1.12)"; setTimeout(() => { btn.style.transform = ""; }, 200); }
+}
+
+// ── SWIPE DOWN TO CLOSE DRAWER ──
+document.addEventListener("touchstart", e => {
+  if (document.getElementById("canvasPanel")?.classList.contains("drawer-open"))
+    drawerTouchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener("touchend", e => {
+  if (!document.getElementById("canvasPanel")?.classList.contains("drawer-open")) return;
+  if (e.changedTouches[0].clientY - drawerTouchStartY > 60) closeCanvasDrawer();
+}, { passive: true });
 
 // ── VOICE INPUT ──
 function initVoice() {
   const voiceBtn = document.getElementById("voiceBtn");
   if (!voiceBtn) return;
-
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    voiceBtn.style.display = "none";
-    return;
-  }
-
-  const recognition = new SpeechRecognition();
-  recognition.continuous = false;
-  recognition.lang = "en-IN";
-  recognition.interimResults = false;
-
-  const originalHTML = voiceBtn.innerHTML;
-  const micIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
-  const stopIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
-
-  function resetBtn() {
-    isListening = false;
-    voiceBtn.classList.remove("listening");
-    voiceBtn.innerHTML = micIcon;
-  }
-
-  recognition.onresult = (e) => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { voiceBtn.style.display = "none"; return; }
+  const recognition = new SR();
+  recognition.continuous = false; recognition.lang = "en-IN"; recognition.interimResults = false;
+  const micSVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
+  const stopSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+  function reset() { isListening = false; voiceBtn.classList.remove("listening"); voiceBtn.innerHTML = micSVG; }
+  recognition.onresult = e => {
     userInput.value = e.results[0][0].transcript;
-    userInput.style.height = "auto";
-    userInput.style.height = userInput.scrollHeight + "px";
-    resetBtn();
+    userInput.style.height = "auto"; userInput.style.height = userInput.scrollHeight + "px"; reset();
   };
-
-  recognition.onerror = () => resetBtn();
-  recognition.onend = () => resetBtn();
-
+  recognition.onerror = reset; recognition.onend = reset;
   voiceBtn.addEventListener("click", () => {
-    if (isListening) {
-      recognition.stop();
-      resetBtn();
-    } else {
-      recognition.start();
-      isListening = true;
-      voiceBtn.classList.add("listening");
-      voiceBtn.innerHTML = stopIcon;
-    }
+    if (isListening) { recognition.stop(); reset(); }
+    else { recognition.start(); isListening = true; voiceBtn.classList.add("listening"); voiceBtn.innerHTML = stopSVG; }
   });
 }
 
-// ── READ ALOUD — with pause/resume toggle ──
-let currentSpeakBtn = null;
-
+// ── READ ALOUD ──
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "en-IN";
-  utter.rate = 0.95;
+  utter.lang = "en-IN"; utter.rate = 0.95;
   utter.onend = () => resetSpeakBtn(currentSpeakBtn);
   utter.onerror = () => resetSpeakBtn(currentSpeakBtn);
   window.speechSynthesis.speak(utter);
 }
-
 function resetSpeakBtn(btn) {
   if (!btn) return;
   btn.dataset.speaking = "false";
-  const speaker = btn.querySelector(".icon-speaker");
-  const pause = btn.querySelector(".icon-pause");
-  if (speaker) speaker.style.display = "";
-  if (pause) pause.style.display = "none";
-  btn.style.color = "";
-  currentSpeakBtn = null;
+  const sp = btn.querySelector(".icon-speaker"), pa = btn.querySelector(".icon-pause");
+  if (sp) sp.style.display = ""; if (pa) pa.style.display = "none";
+  btn.style.color = ""; currentSpeakBtn = null;
 }
-
 function speakText(btn) {
   const isSpeaking = btn.dataset.speaking === "true";
-  const speaker = btn.querySelector(".icon-speaker");
-  const pause = btn.querySelector(".icon-pause");
-
-  // If this button is currently speaking → pause
+  const sp = btn.querySelector(".icon-speaker"), pa = btn.querySelector(".icon-pause");
   if (isSpeaking) {
     if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
       window.speechSynthesis.pause();
-      // show speaker icon (paused state)
-      if (speaker) speaker.style.display = "";
-      if (pause) pause.style.display = "none";
+      if (sp) sp.style.display = ""; if (pa) pa.style.display = "none";
       btn.style.color = "var(--text-muted)";
     } else if (window.speechSynthesis.paused) {
-      // Resume
       window.speechSynthesis.resume();
-      if (speaker) speaker.style.display = "none";
-      if (pause) pause.style.display = "";
+      if (sp) sp.style.display = "none"; if (pa) pa.style.display = "";
       btn.style.color = "var(--accent)";
     }
     return;
   }
-
-  // Stop any previous read aloud
-  if (currentSpeakBtn && currentSpeakBtn !== btn) {
-    resetSpeakBtn(currentSpeakBtn);
-  }
+  if (currentSpeakBtn && currentSpeakBtn !== btn) resetSpeakBtn(currentSpeakBtn);
   window.speechSynthesis.cancel();
-
-  // Start new read aloud
-  const actionsDiv = btn.parentElement;
-  const text =
-    actionsDiv.dataset.fullText ||
-    actionsDiv.previousElementSibling?.innerText ||
-    "";
+  const text = btn.parentElement.dataset.fullText || btn.parentElement.previousElementSibling?.innerText || "";
   const clean = text.replace(/[#*`<>]/g, "").substring(0, 800);
-
   const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang = "en-IN";
-  utter.rate = 0.95;
-  utter.onend = () => resetSpeakBtn(btn);
-  utter.onerror = () => resetSpeakBtn(btn);
-
-  currentSpeakBtn = btn;
-  btn.dataset.speaking = "true";
-  if (speaker) speaker.style.display = "none";
-  if (pause) pause.style.display = "";
+  utter.lang = "en-IN"; utter.rate = 0.95;
+  utter.onend = () => resetSpeakBtn(btn); utter.onerror = () => resetSpeakBtn(btn);
+  currentSpeakBtn = btn; btn.dataset.speaking = "true";
+  if (sp) sp.style.display = "none"; if (pa) pa.style.display = "";
   btn.style.color = "var(--accent)";
-
   window.speechSynthesis.speak(utter);
 }
 
 // ── FILE HANDLING ──
-let selectedFile = null;
-
 function showFilePreview(file) {
-  // Remove existing preview
-  const existing = document.getElementById("filePreview");
-  if (existing) existing.remove();
-
-  const icon = file.type.startsWith("image/")
-    ? "🖼️"
-    : file.name.endsWith(".pdf")
-      ? "📄"
-      : "📝";
+  document.getElementById("filePreview")?.remove();
+  const icon = file.type.startsWith("image/") ? "🖼️" : file.name.endsWith(".pdf") ? "📄" : "📝";
   const preview = document.createElement("div");
-  preview.className = "file-preview";
-  preview.id = "filePreview";
-  preview.innerHTML = `
-    <span class="file-preview-icon">${icon}</span>
-    <span class="file-preview-name">${file.name}</span>
-    <button class="file-preview-remove" onclick="removeFile()">✕</button>
-  `;
+  preview.className = "file-preview"; preview.id = "filePreview";
+  preview.innerHTML = `<span class="file-preview-icon">${icon}</span><span class="file-preview-name">${file.name}</span><button class="file-preview-remove" onclick="removeFile()">✕</button>`;
   dropZone.insertBefore(preview, dropZone.querySelector(".input-pill"));
   selectedFile = file;
 }
+function removeFile() { document.getElementById("filePreview")?.remove(); selectedFile = null; document.getElementById("fileInput").value = ""; }
 
-function removeFile() {
-  const existing = document.getElementById("filePreview");
-  if (existing) existing.remove();
-  selectedFile = null;
-  document.getElementById("fileInput").value = "";
-}
+document.getElementById("fileInput").addEventListener("change", e => { if (e.target.files[0]) showFilePreview(e.target.files[0]); });
+dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("dragover"); if (e.dataTransfer.files[0]) showFilePreview(e.dataTransfer.files[0]); });
 
-// File input change
-document.getElementById("fileInput").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (file) showFilePreview(file);
-});
-
-// Drag & drop
-dropZone.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  dropZone.classList.add("dragover");
-});
-dropZone.addEventListener("dragleave", () => {
-  dropZone.classList.remove("dragover");
-});
-dropZone.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dropZone.classList.remove("dragover");
-  const file = e.dataTransfer.files[0];
-  if (file) showFilePreview(file);
-});
-
-// ── UPLOAD & ANALYZE FILE ──
 async function uploadAndAnalyze(file, message) {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append(
-    "message",
-    message ||
-      `Analyze this ${file.name.endsWith(".pdf") ? "PDF" : "file"} and give me a clear summary of the key points and important information.`,
-  );
-
-  // Show uploading indicator
-  const uploadingDiv = document.createElement("div");
-  uploadingDiv.className = "uploading-indicator";
-  uploadingDiv.id = "uploadingIndicator";
-  uploadingDiv.textContent = `📤 Analyzing ${file.name}...`;
-  chatArea.appendChild(uploadingDiv);
-  scrollChat();
-
+  formData.append("message", message || `Analyze this ${file.name.endsWith(".pdf") ? "PDF" : "file"} and give me a clear summary of the key points.`);
+  const ind = document.createElement("div");
+  ind.className = "uploading-indicator"; ind.id = "uploadingIndicator";
+  ind.textContent = `📤 Analyzing ${file.name}...`;
+  chatArea.appendChild(ind); scrollChat();
   try {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
     document.getElementById("uploadingIndicator")?.remove();
-
     const data = await res.json();
     if (data.reply) {
-      // Show file message in chat
-      const fileMsg = document.createElement("div");
-      fileMsg.className = "msg msg-user";
-      fileMsg.innerHTML = `📎 <em>${file.name}</em>`;
-      chatArea.appendChild(fileMsg);
-
-      chatHistory.push({
-        role: "user",
-        content: `[Uploaded file: ${file.name}]`,
-      });
+      const fm = document.createElement("div");
+      fm.className = "msg msg-user"; fm.innerHTML = `📎 <em>${file.name}</em>`;
+      chatArea.appendChild(fm);
+      chatHistory.push({ role: "user", content: `[Uploaded file: ${file.name}]` });
       chatHistory.push({ role: "assistant", content: data.reply });
       appendAIMessage(data.reply);
-    } else {
-      appendAIMessage(
-        "Could not analyze file: " + (data.error || "Unknown error"),
-      );
-    }
-  } catch (err) {
-    document.getElementById("uploadingIndicator")?.remove();
-    appendAIMessage("File upload failed. Check your connection.");
-  }
-
+    } else { appendAIMessage("Could not analyze file: " + (data.error || "Unknown error")); }
+  } catch (err) { document.getElementById("uploadingIndicator")?.remove(); appendAIMessage("File upload failed. Check your connection."); }
   removeFile();
 }
 
-// ── MOBILE TABS ──
-function isMobile() {
-  return window.innerWidth <= 768;
-}
-
+// ── MOBILE ──
+function isMobile() { return window.innerWidth <= 768; }
 function switchTab(tab) {
-  const left = document.querySelector(".left-pane");
-  const right = document.querySelector(".right-pane");
-  const chatTab = document.getElementById("chatTab");
-  const canvasTab = document.getElementById("canvasTab");
-  if (tab === "chat") {
-    left.classList.add("mobile-active");
-    right.classList.remove("mobile-active");
-    chatTab?.classList.add("active");
-    canvasTab?.classList.remove("active");
-  } else {
-    right.classList.add("mobile-active");
-    left.classList.remove("mobile-active");
-    canvasTab?.classList.add("active");
-    chatTab?.classList.remove("active");
-  }
+  const left = document.querySelector(".left-pane"), right = document.querySelector(".right-pane");
+  const cTab = document.getElementById("chatTab"), cvTab = document.getElementById("canvasTab");
+  if (tab === "chat") { left?.classList.add("mobile-active"); right?.classList.remove("mobile-active"); cTab?.classList.add("active"); cvTab?.classList.remove("active"); }
+  else { right?.classList.add("mobile-active"); left?.classList.remove("mobile-active"); cvTab?.classList.add("active"); cTab?.classList.remove("active"); }
 }
+if (isMobile()) document.querySelector(".left-pane")?.classList.add("mobile-active");
 
-if (isMobile()) {
-  document.querySelector(".left-pane")?.classList.add("mobile-active");
-}
-
-// ── SWIPE DOWN TO CLOSE CANVAS DRAWER ──
-let drawerTouchStartY = 0;
-document.addEventListener("touchstart", (e) => {
-  const panel = document.getElementById("canvasPanel");
-  if (panel?.classList.contains("drawer-open")) {
-    drawerTouchStartY = e.touches[0].clientY;
-  }
+// ── SWIPE LEFT/RIGHT (tabs) ──
+let touchStartX = 0, touchStartY = 0;
+document.addEventListener("touchstart", e => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, { passive: true });
+document.addEventListener("touchend", e => {
+  if (!isMobile()) return;
+  if (document.getElementById("canvasPanel")?.classList.contains("drawer-open")) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+  switchTab(dx < 0 ? "canvas" : "chat");
 }, { passive: true });
-document.addEventListener("touchend", (e) => {
-  const panel = document.getElementById("canvasPanel");
-  if (!panel?.classList.contains("drawer-open")) return;
-  const dy = e.changedTouches[0].clientY - drawerTouchStartY;
-  if (dy > 60) closeCanvasDrawer(); // swipe down 60px closes drawer
-}, { passive: true });
-
-// ── SWIPE GESTURE ──
-let touchStartX = 0,
-  touchStartY = 0;
-document.addEventListener(
-  "touchstart",
-  (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  },
-  { passive: true },
-);
-document.addEventListener(
-  "touchend",
-  (e) => {
-    if (!isMobile()) return;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
-    switchTab(dx < 0 ? "canvas" : "chat");
-  },
-  { passive: true },
-);
 
 // ── PROFILE DROPDOWN ──
-function toggleProfileMenu() {
-  document.getElementById("profileDropdown")?.classList.toggle("open");
-}
-
-document.addEventListener("click", (e) => {
-  const profile = document.getElementById("userProfile");
-  const dropdown = document.getElementById("profileDropdown");
-  if (profile && dropdown && !profile.contains(e.target)) {
-    dropdown.classList.remove("open");
-  }
+function toggleProfileMenu() { document.getElementById("profileDropdown")?.classList.toggle("open"); }
+document.addEventListener("click", e => {
+  const profile = document.getElementById("userProfile"), dropdown = document.getElementById("profileDropdown");
+  if (profile && dropdown && !profile.contains(e.target)) dropdown.classList.remove("open");
 });
 
 // ── LOAD USER ──
 let currentUserName = "";
-
 async function loadUser() {
   try {
     const res = await fetch("/api/user");
-    if (!res.ok) {
-      window.location.href = "/login";
-      return;
-    }
+    if (!res.ok) { window.location.href = "/login"; return; }
     const user = await res.json();
-    const p = document.getElementById("userPhoto");
-    const n = document.getElementById("userName");
-    const dp = document.getElementById("dropdownPhoto");
-    const dn = document.getElementById("dropdownName");
-    const de = document.getElementById("dropdownEmail");
-    if (p) p.src = user.photo;
-    if (n) n.textContent = user.name.split(" ")[0];
-    if (dp) dp.src = user.photo;
-    if (dn) dn.textContent = user.name;
-    if (de) de.textContent = user.email;
-    // Store first name globally and update greeting
+    const p = document.getElementById("userPhoto"), n = document.getElementById("userName");
+    const dp = document.getElementById("dropdownPhoto"), dn = document.getElementById("dropdownName"), de = document.getElementById("dropdownEmail");
+    if (p) p.src = user.photo; if (n) n.textContent = user.name.split(" ")[0];
+    if (dp) dp.src = user.photo; if (dn) dn.textContent = user.name; if (de) de.textContent = user.email;
     currentUserName = user.name.split(" ")[0];
     updateGreeting();
-  } catch (err) {
-    window.location.href = "/login";
-  }
+  } catch (err) { window.location.href = "/login"; }
 }
-
 loadUser();
 initVoice();
 
 // ── SERVICE WORKER ──
 if ("serviceWorker" in navigator) {
-  // First unregister ALL old service workers and clear ALL caches
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    registrations.forEach((reg) => reg.unregister());
-  });
-  caches.keys().then((keys) => {
-    keys.forEach((key) => caches.delete(key));
-  });
-
-  // Re-register fresh after a short delay
+  navigator.serviceWorker.getRegistrations().then(r => r.forEach(reg => reg.unregister()));
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
   window.addEventListener("load", () => {
     setTimeout(() => {
-      navigator.serviceWorker
-        .register("/service-worker.js")
+      navigator.serviceWorker.register("/service-worker.js")
         .then(() => console.log("Cortex PWA ready"))
-        .catch((err) => console.log("SW error:", err));
+        .catch(err => console.log("SW error:", err));
     }, 2000);
   });
 }
 
-function toggleViva() {
-  if (vivaMode) {
-    setMode("normal");
-    appendSystemNotice("Viva Mode off.");
-  } else {
-    setMode("viva");
-    chatHistory = [];
-    appendSystemNotice(
-      "🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you.",
-    );
-  }
-  switchNav("chat");
-}
-
-function togglePanic() {
-  if (panicMode) {
-    setMode("normal");
-    appendSystemNotice("Panic Mode off. Back to normal explanations.");
-  } else {
-    setMode("panic");
-    appendSystemNotice(
-      "⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only.",
-    );
-  }
-  switchNav("chat");
-}
-
-function appendSystemNotice(html) {
-  const notice = document.createElement("div");
-  notice.className = "msg msg-ai";
-  notice.innerHTML = `<span class="msg-label">Cortex</span>${html}`;
-  chatArea.appendChild(notice);
-  scrollChat();
-}
-
-// ══════════════════════════════════════
-// NAV & TAB SWITCHING
-// ══════════════════════════════════════
-
+// ── NAV & TAB SWITCHING ──
 function switchNav(tab) {
-  // Update sidebar active state
-  document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.nav === tab);
-  });
-  // Update mobile nav active state
-  document.querySelectorAll(".mobile-nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.nav === tab);
-  });
-  // Show/hide tab views
-  document.querySelectorAll(".tab-view").forEach((section) => {
-    section.classList.toggle("hidden", section.id !== `tab-${tab}`);
-  });
-  // Update home greeting
-  if (tab === "home") updateGreeting();
-  // Load history when switching to history tab
+  document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
+  document.querySelectorAll(".mobile-nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
+  document.querySelectorAll(".tab-view").forEach(s => s.classList.toggle("hidden", s.id !== `tab-${tab}`));
+  if (tab === "home")    { updateGreeting(); updateStats(); }
   if (tab === "history") loadHistory();
-  // Load saved flashcards/notes when switching to canvas tab
-  if (tab === "canvas") loadCanvasHistory();
+  // Push state for Android back button
+  history.pushState({ tab }, "", "#" + tab);
 }
 
-// ── CANVAS TAB — saved flashcards & notes (persisted server-side) ──
-async function loadCanvasHistory() {
-  const fcList = document.getElementById("savedFlashcards");
-  const noteList = document.getElementById("savedNotes");
-  const fcCount = document.getElementById("flashcardCount");
-  const noteCount = document.getElementById("notesCount");
-  if (!fcList || !noteList) return;
-
-  try {
-    const res = await fetch("/api/canvas", {
-      headers: { "Cache-Control": "no-cache" },
-    });
-    if (!res.ok) throw new Error("not ok");
-    const items = await res.json();
-
-    const flashSets = items.filter((i) => i.type === "flashcard");
-    const notes = items.filter((i) => i.type === "note");
-
-    if (fcCount) fcCount.textContent = `${flashSets.length} saved`;
-    if (noteCount) noteCount.textContent = `${notes.length} saved`;
-
-    fcList.innerHTML = flashSets.length
-      ? flashSets
-          .map((item) =>
-            (item.content?.flashcards || [])
-              .map(
-                (fc) => `
-              <div class="saved-flashcard-card" onclick="this.classList.toggle('revealed')">
-                <div class="question">Q: ${escapeHtml(fc.q || "")}</div>
-                <div class="answer">A: ${escapeHtml(fc.a || "")}</div>
-              </div>`,
-              )
-              .join(""),
-          )
-          .join("")
-      : '<div class="empty-section-hint">No saved flashcards yet. Chat with Cortex and save cards from the canvas.</div>';
-
-    noteList.innerHTML = notes.length
-      ? notes
-          .map(
-            (item) => `
-          <div class="saved-note-card">
-            <div class="note-title">Study Note</div>
-            <div class="note-bullets"><div class="note-bullet">${escapeHtml((item.content?.text || "").slice(0, 500))}</div></div>
-          </div>`,
-          )
-          .join("")
-      : '<div class="empty-section-hint">No pinned notes yet. Pin important points from any chat response.</div>';
-  } catch (e) {
-    fcList.innerHTML = '<div class="empty-section-hint">Could not load saved items.</div>';
-    noteList.innerHTML = '<div class="empty-section-hint">Could not load saved items.</div>';
-  }
-}
+// ── ANDROID BACK BUTTON ──
+history.replaceState({ tab: "home" }, "", "#home");
+window.addEventListener("popstate", e => {
+  const tab = e.state?.tab || "home";
+  document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
+  document.querySelectorAll(".mobile-nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
+  document.querySelectorAll(".tab-view").forEach(s => s.classList.toggle("hidden", s.id !== `tab-${tab}`));
+  if (tab === "home")    { updateGreeting(); updateStats(); }
+  if (tab === "history") loadHistory();
+});
 
 function updateGreeting() {
   const h = new Date().getHours();
-  const greet =
-    h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const greet = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const titleEl = document.querySelector("#tab-home .tab-title");
   const subtitleEl = document.querySelector("#tab-home .tab-subtitle");
-  if (titleEl) {
-    titleEl.textContent = currentUserName
-      ? `${greet}, ${currentUserName}! 👋`
-      : `${greet} 👋`;
-  }
-  if (subtitleEl) {
-    const msgs = [
-      "What are we studying today?",
-      "Ready to learn something new?",
-      "Let's make today productive!",
-      "Your study session awaits.",
-    ];
-    subtitleEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
-  }
+  if (titleEl) titleEl.textContent = currentUserName ? `${greet}, ${currentUserName}! 👋` : `${greet} 👋`;
+  if (subtitleEl) subtitleEl.textContent = ["What are we studying today?","Ready to learn something new?","Let's make today productive!","Your study session awaits."][Math.floor(Math.random() * 4)];
 }
 updateGreeting();
 
 // ── MODE SELECTOR ──
 let currentMode = "normal";
-
 function setMode(mode) {
   currentMode = mode;
-  document.querySelectorAll(".mode-btn").forEach((btn) => {
-    btn.classList.remove("active");
-  });
-  document
-    .getElementById(`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}`)
-    ?.classList.add("active");
-
-  // Sync with vivaMode / panicMode flags
-  if (mode === "viva") {
-    vivaMode = true;
-    panicMode = false;
-  } else if (mode === "panic") {
-    panicMode = true;
-    vivaMode = false;
-  } else {
-    vivaMode = false;
-    panicMode = false;
-  }
-
-  // Update settings toggles
+  document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
+  document.getElementById(`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}`)?.classList.add("active");
+  vivaMode  = mode === "viva";
+  panicMode = mode === "panic";
   syncModeToggles();
 }
-
 function syncModeToggles() {
-  const vivaToggle = document.getElementById("vivaToggle");
-  const panicToggle = document.getElementById("panicToggle");
-  if (vivaToggle) {
-    vivaToggle.textContent = vivaMode ? "On" : "Off";
-    vivaToggle.classList.toggle("on", vivaMode);
-  }
-  if (panicToggle) {
-    panicToggle.textContent = panicMode ? "On" : "Off";
-    panicToggle.classList.toggle("on", panicMode);
-  }
+  const vt = document.getElementById("vivaToggle"), pt = document.getElementById("panicToggle");
+  if (vt) { vt.textContent = vivaMode  ? "On" : "Off"; vt.classList.toggle("on", vivaMode); }
+  if (pt) { pt.textContent = panicMode ? "On" : "Off"; pt.classList.toggle("on", panicMode); }
 }
 
-// ── THEME TOGGLE ──
+// ── THEME ──
 function toggleTheme() {
   document.body.classList.toggle("light");
   const isLight = document.body.classList.contains("light");
   localStorage.setItem("cortex-theme", isLight ? "light" : "dark");
   const btn = document.getElementById("themeToggleSetting");
   if (btn) btn.textContent = isLight ? "Light" : "Dark";
-  const topBtn = document.getElementById("themeToggleBtn");
-  if (topBtn) topBtn.title = isLight ? "Switch to Dark" : "Switch to Light";
 }
-
-// Load saved theme
 (function () {
-  const saved = localStorage.getItem("cortex-theme");
-  if (saved === "light") {
+  if (localStorage.getItem("cortex-theme") === "light") {
     document.body.classList.add("light");
     const btn = document.getElementById("themeToggleSetting");
     if (btn) btn.textContent = "Light";
@@ -966,321 +724,89 @@ function toggleTheme() {
 })();
 
 // ── LANGUAGE ──
-let selectedLanguage = "English";
-
 function setLanguage(lang) {
   selectedLanguage = lang;
   localStorage.setItem("cortex-language", lang);
-  // Update language badge in topbar if present
   const badge = document.getElementById("langBadge");
-  if (badge) badge.textContent = lang;
-  // Sync select
+  if (badge) badge.textContent = { English:"EN",Hindi:"HI",Marathi:"MR",Tamil:"TA",Telugu:"TE",Bengali:"BN",Gujarati:"GU" }[lang] || lang.substring(0,2).toUpperCase();
   const sel = document.getElementById("langSelect");
   if (sel) sel.value = lang;
-  // No system notice - just silently switch
 }
-
-// Load saved language
+function toggleLangPicker(e) { e.stopPropagation(); document.getElementById("langPickerDropdown")?.classList.toggle("open"); }
+function pickLanguage(lang, flag, btn) {
+  setLanguage(lang);
+  const label = document.getElementById("langPickerLabel"), flagEl = document.getElementById("langPickerFlag");
+  if (label) label.textContent = lang; if (flagEl) flagEl.textContent = flag;
+  document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b === btn));
+  document.getElementById("langPickerDropdown")?.classList.remove("open");
+}
+document.addEventListener("click", e => {
+  const picker = document.getElementById("langPicker");
+  if (picker && !picker.contains(e.target)) document.getElementById("langPickerDropdown")?.classList.remove("open");
+});
 (function () {
   const saved = localStorage.getItem("cortex-language");
-  if (saved) {
+  if (saved && saved !== "English") {
+    const flags = { Hindi:"🇮🇳",Marathi:"🇮🇳",Tamil:"🇮🇳",Telugu:"🇮🇳",Bengali:"🇮🇳",Gujarati:"🇮🇳" };
+    const codes = { Hindi:"HI",Marathi:"MR",Tamil:"TA",Telugu:"TE",Bengali:"BN",Gujarati:"GU" };
+    const label = document.getElementById("langPickerLabel"), flag = document.getElementById("langPickerFlag"), badge = document.getElementById("langBadge");
+    if (label) label.textContent = saved; if (flag) flag.textContent = flags[saved] || "🌐";
+    if (badge) badge.textContent = codes[saved] || saved.substring(0,2).toUpperCase();
     selectedLanguage = saved;
-    const sel = document.getElementById("langSelect");
-    if (sel) sel.value = saved;
   }
 })();
 
-// ── STUDY PLANNER — MongoDB backed, cross-device ──
-let plannerSessions = [];
-
-async function loadPlanner() {
-  try {
-    const res = await fetch("/api/planner", {
-      headers: { "Cache-Control": "no-cache" },
-    });
-    if (res.ok) {
-      plannerSessions = await res.json();
-      renderPlanner();
-    }
-  } catch (e) {
-    // Fall back to localStorage if offline
-    plannerSessions = JSON.parse(
-      localStorage.getItem("cortex-planner") || "[]",
-    );
-    renderPlanner();
-  }
+// ── TOGGLE VIVA / PANIC ──
+function toggleViva() {
+  if (vivaMode) { setMode("normal"); appendSystemNotice("Viva Mode off."); }
+  else { setMode("viva"); chatHistory = []; appendSystemNotice("🎓 <strong>Viva Mode ON.</strong> Tell me the topic and I'll fire questions at you."); }
+  switchNav("chat");
 }
-
-function openPlannerModal() {
-  document.getElementById("plannerModal")?.classList.remove("hidden");
+function togglePanic() {
+  if (panicMode) { setMode("normal"); appendSystemNotice("Panic Mode off. Back to normal explanations."); }
+  else { setMode("panic"); appendSystemNotice("⚡ <strong>Panic Mode ON.</strong> Bullet points and key facts only."); }
+  switchNav("chat");
 }
-
-function closePlannerModal() {
-  document.getElementById("plannerModal")?.classList.add("hidden");
-  document.getElementById("plannerSubject").value = "";
-  document.getElementById("plannerDate").value = "";
-  document.getElementById("plannerDuration").value = "";
+function appendSystemNotice(html) {
+  const lm = CX_MARK_SVG.replace("cx-chat-mark", "cx-chat-mark done");
+  const notice = document.createElement("div");
+  notice.className = "msg msg-ai";
+  notice.innerHTML = `<div class="msg-ai-spinner">${lm}<span>${html}</span></div>`;
+  chatArea.appendChild(notice); scrollChat();
 }
-
-async function savePlannerSession() {
-  const subject = document.getElementById("plannerSubject").value.trim();
-  const date = document.getElementById("plannerDate").value;
-  const duration = document.getElementById("plannerDuration").value.trim();
-  if (!subject || !date) return;
-
-  try {
-    const res = await fetch("/api/planner", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, date, duration }),
-    });
-    const data = await res.json();
-    if (data.ok && data.session) {
-      plannerSessions.unshift(data.session);
-      renderPlanner();
-    }
-  } catch (e) {
-    // Offline fallback
-    const session = { _id: Date.now(), subject, date, duration };
-    plannerSessions.unshift(session);
-    localStorage.setItem("cortex-planner", JSON.stringify(plannerSessions));
-    renderPlanner();
-  }
-  closePlannerModal();
-}
-
-async function deletePlannerSession(id) {
-  try {
-    await fetch(`/api/planner/${id}`, { method: "DELETE" });
-  } catch (e) {
-    /* ignore */
-  }
-  plannerSessions = plannerSessions.filter((s) => String(s._id) !== String(id));
-  localStorage.setItem("cortex-planner", JSON.stringify(plannerSessions));
-  renderPlanner();
-}
-
-function renderPlanner() {
-  const list = document.getElementById("plannerList");
-  if (!list) return;
-  if (plannerSessions.length === 0) {
-    list.innerHTML =
-      '<p class="empty-hint">No sessions planned. Add one to get started.</p>';
-    return;
-  }
-  list.innerHTML = plannerSessions
-    .map((s) => {
-      const d = s.date
-        ? new Date(s.date + "T00:00:00").toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-          })
-        : "";
-      return `<div class="planner-item">
-      <div class="planner-item-dot"></div>
-      <div class="planner-item-info">
-        <div class="planner-item-subject">${s.subject}</div>
-        <div class="planner-item-meta">${d}${s.duration ? " · " + s.duration : ""}</div>
-      </div>
-      <button class="planner-item-delete" onclick="deletePlannerSession('${s._id}')">×</button>
-    </div>`;
-    })
-    .join("");
-}
-loadPlanner();
-
-// ── PROGRESS TRACKER — MongoDB backed, cross-device ──
-let progressItems = [];
-let _editingProgressId = null;
-
-async function loadProgress() {
-  try {
-    const res = await fetch("/api/progress", {
-      headers: { "Cache-Control": "no-cache" },
-    });
-    if (res.ok) {
-      progressItems = await res.json();
-      renderProgress();
-    }
-  } catch (e) {
-    renderProgress();
-  }
-}
-
-function openProgressModal() {
-  document.getElementById("progressModal")?.classList.remove("hidden");
-}
-
-function closeProgressModal() {
-  document.getElementById("progressModal")?.classList.add("hidden");
-  const subjectEl = document.getElementById("progressSubject");
-  const percentEl = document.getElementById("progressPercent");
-  const valEl = document.getElementById("progressSliderVal");
-  if (subjectEl) subjectEl.value = "";
-  if (percentEl) percentEl.value = 50;
-  if (valEl) valEl.textContent = "50";
-}
-
-async function saveProgress() {
-  const subjectEl = document.getElementById("progressSubject");
-  const percentEl = document.getElementById("progressPercent");
-  const subject = subjectEl?.value.trim();
-  const percent = percentEl?.value;
-  if (!subject) return;
-
-  try {
-    const res = await fetch("/api/progress", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, percent }),
-    });
-    const data = await res.json();
-    if (data.ok && data.item) {
-      progressItems.push(data.item);
-      renderProgress();
-    } else if (data.error) {
-      alert(data.error);
-    }
-  } catch (e) {
-    console.error("Could not save progress", e);
-  }
-  closeProgressModal();
-}
-
-function openProgressEditModal(id) {
-  const item = progressItems.find((p) => String(p._id) === String(id));
-  if (!item) return;
-  _editingProgressId = id;
-  const titleEl = document.getElementById("progressEditTitle");
-  const percentEl = document.getElementById("progressEditPercent");
-  const valEl = document.getElementById("progressEditVal");
-  if (titleEl) titleEl.textContent = item.subject;
-  if (percentEl) percentEl.value = item.percent;
-  if (valEl) valEl.textContent = item.percent;
-  document.getElementById("progressEditModal")?.classList.remove("hidden");
-}
-
-function closeProgressEditModal() {
-  document.getElementById("progressEditModal")?.classList.add("hidden");
-  _editingProgressId = null;
-}
-
-async function updateProgress() {
-  if (!_editingProgressId) return;
-  const percentEl = document.getElementById("progressEditPercent");
-  const percent = percentEl?.value;
-  try {
-    const res = await fetch(`/api/progress/${_editingProgressId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ percent }),
-    });
-    const data = await res.json();
-    if (data.ok && data.item) {
-      const idx = progressItems.findIndex(
-        (p) => String(p._id) === String(_editingProgressId),
-      );
-      if (idx > -1) progressItems[idx] = data.item;
-      renderProgress();
-    }
-  } catch (e) {
-    console.error("Could not update progress", e);
-  }
-  closeProgressEditModal();
-}
-
-async function deleteProgress() {
-  if (!_editingProgressId) return;
-  const idToDelete = _editingProgressId;
-  try {
-    await fetch(`/api/progress/${idToDelete}`, { method: "DELETE" });
-  } catch (e) {
-    /* ignore — still remove locally */
-  }
-  progressItems = progressItems.filter(
-    (p) => String(p._id) !== String(idToDelete),
-  );
-  renderProgress();
-  closeProgressEditModal();
-}
-
-function renderProgress() {
-  const list = document.getElementById("progressList");
-  if (!list) return;
-  if (progressItems.length === 0) {
-    list.innerHTML =
-      '<p class="empty-hint">No subjects added yet. Add one to track your progress.</p>';
-    return;
-  }
-  list.innerHTML = progressItems
-    .map((p) => {
-      const pct = Math.min(100, Math.max(0, parseInt(p.percent) || 0));
-      return `<div class="progress-item" onclick="openProgressEditModal('${p._id}')">
-        <div class="progress-label-row">
-          <span class="progress-subject-name">${escapeHtml(p.subject || "")}</span>
-          <span class="progress-pct">${pct}%</span>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div class="progress-edit-hint">Tap to update</div>
-      </div>`;
-    })
-    .join("");
-}
-loadProgress();
 
 // ── HISTORY ──
 async function loadHistory() {
   const list = document.getElementById("historyList");
   if (!list) return;
-
+  list.innerHTML = `<div class="history-empty" style="opacity:0.5"><p>Loading...</p></div>`;
   try {
-    const res = await fetch("/api/history");
+    const res = await fetch("/api/history", { headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" } });
     if (!res.ok) throw new Error("not ok");
     const sessions = await res.json();
-
-    if (!sessions || sessions.length === 0) {
-      list.innerHTML = `<div class="history-empty">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <p>No history yet</p><span>Your chat sessions will appear here</span>
-      </div>`;
+    if (!sessions?.length) {
+      list.innerHTML = `<div class="history-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No history yet</p><span>Your chat sessions will appear here</span></div>`;
       return;
     }
-
-    list.innerHTML = sessions
-      .map((s) => {
-        const date = new Date(s.createdAt).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        });
-        const time = new Date(s.createdAt).toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        const preview =
-          s.title ||
-          s.messages?.[0]?.content?.slice(0, 60) + "..." ||
-          "Chat session";
-        return `<div class="history-item" id="hist-${s._id}">
-        <div class="history-item-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </div>
+    const fmt = (d) => {
+      if (!d) return "—";
+      return new Date(d).toLocaleString("en-IN", { timeZone:"Asia/Kolkata", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", hour12:true });
+    };
+    list.innerHTML = sessions.map(s => `
+      <div class="history-item" id="hist-${s._id}">
+        <div class="history-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
         <div class="history-item-info" onclick="continueSession('${s._id}')" style="cursor:pointer">
-          <div class="history-item-title">${preview}</div>
-          <div class="history-item-meta">${date} at ${time} · ${s.messages?.length || 0} messages</div>
+          <div class="history-item-title">${s.title || s.messages?.[0]?.content?.slice(0,60) || "Chat session"}</div>
+          <div class="history-item-meta">${fmt(s.updatedAt || s.createdAt)} · ${s.messages?.length || 0} messages</div>
         </div>
         <div class="history-item-actions">
           <button class="history-continue-btn" onclick="continueSession('${s._id}')">Continue →</button>
-          <button class="history-delete-btn" onclick="deleteSession('${s._id}')" title="Delete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          <button class="history-delete-btn" onclick="deleteSession('${s._id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
           </button>
         </div>
-      </div>`;
-      })
-      .join("");
-  } catch {
-    list.innerHTML = `<div class="history-empty"><p>History unavailable</p><span>Save chats to see them here</span></div>`;
-  }
+      </div>`).join("");
+  } catch { list.innerHTML = `<div class="history-empty"><p>History unavailable</p><span>Check your connection</span></div>`; }
 }
 
 async function continueSession(id) {
@@ -1288,19 +814,16 @@ async function continueSession(id) {
     const res = await fetch(`/api/history/${id}`);
     if (!res.ok) return;
     const session = await res.json();
-    chatHistory = session.messages || [];
+    chatHistory = (session.messages || []).map(({ role, content }) => ({ role, content }));
     currentSessionId = id;
     switchNav("chat");
-    const chatArea = document.getElementById("chatArea");
     chatArea.innerHTML = "";
-    chatHistory.forEach((msg) => {
+    chatHistory.forEach(msg => {
       if (msg.role === "user") appendUserMessage(msg.content);
       else if (msg.role === "assistant") appendAIMessage(msg.content);
     });
     scrollChat();
-  } catch (e) {
-    console.error("Could not load session", e);
-  }
+  } catch (e) { console.error("Could not load session", e); }
 }
 
 async function deleteSession(id) {
@@ -1310,165 +833,172 @@ async function deleteSession(id) {
     const data = await res.json();
     if (data.ok) {
       const el = document.getElementById(`hist-${id}`);
-      if (el) {
-        el.style.opacity = "0";
-        el.style.transform = "translateX(20px)";
-        el.style.transition = "all 0.3s ease";
-        setTimeout(() => {
-          el.remove();
-        }, 300);
-      }
+      if (el) { el.style.opacity="0"; el.style.transform="translateX(20px)"; el.style.transition="all 0.3s ease"; setTimeout(() => el.remove(), 300); }
     }
-  } catch (e) {
-    console.error("Could not delete session", e);
-  }
+  } catch (e) {}
 }
 
-// ── STATS — fetch from server for cross-device sync ──
-async function updateStats() {
-  const ce = document.getElementById("statChats");
-  const fe = document.getElementById("statFlashcards");
-  const ne = document.getElementById("statNotes");
+async function dedupeHistory() {
+  const btn = document.getElementById("dedupeBtn");
+  if (btn) { btn.textContent = "Cleaning..."; btn.disabled = true; }
   try {
-    const res = await fetch("/api/stats", {
-      headers: { "Cache-Control": "no-cache" },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (ce) ce.textContent = data.chats || 0;
-      if (fe) fe.textContent = data.flashcards || 0;
-      if (ne) ne.textContent = data.notes || 0;
-      return;
+    const res = await fetch("/api/history/dedupe", { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      await loadHistory();
+      if (btn) btn.textContent = `Removed ${data.removed} duplicates`;
+      setTimeout(() => { if (btn) { btn.textContent = "Remove Duplicates"; btn.disabled = false; } }, 3000);
     }
-  } catch {
-    /* fall through to offline fallback below */
-  }
-  // Offline fallback — best-effort local counters
-  const flashcards = parseInt(
-    localStorage.getItem("cortex-stat-flashcards") || "0",
-  );
-  const notes = parseInt(localStorage.getItem("cortex-stat-notes") || "0");
-  if (fe) fe.textContent = flashcards;
-  if (ne) ne.textContent = notes;
+  } catch (e) { if (btn) { btn.textContent = "Remove Duplicates"; btn.disabled = false; } }
+}
+
+// ── STATS ──
+async function updateStats() {
+  try {
+    const res = await fetch("/api/stats", { headers: { "Cache-Control": "no-cache" } });
+    if (res.ok) {
+      const { chats, flashcards, notes } = await res.json();
+      const ce = document.getElementById("statChats"), fe = document.getElementById("statFlashcards"), ne = document.getElementById("statNotes");
+      if (ce) ce.textContent = chats; if (fe) fe.textContent = flashcards; if (ne) ne.textContent = notes;
+    }
+  } catch {}
 }
 updateStats();
 
-// ── CUSTOM LANGUAGE PICKER ──
-function toggleLangPicker(e) {
-  e.stopPropagation();
-  const dd = document.getElementById("langPickerDropdown");
-  if (dd) dd.classList.toggle("open");
+// ── PROGRESS TRACKER ──
+async function loadProgress() {
+  try {
+    const res = await fetch("/api/progress", { headers: { "Cache-Control": "no-cache" } });
+    if (res.ok) { progressItems = await res.json(); renderProgress(); }
+  } catch (e) { progressItems = JSON.parse(localStorage.getItem("cortex-progress") || "[]"); renderProgress(); }
 }
-
-function pickLanguage(lang, flag, btn) {
-  setLanguage(lang);
-  // Update picker button display
-  const label = document.getElementById("langPickerLabel");
-  const flagEl = document.getElementById("langPickerFlag");
-  if (label) label.textContent = lang;
-  if (flagEl) flagEl.textContent = flag;
-  // Update lang badge (2-letter code)
-  const badge = document.getElementById("langBadge");
-  if (badge) {
-    const codes = {
-      English: "EN",
-      Hindi: "HI",
-      Marathi: "MR",
-      Tamil: "TA",
-      Telugu: "TE",
-      Bengali: "BN",
-      Gujarati: "GU",
-    };
-    badge.textContent = codes[lang] || lang.substring(0, 2).toUpperCase();
-  }
-  // Update active state
-  document
-    .querySelectorAll(".lang-option")
-    .forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  // Close dropdown
-  const dd = document.getElementById("langPickerDropdown");
-  if (dd) dd.classList.remove("open");
+function renderProgress() {
+  const list = document.getElementById("progressList");
+  if (!list) return;
+  if (!progressItems.length) { list.innerHTML = '<p class="empty-hint">No subjects added yet. Tap + Add to track your progress.</p>'; return; }
+  list.innerHTML = progressItems.map((item, i) => {
+    const color = item.color || PROGRESS_COLORS[i % PROGRESS_COLORS.length];
+    const pct = Math.min(100, Math.max(0, item.percent || 0));
+    return `<div class="progress-item" onclick="openProgressEditModal('${item._id}','${item.subject.replace(/'/g,"\\'")}',${pct})">
+      <div class="progress-label-row"><span class="progress-subject-name">${item.subject}</span><span class="progress-pct">${pct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="pbar-${item._id}" style="width:0%;background:linear-gradient(90deg,${color}88,${color})"></div></div>
+      <div class="progress-edit-hint">Tap to edit</div></div>`;
+  }).join("");
+  requestAnimationFrame(() => progressItems.forEach(item => {
+    const fill = document.getElementById(`pbar-${item._id}`);
+    if (fill) setTimeout(() => { fill.style.width = `${item.percent||0}%`; fill.style.transition = "width 0.7s cubic-bezier(0.4,0,0.2,1)"; }, 60);
+  }));
 }
-
-// Close lang picker on outside click
-document.addEventListener("click", function (e) {
-  const picker = document.getElementById("langPicker");
-  if (picker && !picker.contains(e.target)) {
-    const dd = document.getElementById("langPickerDropdown");
-    if (dd) dd.classList.remove("open");
+function openProgressModal() {
+  const s=document.getElementById("progressSubject"),p=document.getElementById("progressPercent"),v=document.getElementById("progressSliderVal");
+  if(s)s.value="";if(p)p.value=50;if(v)v.textContent="50";
+  document.getElementById("progressModal")?.classList.remove("hidden"); s?.focus();
+}
+function closeProgressModal() { document.getElementById("progressModal")?.classList.add("hidden"); }
+async function saveProgress() {
+  const subject = document.getElementById("progressSubject")?.value.trim();
+  const percent = parseInt(document.getElementById("progressPercent")?.value)||0;
+  if (!subject) { document.getElementById("progressSubject")?.focus(); return; }
+  try {
+    const res = await fetch("/api/progress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject,percent})});
+    const data = await res.json();
+    if (data.ok && data.item) { progressItems.push(data.item); renderProgress(); closeProgressModal(); }
+    else alert(data.error || "Could not add subject.");
+  } catch (e) {
+    progressItems.push({_id:"local-"+Date.now(),subject,percent,color:PROGRESS_COLORS[progressItems.length%PROGRESS_COLORS.length]});
+    renderProgress(); closeProgressModal();
   }
-});
+}
+function openProgressEditModal(id,subject,percent) {
+  editingProgressId=id;
+  const t=document.getElementById("progressEditTitle"),p=document.getElementById("progressEditPercent"),v=document.getElementById("progressEditVal");
+  if(t)t.textContent=subject;if(p)p.value=percent;if(v)v.textContent=percent;
+  document.getElementById("progressEditModal")?.classList.remove("hidden");
+}
+function closeProgressEditModal(){editingProgressId=null;document.getElementById("progressEditModal")?.classList.add("hidden");}
+async function updateProgress() {
+  if (!editingProgressId) return;
+  const percent = parseInt(document.getElementById("progressEditPercent")?.value)||0;
+  try{await fetch(`/api/progress/${editingProgressId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({percent})});}catch(e){}
+  const idx = progressItems.findIndex(p=>String(p._id)===String(editingProgressId));
+  if(idx!==-1)progressItems[idx].percent=percent;
+  renderProgress();closeProgressEditModal();
+}
+async function deleteProgress() {
+  if (!editingProgressId||!confirm("Remove this subject?")) return;
+  try{await fetch(`/api/progress/${editingProgressId}`,{method:"DELETE"});}catch(e){}
+  progressItems=progressItems.filter(p=>String(p._id)!==String(editingProgressId));
+  renderProgress();closeProgressEditModal();
+}
+loadProgress();
 
-// Restore saved language on load
-(function () {
-  const saved = localStorage.getItem("cortex-language");
-  if (saved && saved !== "English") {
-    const flags = {
-      Hindi: "🇮🇳",
-      Marathi: "🇮🇳",
-      Tamil: "🇮🇳",
-      Telugu: "🇮🇳",
-      Bengali: "🇮🇳",
-      Gujarati: "🇮🇳",
-    };
-    const codes = {
-      Hindi: "HI",
-      Marathi: "MR",
-      Tamil: "TA",
-      Telugu: "TE",
-      Bengali: "BN",
-      Gujarati: "GU",
-    };
-    const label = document.getElementById("langPickerLabel");
-    const flag = document.getElementById("langPickerFlag");
-    const badge = document.getElementById("langBadge");
-    if (label) label.textContent = saved;
-    if (flag) flag.textContent = flags[saved] || "🌐";
-    if (badge)
-      badge.textContent = codes[saved] || saved.substring(0, 2).toUpperCase();
-    selectedLanguage = saved;
-    // Mark active option
-    document.querySelectorAll(".lang-option").forEach((b) => {
-      if (b.textContent.trim().includes(saved)) b.classList.add("active");
-      else b.classList.remove("active");
-    });
-  }
-})();
+// ── STUDY PLANNER ──
+async function loadPlanner() {
+  try {
+    const res = await fetch("/api/planner",{headers:{"Cache-Control":"no-cache"}});
+    if(res.ok){plannerSessions=await res.json();renderPlanner();}
+  } catch(e){plannerSessions=JSON.parse(localStorage.getItem("cortex-planner")||"[]");renderPlanner();}
+}
+function openPlannerModal(){document.getElementById("plannerModal")?.classList.remove("hidden");}
+function closePlannerModal(){
+  document.getElementById("plannerModal")?.classList.add("hidden");
+  ["plannerSubject","plannerDate","plannerDuration"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+}
+async function savePlannerSession(){
+  const subject=document.getElementById("plannerSubject")?.value.trim();
+  const date=document.getElementById("plannerDate")?.value;
+  const duration=document.getElementById("plannerDuration")?.value.trim();
+  if(!subject||!date)return;
+  try{
+    const res=await fetch("/api/planner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject,date,duration})});
+    const data=await res.json();
+    if(data.ok&&data.session){plannerSessions.unshift(data.session);renderPlanner();}
+  }catch(e){plannerSessions.unshift({_id:Date.now(),subject,date,duration});renderPlanner();}
+  closePlannerModal();
+}
+async function deletePlannerSession(id){
+  try{await fetch(`/api/planner/${id}`,{method:"DELETE"});}catch(e){}
+  plannerSessions=plannerSessions.filter(s=>String(s._id)!==String(id));renderPlanner();
+}
+function renderPlanner(){
+  const list=document.getElementById("plannerList");
+  if(!list)return;
+  if(!plannerSessions.length){list.innerHTML='<p class="empty-hint">No sessions planned. Add one to get started.</p>';return;}
+  list.innerHTML=plannerSessions.map(s=>{
+    const d=s.date?new Date(s.date+"T00:00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short"}):"";
+    return `<div class="planner-item">
+      <div class="planner-item-dot"></div>
+      <div class="planner-item-info">
+        <div class="planner-item-subject">${s.subject}</div>
+        <div class="planner-item-meta">${d}${s.duration?" · "+s.duration:""}</div>
+      </div>
+      <button class="planner-item-delete" onclick="deletePlannerSession('${s._id}')">×</button></div>`;
+  }).join("");
+}
+loadPlanner();
 
 // ── AUTO-SAVE HISTORY ──
-// currentSessionId tracks the current session — set once, reused for updates
-let currentSessionId = null;
-let _saveTimer = null;
-
 async function autoSaveHistory() {
-  // Debounce — wait 1s after last message before saving
-  // This prevents rapid duplicate saves during fast exchanges
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async () => {
     try {
       if (chatHistory.length < 2) return;
-
-      // Always pass currentSessionId if we have one — server will UPDATE not CREATE
-      const body = {
-        messages: chatHistory.map(({ role, content }) => ({ role, content })),
-        id: currentSessionId || undefined,
-      };
-
-      const res = await fetch("/api/history/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const body = { messages: chatHistory.map(({ role, content }) => ({ role, content })), id: currentSessionId || undefined };
+      const res = await fetch("/api/history/save", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
       const data = await res.json();
-
-      if (data.ok && data.id) {
-        // Lock this session ID — all future saves will UPDATE this same session
-        currentSessionId = data.id;
-      }
+      if (data.ok && data.id) currentSessionId = data.id;
       updateStats();
-    } catch (e) {
-      // Silently fail — history save is non-critical
-    }
+    } catch (e) {}
   }, 1000);
+}
+
+// ── MOBILE KEYBOARD FIX ──
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    const inputArea = document.querySelector(".input-area");
+    if (!inputArea) return;
+    const kbHeight = window.innerHeight - window.visualViewport.height;
+    inputArea.style.paddingBottom = kbHeight > 100 ? kbHeight + "px" : "";
+    if (kbHeight > 100) scrollChat();
+  });
 }
