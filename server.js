@@ -10,6 +10,7 @@ const mongoose = require("mongoose");
 const multer = require("multer");
 // pdf-parse removed — using buffer approach
 const fs = require("fs");
+const { SUBJECTS, findSubjectByCode, getAllSubjects, buildSubjectPromptBlock } = require("./subjects.config.js");
 
 const isProduction =
   process.env.NODE_ENV === "production" || !!process.env.RENDER;
@@ -125,6 +126,77 @@ const ProgressItem =
   mongoose.models.ProgressItem ||
   mongoose.model("ProgressItem", ProgressItemSchema);
 
+// ── SUBJECT PROFILE SCHEMA — tracks each student's elective choices ──
+const SubjectProfileSchema = new mongoose.Schema({
+  userId: { type: String, unique: true },
+  selectedElectives: {
+    sem5: String, // elective abbr, e.g. "ACN"
+    sem6: String,
+  },
+});
+const SubjectProfile =
+  mongoose.models.SubjectProfile ||
+  mongoose.model("SubjectProfile", SubjectProfileSchema);
+
+// ── ANSWERLAB SCHEMA — MSBTE rubric-based answer scoring attempts ──
+const AnswerAttemptSchema = new mongoose.Schema({
+  userId: String,
+  semester: String,       // "sem5" | "sem6"
+  subjectCode: String,
+  subjectName: String,
+  question: String,
+  maxMarks: { type: Number, default: 10 },
+  studentAnswer: String,
+  score: Number,
+  missingKeywords: [String],
+  feedback: String,
+  modelAnswer: String,
+  createdAt: { type: Date, default: Date.now },
+});
+const AnswerAttempt =
+  mongoose.models.AnswerAttempt ||
+  mongoose.model("AnswerAttempt", AnswerAttemptSchema);
+
+// ── PROJECTLAB — fixed guided-stage structure (mirrors how MSBTE micro-project reports are structured) ──
+const PROJECT_STAGES = [
+  { key: "problem", title: "Problem & Idea", prompt: "What problem does your micro-project solve, and what's the core idea behind your solution?" },
+  { key: "scope", title: "Scope & Objectives", prompt: "What exactly does your project do (its scope), and what are its main objectives?" },
+  { key: "implementation", title: "Implementation Approach", prompt: "How did you actually build this? What tools, technologies, or methods did you use, and why did you choose them?" },
+  { key: "outcome", title: "Outcome & Learning", prompt: "What was the final outcome, and what did you learn — or what would you improve if you built it again?" },
+];
+
+const ProjectStageSchema = new mongoose.Schema({
+  key: String,
+  title: String,
+  prompt: String,
+  studentExplanation: { type: String, default: "" },
+  feedback: { type: String, default: "" },
+  followUpQuestion: { type: String, default: "" },
+  understood: { type: Boolean, default: false },
+  attempts: { type: Number, default: 0 },
+}, { _id: false });
+
+const VivaQuestionSchema = new mongoose.Schema({
+  question: String,
+  answered: { type: Boolean, default: false },
+}, { _id: false });
+
+// ── PROJECTLAB SCHEMA — Micro-Project Genuine-Understanding Builder + Viva Prep ──
+const MicroProjectSchema = new mongoose.Schema({
+  userId: String,
+  title: String,
+  difficulty: { type: String, enum: ["Basic", "Intermediate", "Advanced"], default: "Intermediate" },
+  techUsed: String, // technologies/tools/logic the student used — grounds viva questions in their actual project
+  stages: [ProjectStageSchema],
+  vivaQuestions: [VivaQuestionSchema],
+  status: { type: String, enum: ["in_progress", "completed"], default: "in_progress" },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+const MicroProject =
+  mongoose.models.MicroProject ||
+  mongoose.model("MicroProject", MicroProjectSchema);
+
 // ── MIDDLEWARE ──
 app.use(express.json());
 app.set("trust proxy", 1);
@@ -237,6 +309,10 @@ function rateLimit(maxReqs, windowMs) {
 app.use("/api/chat", rateLimit(30, 60 * 1000));
 app.use("/api/flashcard", rateLimit(20, 60 * 1000));
 app.use("/api/summarize", rateLimit(20, 60 * 1000));
+// AnswerLab scoring is a heavier Groq call — tighter limit
+app.use("/api/answer-sim/score", rateLimit(15, 60 * 1000));
+// ProjectLab stage evaluation + viva generation are Groq calls too
+app.use("/api/microproject", rateLimit(25, 60 * 1000));
 // Periodically purge expired entries so the map can't grow unbounded over long uptime
 setInterval(() => {
   const now = Date.now();
@@ -977,15 +1053,11 @@ app.get("/api/user", isLoggedIn, (req, res) => {
 // ── SYSTEM PROMPTS ──
 const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built exclusively for MSBTE (Maharashtra State Board of Technical Education) diploma engineering students in India.
 
-You have deep knowledge of the MSBTE K-Scheme diploma engineering curriculum:
-- All 6 semesters across branches: Computer Engineering, Mechanical, Civil, Electrical, E&TC
-- Current scheme: K-Scheme (competency-based, Course Outcomes, theory + practical, micro projects)
-- Computer Engineering K-Scheme subjects:
-  Sem 1-2: Applied Mathematics, Applied Science, Engineering Drawing, Communication Skills
-  Sem 3: Data Structures using C, Digital Techniques, Computer Organization, Web Design, OOP with C++
-  Sem 4: DBMS, Operating System, Java Programming, Computer Networks, Python Programming
-  Sem 5: Software Engineering, Microprocessor & Interfacing, Advanced Java, Linux Administration, Project
-  Sem 6: Cloud Computing, Cyber Security, Mobile App Development, AI & ML Basics, Major Project
+You have deep knowledge of the MSBTE K-Scheme diploma engineering curriculum. Current scope: Computer Engineering (CO) branch, Semester 5 and Semester 6 only.
+
+Verified official K-Scheme subjects for this scope:
+${buildSubjectPromptBlock()}
+
 - MSBTE K-Scheme exam: theory 70 marks, internal 30 marks, practicals, micro projects
 - Deep knowledge of PYQs, important topics, and frequently asked exam questions
 
@@ -1130,6 +1202,393 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
   } catch (error) {
     console.error("Summarize error:", error);
     res.status(500).json({ error: "Could not summarize." });
+  }
+});
+
+// ── SUBJECTS API — single source of truth, served to frontend dropdowns ──
+app.get("/api/subjects", isLoggedIn, (req, res) => {
+  res.json(SUBJECTS);
+});
+
+// ── SUBJECT PROFILE API — student's elective choices ──
+app.get("/api/subject-profile", isLoggedIn, async (req, res) => {
+  try {
+    const profile = await SubjectProfile.findOne({ userId: req.user.id });
+    res.json(profile || { userId: req.user.id, selectedElectives: {} });
+  } catch (e) {
+    console.error("Subject profile get error:", e.message);
+    res.status(500).json({ selectedElectives: {} });
+  }
+});
+
+app.post("/api/subject-profile", isLoggedIn, async (req, res) => {
+  try {
+    const { sem5, sem6 } = req.body.selectedElectives || {};
+    const profile = await SubjectProfile.findOneAndUpdate(
+      { userId: req.user.id },
+      { $set: { selectedElectives: { sem5: sem5 || "", sem6: sem6 || "" } } },
+      { upsert: true, new: true }
+    );
+    res.json({ ok: true, profile });
+  } catch (e) {
+    console.error("Subject profile save error:", e.message);
+    res.status(500).json({ ok: false });
+  }
+});
+
+// ── ANSWERLAB — MSBTE ANSWER-SCORING SIMULATOR ──
+const ANSWER_SCORING_PROMPT = `You are a fair, experienced MSBTE (Maharashtra State Board of Technical Education) K-Scheme examiner grading a diploma engineering student's written answer.
+
+MSBTE grades theory answers against a keyword/rubric-based answer scheme. Three rules apply together — all matter equally, do not let one override another:
+
+RULE 1 — DEPTH EXPECTED IS PROPORTIONAL TO MARKS (do not over-demand, and use these as hard targets for your modelAnswer, not vague guidance):
+- 2 marks: core definition only. ~1-2 sentences, roughly 15-30 words. No extra keywords/tools/examples required.
+- 3 marks: definition + 1-2 supporting points/features. ~2-3 sentences, roughly 30-45 words.
+- 4 marks: definition + 2-3 key points, or definition + brief example/diagram mention. ~3-5 sentences or a short paragraph plus 2-3 bullet points, roughly 45-70 words. This is noticeably more than a 2-mark answer — do not reuse a 2-mark-length answer for a 4-mark question.
+- 6 marks: definition + structured explanation/steps + example or diagram mention. ~80-120 words, may include a short list/steps.
+Your modelAnswer word count must roughly match the target for that mark value. If you find yourself writing a 2-mark-length answer for a 4 or 6 mark question, stop and add the additional expected content (extra point, example, or diagram mention) before responding.
+
+RULE 2 — COMPLETENESS AT THAT LEVEL STILL MATTERS (do not over-forgive):
+Even at a low mark value, the answer must contain the FULL core definition to earn full marks. If the student's answer is missing a key clause of the definition, is vague, generic, or only partially captures the concept, deduct marks proportionally. Compare the student's answer against what a complete correct answer for this question would actually say, clause by clause, at the depth Rule 1 specifies for this mark value. Missing even one meaningful clause/point should cost partial marks, scaled to how much is missing.
+
+RULE 3 — THE SUBJECT CONTEXT IS NOT DECORATIVE — IT MUST SHAPE YOUR GRADING:
+The subject given determines which terminology, conventions, and framing are correct. The same words can be right in one subject and wrong or imprecise in another (e.g. "process" means something specific in Operating System but not in Software Engineering; "schema" is precise in a database subject but vague outside one). When you evaluate correctness, missing keywords, and the model answer, actively use subject-specific terminology and framing that a K-Scheme student would be expected to know for THAT subject. If the student's answer uses generic or subject-mismatched language where the subject demands a specific technical term, treat that as a missing keyword, not as an acceptable equivalent. Two otherwise-identical answers under different subjects should be scored and phrased differently to reflect subject-specific expectations.
+
+Example calibration for a 2-mark question: a full, accurate one-line definition = 2/2. The same definition with a key clause dropped or replaced with something vague = 1 to 1.5/2. A definition that is mostly wrong, or just a topic restatement with no real definition = 0 to 0.5/2.
+
+Only list a keyword/point in "missingKeywords" if it is genuinely required to reach full marks at THIS question's mark level for THIS subject — not supplementary detail that belongs to a bigger version of the question, but DO include it if the student's answer is missing a clause of the core definition or uses imprecise terminology where the subject demands precision.
+
+RULE 4 — SPELLING NEVER AFFECTS THE SCORE:
+Real MSBTE grading is keyword/content-based, not language-polish-based. If the student's answer contains spelling mistakes, you should still identify them and mention the correct spelling in the "feedback" field so the student learns it — but spelling mistakes must NEVER lower the "score" value, even if a technical term is misspelled, as long as the intended term is clearly recognizable. Only treat a word as a genuinely missing/wrong keyword (affecting score) if the meaning itself is incorrect or absent, not merely misspelled.
+
+You must respond with ONLY valid JSON, nothing else, no markdown fences, in exactly this shape:
+{
+  "score": <number, 0 to maxMarks, can be a decimal like 1.5 — never reduced for spelling per Rule 4>,
+  "missingKeywords": [<clauses/points/subject-specific terms genuinely missing from the student's answer; empty array only if the answer is genuinely complete>],
+  "feedback": "<one short paragraph, max 3 sentences, specific and constructive, MSBTE-examiner tone, naming what was missing if marks were deducted, and separately noting any spelling corrections without implying they cost marks>",
+  "modelAnswer": "<a model answer matching the exact length/depth target for this mark value from Rule 1, using subject-appropriate terminology from Rule 3>"
+}`;
+
+app.post("/api/answer-sim/score", isLoggedIn, async (req, res) => {
+  const { semester, subjectCode, question, maxMarks, studentAnswer } = req.body;
+
+  if (!semester || !subjectCode || !question || !studentAnswer || typeof studentAnswer !== "string" || !studentAnswer.trim()) {
+    return res.status(400).json({ error: "Semester, subject, question, and answer are all required." });
+  }
+
+  const subjectMeta = findSubjectByCode(subjectCode);
+  const subjectName = subjectMeta?.name || "Unknown Subject";
+  const marks = Math.min(50, Math.max(1, parseInt(maxMarks) || 10));
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: ANSWER_SCORING_PROMPT },
+        {
+          role: "user",
+          content: `This question is worth ${marks} marks — target the exact depth/length specified for ${marks} marks in Rule 1, and grade using terminology/conventions specific to the subject "${subjectName}" per Rule 3.\n\nSubject: ${subjectName}\nQuestion: ${question.trim()}\n\nStudent's answer:\n${studentAnswer.trim()}`,
+        },
+      ],
+      max_tokens: 1024,
+      temperature: 0.3,
+    });
+
+    const raw = response.choices?.[0]?.message?.content;
+    if (!raw) throw new Error("Empty response from Groq");
+
+    const clean = raw.replace(/```json|```/g, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch {
+      throw new Error("Could not parse scoring response");
+    }
+
+    const score = Math.min(marks, Math.max(0, Number(parsed.score) || 0));
+    const missingKeywords = Array.isArray(parsed.missingKeywords) ? parsed.missingKeywords.slice(0, 10) : [];
+    const feedback = typeof parsed.feedback === "string" ? parsed.feedback : "";
+    const modelAnswer = typeof parsed.modelAnswer === "string" ? parsed.modelAnswer : "";
+
+    const attempt = await AnswerAttempt.create({
+      userId: req.user.id,
+      semester,
+      subjectCode,
+      subjectName,
+      question: question.trim(),
+      maxMarks: marks,
+      studentAnswer: studentAnswer.trim(),
+      score,
+      missingKeywords,
+      feedback,
+      modelAnswer,
+    });
+
+    res.json({ ok: true, attempt });
+  } catch (error) {
+    console.error("AnswerLab scoring error:", error?.message || error);
+    const msg = error?.message?.includes("rate_limit")
+      ? "Cortex is busy right now. Try again in a moment."
+      : "Could not score this answer. Please try again.";
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.get("/api/answer-sim/history", isLoggedIn, async (req, res) => {
+  try {
+    const attempts = await AnswerAttempt.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .select("subjectName question maxMarks score createdAt");
+    res.json(attempts);
+  } catch (e) {
+    console.error("AnswerLab history error:", e.message);
+    res.status(500).json([]);
+  }
+});
+
+app.get("/api/answer-sim/history/:id", isLoggedIn, async (req, res) => {
+  try {
+    const attempt = await AnswerAttempt.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!attempt) return res.status(404).json({ error: "Not found" });
+    res.json(attempt);
+  } catch (e) {
+    res.status(500).json({ error: "Error loading attempt" });
+  }
+});
+
+app.delete("/api/answer-sim/history/:id", isLoggedIn, async (req, res) => {
+  try {
+    await AnswerAttempt.deleteOne({ _id: req.params.id, userId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+// ── PROJECTLAB — MICRO-PROJECT GENUINE-UNDERSTANDING BUILDER + VIVA PREP ──
+const STAGE_EVAL_PROMPT = `You are an MSBTE micro-project mentor. Your job is to check whether a diploma engineering student's written explanation of their OWN micro-project demonstrates genuine, specific understanding — or whether it is vague, generic, copied-sounding, or could apply to any project rather than theirs specifically.
+
+You will be given the project's difficulty level and the technologies/logic the student says they used — use this as context for what a genuine, specific explanation should reference.
+
+Genuine understanding looks like: specific details about THEIR implementation, specific reasoning for choices they made, concrete outcomes or examples tied to their actual project, consistent with the technologies/logic they listed.
+Shallow/copied-sounding looks like: generic textbook definitions, vague statements that could describe any project, no specific technical details, buzzwords with no substance, or explanations inconsistent with the technologies they said they used.
+
+Be encouraging but honest — a student learning this skill needs real signal, not empty praise. If the explanation is genuinely specific and shows real understanding, mark it understood even if the writing is simple or brief — depth of understanding matters more than length or polish. Calibrate your strictness to the difficulty level: Basic projects need simpler, more concrete explanations; Advanced projects should show deeper technical reasoning.
+
+If NOT understood, write one specific follow-up question that would force the student to prove genuine understanding if they actually built this (e.g. asking for a specific technical decision, a specific challenge they faced, or a specific detail only someone who built it would know).
+
+Respond with ONLY valid JSON, no markdown fences, in exactly this shape:
+{
+  "understood": <boolean>,
+  "feedback": "<one short paragraph, max 2-3 sentences, constructive and specific to what they wrote>",
+  "followUpQuestion": "<a specific probing question if understood is false, otherwise empty string>"
+}`;
+
+const VIVA_GEN_PROMPT = `You are simulating a real MSBTE micro-project viva panel. This is critically important context: the viva happens AFTER the student has already presented their project to the panel. By this point, the judges already know the project's idea, objective, motive, and how it works at a high level — that was covered in the presentation itself.
+
+DO NOT generate questions like "explain your idea", "what is the objective of your project", "what problem does this solve", or "how does your project work overall" — the panel already knows this and re-asking it is unrealistic and wastes viva time.
+
+Instead, generate the kind of follow-up questions a real panel actually asks after a presentation:
+- Clarifying a specific technical choice from the technologies/logic the student listed ("why did you use X instead of Y", "how exactly does X work in your implementation")
+- Probing a specific detail or claim from what the student explained in their stages
+- A small, realistic "what if" or edge-case question tied to their specific project (not a generic edge-case question)
+- Asking them to justify a decision they made during implementation
+
+Calibrate question difficulty strictly to the given difficulty level:
+- Basic: straightforward clarifying questions about what they already presented, simple recall of their own project's details. No trick questions, no deep trade-off analysis.
+- Intermediate: a mix of "why" and "how" questions requiring them to justify decisions, plus one or two moderately probing questions.
+- Advanced: deeper trade-off and edge-case questions, "what would you change" questions — but still realistic for a diploma-level student who genuinely built this. Never research-level, obscure, or trick questions that a real MSBTE panel would not actually ask a diploma student.
+
+Ground every question in specifics the student actually wrote — their listed technologies/logic and their stage explanations. Never generate a generic question that could apply to any project.
+
+Generate 6-8 questions total.
+
+Respond with ONLY valid JSON, no markdown fences, in exactly this shape:
+{ "questions": [<array of 6-8 question strings>] }`;
+
+app.post("/api/microproject", isLoggedIn, async (req, res) => {
+  const { title, difficulty, techUsed } = req.body;
+  const validDifficulty = ["Basic", "Intermediate", "Advanced"].includes(difficulty) ? difficulty : "Intermediate";
+  if (!title?.trim()) {
+    return res.status(400).json({ error: "Project title is required." });
+  }
+  try {
+    const project = await MicroProject.create({
+      userId: req.user.id,
+      title: title.trim(),
+      difficulty: validDifficulty,
+      techUsed: techUsed?.trim() || "",
+      stages: [{ ...PROJECT_STAGES[0] }],
+      status: "in_progress",
+    });
+    res.json({ ok: true, project });
+  } catch (e) {
+    console.error("MicroProject create error:", e.message);
+    res.status(500).json({ error: "Could not start project." });
+  }
+});
+
+app.get("/api/microproject", isLoggedIn, async (req, res) => {
+  try {
+    const projects = await MicroProject.find({ userId: req.user.id })
+      .sort({ updatedAt: -1 })
+      .select("title difficulty techUsed status stages updatedAt");
+    res.json(projects);
+  } catch (e) {
+    console.error("MicroProject list error:", e.message);
+    res.status(500).json([]);
+  }
+});
+
+app.get("/api/microproject/:id", isLoggedIn, async (req, res) => {
+  try {
+    const project = await MicroProject.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!project) return res.status(404).json({ error: "Not found" });
+    res.json(project);
+  } catch (e) {
+    res.status(500).json({ error: "Error loading project" });
+  }
+});
+
+app.post("/api/microproject/:id/stage", isLoggedIn, async (req, res) => {
+  const { explanation } = req.body;
+  if (!explanation || typeof explanation !== "string" || !explanation.trim()) {
+    return res.status(400).json({ error: "Explanation is required." });
+  }
+
+  try {
+    const project = await MicroProject.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!project) return res.status(404).json({ error: "Not found" });
+
+    const currentStage = project.stages[project.stages.length - 1];
+    if (!currentStage || currentStage.understood) {
+      return res.status(400).json({ error: "No active stage to submit to." });
+    }
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: STAGE_EVAL_PROMPT },
+        {
+          role: "user",
+          content: `Project title: ${project.title}\nDifficulty level: ${project.difficulty}\nTechnologies/logic used: ${project.techUsed || "not specified by student"}\nStage: ${currentStage.title}\nQuestion asked: ${currentStage.prompt}\n\nStudent's explanation:\n${explanation.trim()}`,
+        },
+      ],
+      max_tokens: 512,
+      temperature: 0.4,
+    });
+
+    const raw = response.choices?.[0]?.message?.content;
+    if (!raw) throw new Error("Empty response from Groq");
+    const clean = raw.replace(/```json|```/g, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch {
+      throw new Error("Could not parse stage evaluation response");
+    }
+
+    const understood = !!parsed.understood;
+    currentStage.studentExplanation = explanation.trim();
+    currentStage.feedback = typeof parsed.feedback === "string" ? parsed.feedback : "";
+    currentStage.followUpQuestion = understood ? "" : (typeof parsed.followUpQuestion === "string" ? parsed.followUpQuestion : "");
+    currentStage.understood = understood;
+    currentStage.attempts = (currentStage.attempts || 0) + 1;
+
+    let readyForViva = false;
+    if (understood) {
+      const currentIndex = PROJECT_STAGES.findIndex(s => s.key === currentStage.key);
+      const nextStageTemplate = PROJECT_STAGES[currentIndex + 1];
+      if (nextStageTemplate) {
+        project.stages.push({ ...nextStageTemplate });
+      } else {
+        project.status = "completed";
+        readyForViva = true;
+      }
+    }
+
+    project.updatedAt = new Date();
+    await project.save();
+
+    res.json({ ok: true, project, readyForViva });
+  } catch (error) {
+    console.error("ProjectLab stage error:", error?.message || error);
+    res.status(500).json({ error: "Could not evaluate this stage. Please try again." });
+  }
+});
+
+app.post("/api/microproject/:id/generate-viva", isLoggedIn, async (req, res) => {
+  try {
+    const project = await MicroProject.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!project) return res.status(404).json({ error: "Not found" });
+    if (project.status !== "completed") {
+      return res.status(400).json({ error: "Complete all project stages first." });
+    }
+
+    const stageSummary = project.stages
+      .map(s => `${s.title}: ${s.studentExplanation}`)
+      .join("\n\n");
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: VIVA_GEN_PROMPT },
+        {
+          role: "user",
+          content: `Project title: ${project.title}\nDifficulty level: ${project.difficulty}\nTechnologies/logic used: ${project.techUsed || "not specified by student — infer likely tools/logic from their stage explanations below"}\n\n${stageSummary}`,
+        },
+      ],
+      max_tokens: 768,
+      temperature: 0.5,
+    });
+
+    const raw = response.choices?.[0]?.message?.content;
+    if (!raw) throw new Error("Empty response from Groq");
+    const clean = raw.replace(/```json|```/g, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch {
+      throw new Error("Could not parse viva questions response");
+    }
+
+    const questions = Array.isArray(parsed.questions) ? parsed.questions.slice(0, 8) : [];
+    project.vivaQuestions = questions.map(q => ({ question: q, answered: false }));
+    project.updatedAt = new Date();
+    await project.save();
+
+    res.json({ ok: true, project });
+  } catch (error) {
+    console.error("ProjectLab viva generation error:", error?.message || error);
+    res.status(500).json({ error: "Could not generate viva questions. Please try again." });
+  }
+});
+
+app.post("/api/microproject/:id/viva/:index", isLoggedIn, async (req, res) => {
+  const index = parseInt(req.params.index);
+  const { answered } = req.body;
+  try {
+    const project = await MicroProject.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!project) return res.status(404).json({ error: "Not found" });
+    if (isNaN(index) || index < 0 || index >= project.vivaQuestions.length) {
+      return res.status(400).json({ error: "Invalid question index." });
+    }
+    project.vivaQuestions[index].answered = !!answered;
+    project.updatedAt = new Date();
+    await project.save();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.delete("/api/microproject/:id", isLoggedIn, async (req, res) => {
+  try {
+    await MicroProject.deleteOne({ _id: req.params.id, userId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false });
   }
 });
 

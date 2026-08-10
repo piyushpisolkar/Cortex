@@ -157,7 +157,6 @@
           <span class="logo-text">Cortex</span>
         </div>
         <div class="topbar-right">
-          <div class="status-dot" data-tooltip="Connected"></div>
           <button
             class="topbar-icon-btn"
             id="themeToggleBtn"
@@ -185,27 +184,28 @@
               <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
             </svg>
           </button>
-          <div
-            class="user-profile"
-            id="userProfile"
-            onclick="toggleProfileMenu()"
+          <button
+            class="topbar-icon-btn"
+            id="accountBtn"
+            data-tooltip="Account"
+            onclick="switchNav('account')"
           >
-            <img class="user-photo" id="userPhoto" src="" alt="" />
-            <div class="profile-dropdown" id="profileDropdown">
-              <div class="profile-dropdown-header">
-                <img class="dropdown-photo" id="dropdownPhoto" src="" alt="" />
-                <div>
-                  <p class="dropdown-name" id="dropdownName"></p>
-                  <p class="dropdown-email" id="dropdownEmail"></p>
-                </div>
-              </div>
-              <hr class="dropdown-divider" />
-              <button class="dropdown-item" onclick="switchNav('settings')">
-                ⚙ Settings
-              </button>
-              <a href="/logout" class="dropdown-logout">↩ Sign out</a>
-            </div>
-          </div>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -217,7 +217,6 @@
             class="nav-item active"
             data-nav="home"
             onclick="switchNav('home')"
-            data-tooltip="Home"
           >
             <svg
               width="20"
@@ -238,7 +237,6 @@
             class="nav-item"
             data-nav="chat"
             onclick="switchNav('chat')"
-            data-tooltip="Chat"
           >
             <svg
               width="20"
@@ -258,9 +256,8 @@
           </button>
           <button
             class="nav-item"
-            data-nav="canvas"
-            onclick="switchNav('canvas')"
-            data-tooltip="Canvas"
+            data-nav="answerlab"
+            onclick="switchNav('answerlab')"
           >
             <svg
               width="20"
@@ -272,18 +269,15 @@
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
-            <span class="nav-label">Canvas</span>
+            <span class="nav-label">AnswerLab</span>
           </button>
           <button
             class="nav-item"
-            data-nav="history"
-            onclick="switchNav('history')"
-            data-tooltip="History"
+            data-nav="projectlab"
+            onclick="switchNav('projectlab')"
           >
             <svg
               width="20"
@@ -295,17 +289,35 @@
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
             </svg>
-            <span class="nav-label">History</span>
+            <span class="nav-label">ProjectLab</span>
+          </button>
+          <button
+            class="nav-item"
+            data-nav="library"
+            onclick="switchNav('library')"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span class="nav-label">Library</span>
           </button>
           <div class="nav-spacer"></div>
           <button
             class="nav-item"
-            data-nav="settings"
-            onclick="switchNav('settings')"
-            data-tooltip="Settings"
+            data-nav="account"
+            onclick="switchNav('account')"
           >
             <svg
               width="20"
@@ -322,7 +334,7 @@
                 d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
               />
             </svg>
-            <span class="nav-label">Settings</span>
+            <span class="nav-label">Account</span>
           </button>
         </nav>
 
@@ -351,7 +363,7 @@
                     </svg>
                     New Chat
                   </button>
-                  <button class="quick-btn" onclick="switchNav('history')">
+                  <button class="quick-btn" onclick="switchNav('library')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                     </svg>
@@ -560,71 +572,223 @@
           </section>
 
           <!-- ══ CANVAS TAB ══ -->
-          <section class="tab-view hidden" id="tab-canvas">
+          <!-- ══ ANSWERLAB TAB — MSBTE Answer-Scoring Simulator ══ -->
+          <section class="tab-view hidden" id="tab-answerlab">
             <div class="tab-header">
-              <h1 class="tab-title">Canvas</h1>
-              <p class="tab-subtitle">Saved flashcards and pinned notes</p>
+              <h1 class="tab-title">AnswerLab</h1>
+              <p class="tab-subtitle">Write an answer, get scored the way MSBTE actually grades it</p>
             </div>
-            <div class="canvas-tab-grid">
-              <div class="canvas-section">
-                <div class="section-heading-row">
-                  <h3>Flashcards</h3>
-                  <span class="section-count" id="flashcardCount">0 saved</span>
-                </div>
-                <div id="savedFlashcards" class="saved-flashcards-grid">
-                  <div class="empty-section-hint">
-                    No saved flashcards yet. Chat with Cortex and save cards
-                    from the canvas.
-                  </div>
-                </div>
+
+            <div class="answerlab-form">
+              <div class="answerlab-row">
+                <select class="modal-input" id="alSemester" onchange="alPopulateSubjects()">
+                  <option value="sem5">Semester 5</option>
+                  <option value="sem6">Semester 6</option>
+                </select>
+                <select class="modal-input" id="alSubject"></select>
               </div>
-              <div class="canvas-section">
-                <div class="section-heading-row">
-                  <h3>Pinned Notes</h3>
-                  <span class="section-count" id="notesCount">0 saved</span>
+              <div class="answerlab-row">
+                <select class="modal-input" id="alMaxMarks" style="max-width:120px">
+                  <option value="" disabled selected>Marks</option>
+                  <option value="2">2 Marks</option>
+                  <option value="3">3 Marks</option>
+                  <option value="4">4 Marks</option>
+                  <option value="6">6 Marks</option>
+                </select>
+                <input class="modal-input" id="alQuestion" type="text" placeholder="Question (e.g. Explain deadlock with example)" />
+              </div>
+              <textarea class="modal-input answerlab-textarea" id="alAnswer" placeholder="Write your answer exactly as you would in the exam..." rows="8"></textarea>
+              <button class="modal-btn-primary" id="alSubmitBtn" onclick="submitAnswerForScoring()">Score my answer</button>
+            </div>
+
+            <div class="answerlab-result hidden" id="alResult">
+              <div class="answerlab-score-row">
+                <div class="answerlab-score-badge" id="alScoreBadge">–</div>
+                <div>
+                  <p class="answerlab-score-label">Score</p>
+                  <p class="answerlab-subject-name" id="alResultSubject"></p>
                 </div>
-                <div id="savedNotes" class="saved-notes-list">
-                  <div class="empty-section-hint">
-                    No pinned notes yet. Pin important points from any chat
-                    response.
-                  </div>
+                <div class="answerlab-perfect-badge hidden" id="alPerfectBadge">🎉 Perfect score!</div>
+              </div>
+              <div class="answerlab-block" id="alMissingBlock">
+                <h4>Missing keywords / points</h4>
+                <div class="answerlab-keywords" id="alMissingKeywords"></div>
+              </div>
+              <div class="answerlab-block">
+                <h4>Examiner feedback</h4>
+                <p id="alFeedback"></p>
+              </div>
+              <div class="answerlab-block">
+                <h4>MSBTE-style model answer</h4>
+                <p id="alModelAnswer"></p>
+              </div>
+            </div>
+
+            <div class="answerlab-history-section">
+              <h3>Recent Attempts</h3>
+              <div id="alHistoryList" class="history-list">
+                <div class="history-empty">
+                  <p>No attempts yet</p>
+                  <span>Score your first answer to see it here</span>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ══ HISTORY TAB ══ -->
-          <section class="tab-view hidden" id="tab-history">
+          <!-- ══ PROJECTLAB TAB — Micro-Project Builder + Viva Prep ══ -->
+          <section class="tab-view hidden" id="tab-projectlab">
             <div class="tab-header">
-              <h1 class="tab-title">History</h1>
-              <p class="tab-subtitle">Your past study sessions</p>
+              <h1 class="tab-title">ProjectLab</h1>
+              <p class="tab-subtitle">Build your micro-project with genuine understanding, then prep for viva</p>
             </div>
-            <div id="historyList" class="history-list">
-              <div class="history-empty">
-                <svg
-                  width="40"
-                  height="40"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  opacity="0.3"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <p>No history yet</p>
-                <span>Your chat sessions will appear here</span>
+
+            <!-- NEW PROJECT FORM -->
+            <div class="answerlab-form" id="pjNewForm">
+              <input class="modal-input" id="pjTitle" type="text" placeholder="Project title (e.g. Smart Attendance System using Face Recognition)" />
+              <div class="answerlab-row">
+                <select class="modal-input" id="pjDifficulty" style="max-width:180px">
+                  <option value="Basic">Basic</option>
+                  <option value="Intermediate" selected>Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                </select>
+                <input class="modal-input" id="pjTechUsed" type="text" placeholder="Technologies / logic used — optional, e.g. Python, OpenCV, Firebase" />
+              </div>
+              <button class="modal-btn-primary" id="pjStartBtn" onclick="pjStartProject()">Start Project</button>
+            </div>
+
+            <!-- ACTIVE PROJECT — GUIDED STAGE FLOW -->
+            <div class="projectlab-active hidden" id="pjActive">
+              <div class="projectlab-active-header">
+                <button class="modal-btn-secondary" onclick="pjBackToList()">← Back</button>
+                <div>
+                  <p class="projectlab-active-title" id="pjActiveTitle"></p>
+                  <p class="projectlab-active-subject" id="pjActiveSubject"></p>
+                </div>
+              </div>
+
+              <div class="projectlab-progress" id="pjProgress"></div>
+
+              <div class="answerlab-block projectlab-stage-block" id="pjStageBlock">
+                <h4 id="pjStageTitle">Stage</h4>
+                <p id="pjStagePrompt"></p>
+                <textarea class="modal-input answerlab-textarea" id="pjExplanation" placeholder="Explain this in your own words, based on what you actually built..." rows="6"></textarea>
+                <button class="modal-btn-primary" id="pjSubmitStageBtn" onclick="pjSubmitStage()">Submit</button>
+              </div>
+
+              <div class="answerlab-block projectlab-feedback hidden" id="pjFeedbackBlock">
+                <h4 id="pjFeedbackHeading">Feedback</h4>
+                <p id="pjFeedbackText"></p>
+              </div>
+
+              <div class="projectlab-viva-section hidden" id="pjVivaSection">
+                <h3>🎓 All stages complete — ready for viva prep</h3>
+                <button class="modal-btn-primary" id="pjGenerateVivaBtn" onclick="pjGenerateViva()">Generate Viva Questions</button>
+                <div id="pjVivaNav" class="projectlab-viva-nav hidden">
+                  <div class="viva-counter" id="pjVivaCounter">Question 1 of 8</div>
+                  <div class="projectlab-viva-card">
+                    <p id="pjVivaQuestionText"></p>
+                    <label class="viva-practiced-check">
+                      <input type="checkbox" id="pjVivaAnsweredCheck" onchange="pjToggleAnswered()" />
+                      Practiced this
+                    </label>
+                  </div>
+                  <div class="viva-nav-buttons">
+                    <button class="modal-btn-secondary" id="pjVivaPrevBtn" onclick="pjVivaPrev()">← Previous</button>
+                    <button class="modal-btn-secondary" id="pjVivaNextBtn" onclick="pjVivaNext()">Next →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PROJECT LIST -->
+            <div class="answerlab-history-section" id="pjListSection">
+              <h3>Your Projects</h3>
+              <div id="pjList" class="history-list">
+                <div class="history-empty">
+                  <p>No projects yet</p>
+                  <span>Start your first micro-project above</span>
+                </div>
               </div>
             </div>
           </section>
 
-          <!-- ══ SETTINGS TAB ══ -->
-          <section class="tab-view hidden" id="tab-settings">
+          <!-- ══ LIBRARY TAB — Saved Canvas items + Chat History, merged ══ -->
+          <section class="tab-view hidden" id="tab-library">
             <div class="tab-header">
-              <h1 class="tab-title">Settings</h1>
-              <p class="tab-subtitle">Customize your Cortex experience</p>
+              <h1 class="tab-title">Library</h1>
+              <p class="tab-subtitle">Saved flashcards, notes, and past study sessions</p>
             </div>
+            <div class="library-subtabs">
+              <button class="library-subtab-btn active" data-libtab="saved" onclick="switchLibraryTab('saved')">Saved</button>
+              <button class="library-subtab-btn" data-libtab="history" onclick="switchLibraryTab('history')">History</button>
+            </div>
+
+            <div class="library-panel" id="libpanel-saved">
+              <div class="canvas-tab-grid">
+                <div class="canvas-section">
+                  <div class="section-heading-row">
+                    <h3>Flashcards</h3>
+                    <span class="section-count" id="flashcardCount">0 saved</span>
+                  </div>
+                  <div id="savedFlashcards" class="saved-flashcards-grid">
+                    <div class="empty-section-hint">
+                      No saved flashcards yet. Chat with Cortex and save cards
+                      from the canvas.
+                    </div>
+                  </div>
+                </div>
+                <div class="canvas-section">
+                  <div class="section-heading-row">
+                    <h3>Pinned Notes</h3>
+                    <span class="section-count" id="notesCount">0 saved</span>
+                  </div>
+                  <div id="savedNotes" class="saved-notes-list">
+                    <div class="empty-section-hint">
+                      No pinned notes yet. Pin important points from any chat
+                      response.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="library-panel hidden" id="libpanel-history">
+              <div id="historyList" class="history-list">
+                <div class="history-empty">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    opacity="0.3"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <p>No history yet</p>
+                  <span>Your chat sessions will appear here</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ══ ACCOUNT TAB — Profile + Settings + Sign out, merged ══ -->
+          <section class="tab-view hidden" id="tab-account">
+            <div class="tab-header">
+              <h1 class="tab-title">Account</h1>
+              <p class="tab-subtitle">Your profile and Cortex preferences</p>
+            </div>
+
+            <div class="account-profile-card">
+              <img class="account-photo" id="accountPhoto" src="" alt="" />
+              <div>
+                <p class="account-name" id="accountName"></p>
+                <p class="account-email" id="accountEmail"></p>
+              </div>
+            </div>
+
             <div class="settings-list">
               <div class="settings-group">
                 <h3 class="settings-group-title">Appearance</h3>
@@ -763,8 +927,8 @@
       </button>
       <button
         class="mobile-nav-item"
-        data-nav="canvas"
-        onclick="switchNav('canvas')"
+        data-nav="answerlab"
+        onclick="switchNav('answerlab')"
       >
         <svg
           width="20"
@@ -776,17 +940,15 @@
           stroke-linecap="round"
           stroke-linejoin="round"
         >
-          <rect x="3" y="3" width="7" height="7" />
-          <rect x="14" y="3" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" />
-          <rect x="3" y="14" width="7" height="7" />
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </svg>
-        <span>Canvas</span>
+        <span>AnswerLab</span>
       </button>
       <button
         class="mobile-nav-item"
-        data-nav="history"
-        onclick="switchNav('history')"
+        data-nav="projectlab"
+        onclick="switchNav('projectlab')"
       >
         <svg
           width="20"
@@ -798,10 +960,29 @@
           stroke-linecap="round"
           stroke-linejoin="round"
         >
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
         </svg>
-        <span>History</span>
+        <span>ProjectLab</span>
+      </button>
+      <button
+        class="mobile-nav-item"
+        data-nav="library"
+        onclick="switchNav('library')"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+        <span>Library</span>
       </button>
     </nav>
 

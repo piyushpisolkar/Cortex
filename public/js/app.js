@@ -404,6 +404,433 @@ async function loadCanvasItems() {
 }
 loadCanvasItems();
 
+// ── ANSWERLAB ──
+let alSubjectsCache = null;
+
+async function alLoadSubjects() {
+  if (alSubjectsCache) return alSubjectsCache;
+  try {
+    const res = await fetch("/api/subjects");
+    alSubjectsCache = await res.json();
+  } catch (e) {
+    alSubjectsCache = { sem5: { core: [], electives: [] }, sem6: { core: [], electives: [] } };
+  }
+  return alSubjectsCache;
+}
+
+async function alPopulateSubjects() {
+  const sem = document.getElementById("alSemester")?.value || "sem5";
+  const subjects = await alLoadSubjects();
+  const sel = document.getElementById("alSubject");
+  if (!sel) return;
+  const list = [...(subjects[sem]?.core || []), ...(subjects[sem]?.electives || [])];
+  sel.innerHTML = list.map(s => `<option value="${s.code}">${s.name} (${s.abbr})</option>`).join("");
+}
+
+async function submitAnswerForScoring() {
+  const btn = document.getElementById("alSubmitBtn");
+  const semester = document.getElementById("alSemester")?.value;
+  const subjectCode = document.getElementById("alSubject")?.value;
+  const maxMarks = document.getElementById("alMaxMarks")?.value;
+  const question = document.getElementById("alQuestion")?.value.trim();
+  const studentAnswer = document.getElementById("alAnswer")?.value.trim();
+
+  if (!subjectCode) { alert("Subject list is still loading — try again in a moment."); return; }
+  if (!maxMarks) { document.getElementById("alMaxMarks")?.focus(); alert("Select how many marks this question is worth."); return; }
+  if (!question) { document.getElementById("alQuestion")?.focus(); return; }
+  if (!studentAnswer) { document.getElementById("alAnswer")?.focus(); return; }
+
+  btn.disabled = true; btn.textContent = "Scoring...";
+  try {
+    const res = await fetch("/api/answer-sim/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ semester, subjectCode, question, maxMarks, studentAnswer }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { alert(data.error || "Could not score this answer."); return; }
+    alRenderResult(data.attempt);
+    alPrependHistory(data.attempt);
+  } catch (e) {
+    alert("Network error — could not score this answer.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Score my answer";
+  }
+}
+
+function alRenderResult(attempt) {
+  const box = document.getElementById("alResult");
+  if (!box) return;
+  box.classList.remove("hidden");
+  const badge = document.getElementById("alScoreBadge");
+  badge.textContent = `${attempt.score}/${attempt.maxMarks}`;
+  document.getElementById("alResultSubject").textContent = attempt.subjectName || "";
+
+  const isFullMarks = Number(attempt.score) >= Number(attempt.maxMarks);
+  const perfectBadge = document.getElementById("alPerfectBadge");
+  badge.classList.toggle("full-marks", isFullMarks);
+  perfectBadge.classList.toggle("hidden", !isFullMarks);
+  if (isFullMarks) {
+    perfectBadge.classList.remove("pop");
+    void perfectBadge.offsetWidth; // restart animation if triggered twice in a row
+    perfectBadge.classList.add("pop");
+    alFireConfetti(badge);
+  }
+
+  const missingWrap = document.getElementById("alMissingKeywords");
+  const missingBlock = document.getElementById("alMissingBlock");
+  if (attempt.missingKeywords?.length) {
+    missingBlock.style.display = "";
+    missingWrap.innerHTML = attempt.missingKeywords.map(k => `<span class="answerlab-keyword-chip">${k}</span>`).join("");
+  } else {
+    missingBlock.style.display = "none";
+  }
+
+  document.getElementById("alFeedback").textContent = attempt.feedback || "No feedback available.";
+  document.getElementById("alModelAnswer").textContent = attempt.modelAnswer || "Not available.";
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ── LIGHTWEIGHT CONFETTI BURST (full marks celebration, no external libs) ──
+function alFireConfetti(anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const originX = rect.left + rect.width / 2;
+  const originY = rect.top + rect.height / 2;
+  const colors = ["#8b83e8", "#4fd1c5", "#f6ad55", "#fc8181", "#68d391", "#f6e05e"];
+  const count = 28;
+
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("div");
+    p.className = "al-confetti-particle";
+    const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.5 - 0.25);
+    const distance = 90 + Math.random() * 90;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance - 40; // slight upward bias
+    p.style.setProperty("--dx", `${dx}px`);
+    p.style.setProperty("--dy", `${dy}px`);
+    p.style.setProperty("--rot", `${Math.random() * 720 - 360}deg`);
+    p.style.left = `${originX}px`;
+    p.style.top = `${originY}px`;
+    p.style.background = colors[i % colors.length];
+    p.style.width = p.style.height = `${5 + Math.random() * 4}px`;
+    p.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1100);
+  }
+}
+
+function alPrependHistory(attempt) {
+  const list = document.getElementById("alHistoryList");
+  if (!list) return;
+  list.querySelector(".history-empty")?.remove();
+  const item = document.createElement("div");
+  item.className = "history-item";
+  item.id = `al-hist-${attempt._id}`;
+  item.innerHTML = `
+    <div class="history-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+    <div class="history-item-info" onclick="alLoadAttempt('${attempt._id}')" style="cursor:pointer">
+      <div class="history-item-title">${attempt.subjectName} — ${attempt.question.slice(0, 60)}</div>
+      <div class="history-item-meta">Score: ${attempt.score}/${attempt.maxMarks} · ${fmt(attempt.createdAt)}</div>
+    </div>
+    <div class="history-item-actions">
+      <button class="history-delete-btn" onclick="alDeleteAttempt('${attempt._id}')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
+      </button>
+    </div>`;
+  list.insertBefore(item, list.firstChild);
+}
+
+async function alLoadAttempt(id) {
+  try {
+    const res = await fetch(`/api/answer-sim/history/${id}`);
+    if (!res.ok) return;
+    const attempt = await res.json();
+    alRenderResult(attempt);
+  } catch (e) {}
+}
+
+async function alDeleteAttempt(id) {
+  if (!confirm("Delete this attempt?")) return;
+  try {
+    await fetch(`/api/answer-sim/history/${id}`, { method: "DELETE" });
+    document.getElementById(`al-hist-${id}`)?.remove();
+    const list = document.getElementById("alHistoryList");
+    if (list && !list.querySelector(".history-item")) {
+      list.innerHTML = `<div class="history-empty"><p>No attempts yet</p><span>Score your first answer to see it here</span></div>`;
+    }
+  } catch (e) {}
+}
+
+async function alLoadHistory() {
+  const list = document.getElementById("alHistoryList");
+  if (!list) return;
+  try {
+    const res = await fetch("/api/answer-sim/history");
+    const attempts = await res.json();
+    if (!attempts.length) return; // keep default empty state markup
+    list.innerHTML = "";
+    attempts.forEach(a => alPrependHistoryFromList(a, list));
+  } catch (e) {}
+}
+
+function alPrependHistoryFromList(attempt, list) {
+  const item = document.createElement("div");
+  item.className = "history-item";
+  item.id = `al-hist-${attempt._id}`;
+  item.innerHTML = `
+    <div class="history-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+    <div class="history-item-info" onclick="alLoadAttempt('${attempt._id}')" style="cursor:pointer">
+      <div class="history-item-title">${attempt.subjectName} — ${(attempt.question || "").slice(0, 60)}</div>
+      <div class="history-item-meta">Score: ${attempt.score}/${attempt.maxMarks} · ${fmt(attempt.createdAt)}</div>
+    </div>
+    <div class="history-item-actions">
+      <button class="history-delete-btn" onclick="alDeleteAttempt('${attempt._id}')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
+      </button>
+    </div>`;
+  list.appendChild(item);
+}
+
+// Populate subject dropdown on first load so it's ready before the tab is even opened
+alPopulateSubjects();
+
+// ── PROJECTLAB ──
+let pjCurrentProjectId = null;
+let pjVivaQuestions = [];
+let pjVivaIndex = 0;
+const PJ_STAGE_COUNT = 4; // must match server-side PROJECT_STAGES length
+
+async function pjStartProject() {
+  const btn = document.getElementById("pjStartBtn");
+  const title = document.getElementById("pjTitle")?.value.trim();
+  const difficulty = document.getElementById("pjDifficulty")?.value;
+  const techUsed = document.getElementById("pjTechUsed")?.value.trim();
+
+  if (!title) { document.getElementById("pjTitle")?.focus(); return; }
+
+  btn.disabled = true; btn.textContent = "Starting...";
+  try {
+    const res = await fetch("/api/microproject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, difficulty, techUsed }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { alert(data.error || "Could not start project."); return; }
+    document.getElementById("pjTitle").value = "";
+    document.getElementById("pjTechUsed").value = "";
+    pjRenderActive(data.project);
+    pjLoadList();
+  } catch (e) {
+    alert("Network error — could not start project.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Start Project";
+  }
+}
+
+function pjRenderActive(project) {
+  pjCurrentProjectId = project._id;
+  document.getElementById("pjNewForm").classList.add("hidden");
+  document.getElementById("pjListSection").classList.add("hidden");
+  document.getElementById("pjActive").classList.remove("hidden");
+
+  document.getElementById("pjActiveTitle").textContent = project.title;
+  document.getElementById("pjActiveSubject").textContent = project.techUsed ? `${project.difficulty} · ${project.techUsed}` : project.difficulty;
+
+  // Progress dots — one per stage, filled for understood stages, accent for current
+  const progress = document.getElementById("pjProgress");
+  let dots = "";
+  for (let i = 0; i < PJ_STAGE_COUNT; i++) {
+    const stage = project.stages[i];
+    let cls = "";
+    if (stage?.understood) cls = "done";
+    else if (stage) cls = "active";
+    dots += `<div class="projectlab-progress-dot ${cls}"></div>`;
+  }
+  progress.innerHTML = dots;
+
+  const currentStage = project.stages[project.stages.length - 1];
+  const feedbackBlock = document.getElementById("pjFeedbackBlock");
+  const stageBlock = document.getElementById("pjStageBlock");
+  const vivaSection = document.getElementById("pjVivaSection");
+
+  if (project.status === "completed") {
+    stageBlock.classList.add("hidden");
+    vivaSection.classList.remove("hidden");
+    if (project.vivaQuestions?.length) {
+      pjRenderViva(project.vivaQuestions);
+      document.getElementById("pjGenerateVivaBtn").classList.add("hidden");
+    } else {
+      document.getElementById("pjGenerateVivaBtn").classList.remove("hidden");
+      document.getElementById("pjVivaNav").classList.add("hidden");
+    }
+    // Show feedback from the final stage
+    if (currentStage?.feedback) {
+      feedbackBlock.classList.remove("hidden");
+      feedbackBlock.className = "answerlab-block projectlab-feedback understood";
+      document.getElementById("pjFeedbackHeading").textContent = `${currentStage.title} — understood ✓`;
+      document.getElementById("pjFeedbackText").textContent = currentStage.feedback;
+    }
+    return;
+  }
+
+  stageBlock.classList.remove("hidden");
+  vivaSection.classList.add("hidden");
+  document.getElementById("pjStageTitle").textContent = currentStage.title;
+  document.getElementById("pjStagePrompt").textContent = currentStage.followUpQuestion || currentStage.prompt;
+  document.getElementById("pjExplanation").value = "";
+
+  if (currentStage.attempts > 0 && currentStage.feedback) {
+    feedbackBlock.classList.remove("hidden");
+    feedbackBlock.className = "answerlab-block projectlab-feedback not-understood";
+    document.getElementById("pjFeedbackHeading").textContent = "Not quite yet — try again";
+    document.getElementById("pjFeedbackText").textContent = currentStage.feedback;
+  } else {
+    feedbackBlock.classList.add("hidden");
+  }
+}
+
+async function pjSubmitStage() {
+  if (!pjCurrentProjectId) return;
+  const btn = document.getElementById("pjSubmitStageBtn");
+  const explanation = document.getElementById("pjExplanation")?.value.trim();
+  if (!explanation) { document.getElementById("pjExplanation")?.focus(); return; }
+
+  btn.disabled = true; btn.textContent = "Checking...";
+  try {
+    const res = await fetch(`/api/microproject/${pjCurrentProjectId}/stage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ explanation }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { alert(data.error || "Could not evaluate this stage."); return; }
+    pjRenderActive(data.project);
+    if (data.readyForViva) pjLoadList();
+  } catch (e) {
+    alert("Network error — could not submit.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Submit";
+  }
+}
+
+async function pjGenerateViva() {
+  if (!pjCurrentProjectId) return;
+  const btn = document.getElementById("pjGenerateVivaBtn");
+  btn.disabled = true; btn.textContent = "Generating...";
+  try {
+    const res = await fetch(`/api/microproject/${pjCurrentProjectId}/generate-viva`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { alert(data.error || "Could not generate viva questions."); return; }
+    pjRenderViva(data.project.vivaQuestions);
+    btn.classList.add("hidden");
+    pjLoadList();
+  } catch (e) {
+    alert("Network error — could not generate viva questions.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Generate Viva Questions";
+  }
+}
+
+// ── VIVA PREV/NEXT NAVIGATION ──
+function pjRenderViva(questions) {
+  pjVivaQuestions = questions || [];
+  pjVivaIndex = 0;
+  const nav = document.getElementById("pjVivaNav");
+  if (!nav) return;
+  if (!pjVivaQuestions.length) { nav.classList.add("hidden"); return; }
+  nav.classList.remove("hidden");
+  pjShowVivaQuestion();
+}
+
+function pjShowVivaQuestion() {
+  const q = pjVivaQuestions[pjVivaIndex];
+  if (!q) return;
+  document.getElementById("pjVivaCounter").textContent = `Question ${pjVivaIndex + 1} of ${pjVivaQuestions.length}`;
+  document.getElementById("pjVivaQuestionText").textContent = q.question;
+  document.getElementById("pjVivaAnsweredCheck").checked = !!q.answered;
+  document.getElementById("pjVivaPrevBtn").disabled = pjVivaIndex === 0;
+  document.getElementById("pjVivaNextBtn").disabled = pjVivaIndex === pjVivaQuestions.length - 1;
+}
+
+function pjVivaPrev() {
+  if (pjVivaIndex > 0) { pjVivaIndex--; pjShowVivaQuestion(); }
+}
+
+function pjVivaNext() {
+  if (pjVivaIndex < pjVivaQuestions.length - 1) { pjVivaIndex++; pjShowVivaQuestion(); }
+}
+
+async function pjToggleAnswered() {
+  if (!pjCurrentProjectId) return;
+  const checked = document.getElementById("pjVivaAnsweredCheck").checked;
+  pjVivaQuestions[pjVivaIndex].answered = checked; // optimistic local update
+  try {
+    await fetch(`/api/microproject/${pjCurrentProjectId}/viva/${pjVivaIndex}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answered: checked }),
+    });
+  } catch (e) {}
+}
+
+function pjBackToList() {
+  pjCurrentProjectId = null;
+  pjVivaQuestions = [];
+  pjVivaIndex = 0;
+  document.getElementById("pjActive").classList.add("hidden");
+  document.getElementById("pjNewForm").classList.remove("hidden");
+  document.getElementById("pjListSection").classList.remove("hidden");
+}
+
+async function pjOpenProject(id) {
+  try {
+    const res = await fetch(`/api/microproject/${id}`);
+    if (!res.ok) return;
+    const project = await res.json();
+    pjRenderActive(project);
+  } catch (e) {}
+}
+
+async function pjDeleteProject(id) {
+  if (!confirm("Delete this project?")) return;
+  try {
+    await fetch(`/api/microproject/${id}`, { method: "DELETE" });
+    if (pjCurrentProjectId === id) pjBackToList();
+    pjLoadList();
+  } catch (e) {}
+}
+
+async function pjLoadList() {
+  const list = document.getElementById("pjList");
+  if (!list) return;
+  try {
+    const res = await fetch("/api/microproject");
+    const projects = await res.json();
+    if (!projects.length) {
+      list.innerHTML = `<div class="history-empty"><p>No projects yet</p><span>Start your first micro-project above</span></div>`;
+      return;
+    }
+    list.innerHTML = projects.map(p => {
+      const doneStages = p.stages.filter(s => s.understood).length;
+      const statusLabel = p.status === "completed" ? "Completed · Viva ready" : `Stage ${doneStages + 1}/${PJ_STAGE_COUNT}`;
+      return `
+        <div class="history-item" id="pj-hist-${p._id}">
+          <div class="history-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="history-item-info" onclick="pjOpenProject('${p._id}')" style="cursor:pointer">
+            <div class="history-item-title">${p.title}</div>
+            <div class="history-item-meta">${p.difficulty} · ${statusLabel} · ${fmt(p.updatedAt)}</div>
+          </div>
+          <div class="history-item-actions">
+            <button class="history-delete-btn" onclick="pjDeleteProject('${p._id}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
+            </button>
+          </div>
+        </div>`;
+    }).join("");
+  } catch (e) {}
+}
+
 // ── PUSH FLASHCARDS ──
 async function pushFlashcardsToCanvas(flashcards) {
   const savedFlashcards = document.getElementById("savedFlashcards");
@@ -621,24 +1048,15 @@ document.addEventListener("touchend", e => {
   switchTab(dx < 0 ? "canvas" : "chat");
 }, { passive: true });
 
-// ── PROFILE DROPDOWN ──
-function toggleProfileMenu() { document.getElementById("profileDropdown")?.classList.toggle("open"); }
-document.addEventListener("click", e => {
-  const profile = document.getElementById("userProfile"), dropdown = document.getElementById("profileDropdown");
-  if (profile && dropdown && !profile.contains(e.target)) dropdown.classList.remove("open");
-});
-
-// ── LOAD USER ──
+// ── LOAD USER ── (fills the Account tab profile card)
 let currentUserName = "";
 async function loadUser() {
   try {
     const res = await fetch("/api/user");
     if (!res.ok) { window.location.href = "/login"; return; }
     const user = await res.json();
-    const p = document.getElementById("userPhoto"), n = document.getElementById("userName");
-    const dp = document.getElementById("dropdownPhoto"), dn = document.getElementById("dropdownName"), de = document.getElementById("dropdownEmail");
-    if (p) p.src = user.photo; if (n) n.textContent = user.name.split(" ")[0];
-    if (dp) dp.src = user.photo; if (dn) dn.textContent = user.name; if (de) de.textContent = user.email;
+    const ap = document.getElementById("accountPhoto"), an = document.getElementById("accountName"), ae = document.getElementById("accountEmail");
+    if (ap) ap.src = user.photo; if (an) an.textContent = user.name; if (ae) ae.textContent = user.email;
     currentUserName = user.name.split(" ")[0];
     updateGreeting();
   } catch (err) { window.location.href = "/login"; }
@@ -664,10 +1082,20 @@ function switchNav(tab) {
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".mobile-nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".tab-view").forEach(s => s.classList.toggle("hidden", s.id !== `tab-${tab}`));
-  if (tab === "home")    { updateGreeting(); updateStats(); }
-  if (tab === "history") loadHistory();
+  if (tab === "home")       { updateGreeting(); updateStats(); }
+  if (tab === "library")    loadHistory();
+  if (tab === "account")    loadUser();
+  if (tab === "answerlab")  alLoadHistory();
+  if (tab === "projectlab") { if (!pjCurrentProjectId) pjBackToList(); pjLoadList(); }
   // Push state for Android back button
   history.pushState({ tab }, "", "#" + tab);
+}
+
+// ── LIBRARY SUB-TABS (Saved / History) ──
+function switchLibraryTab(sub) {
+  document.querySelectorAll(".library-subtab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.libtab === sub));
+  document.querySelectorAll(".library-panel").forEach(p => p.classList.toggle("hidden", p.id !== `libpanel-${sub}`));
+  if (sub === "history") loadHistory();
 }
 
 // ── ANDROID BACK BUTTON ──
@@ -677,8 +1105,11 @@ window.addEventListener("popstate", e => {
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".mobile-nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".tab-view").forEach(s => s.classList.toggle("hidden", s.id !== `tab-${tab}`));
-  if (tab === "home")    { updateGreeting(); updateStats(); }
-  if (tab === "history") loadHistory();
+  if (tab === "home")       { updateGreeting(); updateStats(); }
+  if (tab === "library")    loadHistory();
+  if (tab === "account")    loadUser();
+  if (tab === "answerlab")  alLoadHistory();
+  if (tab === "projectlab") { if (!pjCurrentProjectId) pjBackToList(); pjLoadList(); }
 });
 
 function updateGreeting() {
@@ -775,6 +1206,12 @@ function appendSystemNotice(html) {
   chatArea.appendChild(notice); scrollChat();
 }
 
+// ── SHARED DATE FORMATTER ── (used by chat History and AnswerLab history)
+function fmt(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("en-IN", { timeZone:"Asia/Kolkata", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", hour12:true });
+}
+
 // ── HISTORY ──
 async function loadHistory() {
   const list = document.getElementById("historyList");
@@ -788,10 +1225,6 @@ async function loadHistory() {
       list.innerHTML = `<div class="history-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No history yet</p><span>Your chat sessions will appear here</span></div>`;
       return;
     }
-    const fmt = (d) => {
-      if (!d) return "—";
-      return new Date(d).toLocaleString("en-IN", { timeZone:"Asia/Kolkata", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", hour12:true });
-    };
     list.innerHTML = sessions.map(s => `
       <div class="history-item" id="hist-${s._id}">
         <div class="history-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
