@@ -11,14 +11,10 @@ let currentSessionId = null;
 let _saveTimer       = null;
 let selectedLanguage = localStorage.getItem("cortex-language") || "English";
 let canvasItemCount  = 0;
-let progressItems    = [];
-let editingProgressId = null;
 let plannerSessions  = [];
 let currentSpeakBtn  = null;
 let selectedFile     = null;
 let drawerTouchStartY = 0;
-
-const PROGRESS_COLORS = ["#534AB7","#20b882","#e55a4e","#f0997b","#5b9bd5","#9b59b6","#f39c12","#1abc9c"];
 
 // ── CORTEX SPINNER MARK ──
 const CX_MARK_SVG = `<svg class="cx-chat-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1082,7 +1078,7 @@ function switchNav(tab) {
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".mobile-nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".tab-view").forEach(s => s.classList.toggle("hidden", s.id !== `tab-${tab}`));
-  if (tab === "home")       { updateGreeting(); updateStats(); }
+  if (tab === "home")       { updateGreeting(); updateStats(); loadStudyPulse(); }
   if (tab === "library")    loadHistory();
   if (tab === "account")    loadUser();
   if (tab === "answerlab")  alLoadHistory();
@@ -1105,7 +1101,7 @@ window.addEventListener("popstate", e => {
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".mobile-nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.nav === tab));
   document.querySelectorAll(".tab-view").forEach(s => s.classList.toggle("hidden", s.id !== `tab-${tab}`));
-  if (tab === "home")       { updateGreeting(); updateStats(); }
+  if (tab === "home")       { updateGreeting(); updateStats(); loadStudyPulse(); }
   if (tab === "library")    loadHistory();
   if (tab === "account")    loadUser();
   if (tab === "answerlab")  alLoadHistory();
@@ -1298,72 +1294,54 @@ async function updateStats() {
 }
 updateStats();
 
-// ── PROGRESS TRACKER ──
-async function loadProgress() {
+// ── STUDY PULSE — automatic, trend-based subject risk from real AnswerLab performance ──
+async function loadStudyPulse() {
+  const focusBox = document.getElementById("pulseFocus");
+  const list = document.getElementById("pulseSubjectList");
+  if (!focusBox || !list) return;
   try {
-    const res = await fetch("/api/progress", { headers: { "Cache-Control": "no-cache" } });
-    if (res.ok) { progressItems = await res.json(); renderProgress(); }
-  } catch (e) { progressItems = JSON.parse(localStorage.getItem("cortex-progress") || "[]"); renderProgress(); }
-}
-function renderProgress() {
-  const list = document.getElementById("progressList");
-  if (!list) return;
-  if (!progressItems.length) { list.innerHTML = '<p class="empty-hint">No subjects added yet. Tap + Add to track your progress.</p>'; return; }
-  list.innerHTML = progressItems.map((item, i) => {
-    const color = item.color || PROGRESS_COLORS[i % PROGRESS_COLORS.length];
-    const pct = Math.min(100, Math.max(0, item.percent || 0));
-    return `<div class="progress-item" onclick="openProgressEditModal('${item._id}','${item.subject.replace(/'/g,"\\'")}',${pct})">
-      <div class="progress-label-row"><span class="progress-subject-name">${item.subject}</span><span class="progress-pct">${pct}%</span></div>
-      <div class="progress-bar"><div class="progress-fill" id="pbar-${item._id}" style="width:0%;background:linear-gradient(90deg,${color}88,${color})"></div></div>
-      <div class="progress-edit-hint">Tap to edit</div></div>`;
-  }).join("");
-  requestAnimationFrame(() => progressItems.forEach(item => {
-    const fill = document.getElementById(`pbar-${item._id}`);
-    if (fill) setTimeout(() => { fill.style.width = `${item.percent||0}%`; fill.style.transition = "width 0.7s cubic-bezier(0.4,0,0.2,1)"; }, 60);
-  }));
-}
-function openProgressModal() {
-  const s=document.getElementById("progressSubject"),p=document.getElementById("progressPercent"),v=document.getElementById("progressSliderVal");
-  if(s)s.value="";if(p)p.value=50;if(v)v.textContent="50";
-  document.getElementById("progressModal")?.classList.remove("hidden"); s?.focus();
-}
-function closeProgressModal() { document.getElementById("progressModal")?.classList.add("hidden"); }
-async function saveProgress() {
-  const subject = document.getElementById("progressSubject")?.value.trim();
-  const percent = parseInt(document.getElementById("progressPercent")?.value)||0;
-  if (!subject) { document.getElementById("progressSubject")?.focus(); return; }
-  try {
-    const res = await fetch("/api/progress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject,percent})});
+    const res = await fetch("/api/study-pulse", { headers: { "Cache-Control": "no-cache" } });
     const data = await res.json();
-    if (data.ok && data.item) { progressItems.push(data.item); renderProgress(); closeProgressModal(); }
-    else alert(data.error || "Could not add subject.");
+
+    // Focus banner
+    focusBox.className = "pulse-focus" + (data.focus?.status ? ` ${data.focus.status}` : "");
+    focusBox.innerHTML = `<p style="margin:0">${data.focus?.message || "Score a couple more answers in AnswerLab to start seeing your subject-wise trend here."}</p>`;
+
+    // Subject list
+    if (!data.subjects?.length) {
+      list.innerHTML = "";
+      return;
+    }
+    list.innerHTML = data.subjects.map(s => {
+      const meta = s.status === "unassessed" ? `${s.attemptCount} attempt${s.attemptCount === 1 ? "" : "s"}` : `${s.avgPercent}% · ${s.attemptCount}`;
+      return `<div class="pulse-subject-row" onclick="pulseGoToSubject('${s.subjectCode}')">
+        <div class="pulse-dot ${s.status}"></div>
+        <div class="pulse-subject-name">${s.subjectName}</div>
+        <div class="pulse-subject-meta">${meta}</div>
+      </div>`;
+    }).join("");
   } catch (e) {
-    progressItems.push({_id:"local-"+Date.now(),subject,percent,color:PROGRESS_COLORS[progressItems.length%PROGRESS_COLORS.length]});
-    renderProgress(); closeProgressModal();
+    focusBox.innerHTML = `<p style="margin:0">Could not load Study Pulse right now.</p>`;
   }
 }
-function openProgressEditModal(id,subject,percent) {
-  editingProgressId=id;
-  const t=document.getElementById("progressEditTitle"),p=document.getElementById("progressEditPercent"),v=document.getElementById("progressEditVal");
-  if(t)t.textContent=subject;if(p)p.value=percent;if(v)v.textContent=percent;
-  document.getElementById("progressEditModal")?.classList.remove("hidden");
+loadStudyPulse();
+
+async function pulseGoToSubject(subjectCode) {
+  switchNav("answerlab");
+  const subjects = await alLoadSubjects();
+  let targetSem = null;
+  for (const sem of ["sem5", "sem6"]) {
+    const all = [...(subjects[sem]?.core || []), ...(subjects[sem]?.electives || [])];
+    if (all.some(x => x.code === subjectCode)) { targetSem = sem; break; }
+  }
+  if (targetSem) {
+    const semSelect = document.getElementById("alSemester");
+    if (semSelect) semSelect.value = targetSem;
+    await alPopulateSubjects();
+    const subjSelect = document.getElementById("alSubject");
+    if (subjSelect) subjSelect.value = subjectCode;
+  }
 }
-function closeProgressEditModal(){editingProgressId=null;document.getElementById("progressEditModal")?.classList.add("hidden");}
-async function updateProgress() {
-  if (!editingProgressId) return;
-  const percent = parseInt(document.getElementById("progressEditPercent")?.value)||0;
-  try{await fetch(`/api/progress/${editingProgressId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({percent})});}catch(e){}
-  const idx = progressItems.findIndex(p=>String(p._id)===String(editingProgressId));
-  if(idx!==-1)progressItems[idx].percent=percent;
-  renderProgress();closeProgressEditModal();
-}
-async function deleteProgress() {
-  if (!editingProgressId||!confirm("Remove this subject?")) return;
-  try{await fetch(`/api/progress/${editingProgressId}`,{method:"DELETE"});}catch(e){}
-  progressItems=progressItems.filter(p=>String(p._id)!==String(editingProgressId));
-  renderProgress();closeProgressEditModal();
-}
-loadProgress();
 
 // ── STUDY PLANNER ──
 async function loadPlanner() {

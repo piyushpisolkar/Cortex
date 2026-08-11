@@ -385,15 +385,15 @@
                   </p>
                 </div>
               </div>
-              <!-- Progress Tracker -->
-              <div class="home-card progress-tracker">
+              <!-- Study Pulse — automatic, trend-based subject risk from real AnswerLab performance -->
+              <div class="home-card study-pulse-card">
                 <div class="card-heading-row">
-                  <h3 class="card-heading">Progress</h3>
-                  <button class="card-action-btn" onclick="openProgressModal()">+ Add</button>
+                  <h3 class="card-heading">Study Pulse</h3>
                 </div>
-                <div id="progressList" class="progress-list">
-                  <p class="empty-hint">No subjects added yet. Add one to track your progress.</p>
+                <div id="pulseFocus" class="pulse-focus">
+                  <p class="empty-hint">Loading...</p>
                 </div>
+                <div id="pulseSubjectList" class="pulse-subject-list"></div>
               </div>
               <!-- Stats -->
               <div class="home-card stats-card">
@@ -1027,54 +1027,6 @@
       </div>
     </div>
 
-    <!-- PROGRESS MODAL -->
-    <div class="modal-overlay hidden" id="progressModal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Add Subject</h3>
-          <button class="modal-close" onclick="closeProgressModal()">✕</button>
-        </div>
-        <div class="modal-body">
-          <input class="modal-input" id="progressSubject" type="text" placeholder="Subject (e.g. Data Structures)"/>
-          <div class="progress-slider-wrap">
-            <label class="progress-slider-label">
-              Progress: <span id="progressSliderVal">50</span>%
-            </label>
-            <input class="progress-slider" id="progressPercent" type="range" min="0" max="100" value="50"
-              oninput="document.getElementById('progressSliderVal').textContent = this.value"/>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-btn-secondary" onclick="closeProgressModal()">Cancel</button>
-          <button class="modal-btn-primary" onclick="saveProgress()">Add Subject</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PROGRESS EDIT MODAL -->
-    <div class="modal-overlay hidden" id="progressEditModal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 id="progressEditTitle">Edit Progress</h3>
-          <button class="modal-close" onclick="closeProgressEditModal()">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="progress-slider-wrap">
-            <label class="progress-slider-label">
-              Progress: <span id="progressEditVal">50</span>%
-            </label>
-            <input class="progress-slider" id="progressEditPercent" type="range" min="0" max="100" value="50"
-              oninput="document.getElementById('progressEditVal').textContent = this.value"/>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-btn-secondary" onclick="deleteProgress()" style="color:var(--panic-light);border-color:var(--panic)">Delete</button>
-          <button class="modal-btn-primary" onclick="updateProgress()">Update</button>
-        </div>
-      </div>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- Canvas toggle button (mobile only, no backdrop) -->
     <button class="canvas-toggle-btn" id="canvasToggleBtn" onclick="toggleCanvasDrawer()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

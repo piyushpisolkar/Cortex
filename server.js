@@ -503,15 +503,22 @@ app.get("/admin", isAdmin, async (req, res) => {
     ])];
 
     // Global totals
-    const [totalChats, totalPlanner, totalProgress, totalCanvas] = await Promise.all([
+    const [totalChats, totalPlanner, totalCanvas, totalAnswerAttempts, totalMicroProjects] = await Promise.all([
       ChatSession.countDocuments(),
       PlannerSession.countDocuments(),
-      ProgressItem.countDocuments(),
       CanvasItem.countDocuments(),
+      AnswerAttempt.countDocuments(),
+      MicroProject.countDocuments(),
     ]);
 
+    // Platform-wide AnswerLab average score (as % of max marks) — quick health signal
+    const scoreAgg = await AnswerAttempt.aggregate([
+      { $group: { _id: null, avgPct: { $avg: { $multiply: [{ $divide: ["$score", "$maxMarks"] }, 100] } } } }
+    ]);
+    const avgAnswerLabScore = scoreAgg[0]?.avgPct ? Math.round(scoreAgg[0].avgPct) : null;
+
     // Per-user stats
-    const [chatCounts, plannerCounts, progressCounts] = await Promise.all([
+    const [chatCounts, plannerCounts, answerLabCounts, microProjectCounts] = await Promise.all([
       ChatSession.aggregate([
         { $match: { userId: { $in: allUserIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 }, lastChat: { $max: "$updatedAt" } } }
@@ -520,15 +527,20 @@ app.get("/admin", isAdmin, async (req, res) => {
         { $match: { userId: { $in: allUserIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 } } }
       ]),
-      ProgressItem.aggregate([
+      AnswerAttempt.aggregate([
         { $match: { userId: { $in: allUserIds } } },
-        { $group: { _id: "$userId", count: { $sum: 1 } } }
+        { $group: { _id: "$userId", count: { $sum: 1 }, avgPct: { $avg: { $multiply: [{ $divide: ["$score", "$maxMarks"] }, 100] } } } }
+      ]),
+      MicroProject.aggregate([
+        { $match: { userId: { $in: allUserIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 }, completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } } } }
       ]),
     ]);
 
-    const chatMap     = Object.fromEntries(chatCounts.map(x => [x._id, { count: x.count, lastChat: x.lastChat }]));
-    const plannerMap  = Object.fromEntries(plannerCounts.map(x => [x._id, x.count]));
-    const progressMap = Object.fromEntries(progressCounts.map(x => [x._id, x.count]));
+    const chatMap        = Object.fromEntries(chatCounts.map(x => [x._id, { count: x.count, lastChat: x.lastChat }]));
+    const plannerMap     = Object.fromEntries(plannerCounts.map(x => [x._id, x.count]));
+    const answerLabMap   = Object.fromEntries(answerLabCounts.map(x => [x._id, { count: x.count, avgPct: Math.round(x.avgPct || 0) }]));
+    const microProjectMap = Object.fromEntries(microProjectCounts.map(x => [x._id, { count: x.count, completed: x.completed }]));
 
     // Format date in IST
     const fmt = d => {
@@ -543,17 +555,26 @@ app.get("/admin", isAdmin, async (req, res) => {
     const rows = allUserIds.map(uid => {
       const u = profileMap[uid];
       const chats = chatMap[uid]?.count || 0;
+      const al = answerLabMap[uid] || { count: 0, avgPct: 0 };
+      const pj = microProjectMap[uid] || { count: 0, completed: 0 };
       const lastActive = u?.lastSeen || chatMap[uid]?.lastChat;
       return `
-        <tr style="cursor:pointer" onclick="window.location='/admin/user/${uid}/chats'" title="Click to view chats">
-          <td>
+        <tr>
+          <td style="cursor:pointer" onclick="window.location='/admin/user/${uid}/chats'" title="Click to view chats">
             ${u?.photo ? `<img src="${u.photo}" width="36" height="36" style="border-radius:50%;vertical-align:middle;margin-right:10px;" onerror="this.style.display='none'">` : `<span style="display:inline-block;width:36px;height:36px;border-radius:50%;background:#1e1e30;vertical-align:middle;margin-right:10px;"></span>`}
             <span style="color:#AFA9EC;font-size:11px;margin-right:6px">💬</span>${u?.name || '<span style="color:#444">Unknown</span>'}
           </td>
           <td>${u?.email || '<span style="color:#444">—</span>'}</td>
-          <td style="text-align:center"><span class="badge" style="cursor:pointer">${chats}</span></td>
+          <td style="text-align:center;cursor:pointer" onclick="window.location='/admin/user/${uid}/chats'"><span class="badge">${chats}</span></td>
           <td style="text-align:center">${plannerMap[uid] || 0}</td>
-          <td style="text-align:center">${progressMap[uid] || 0}</td>
+          <td style="text-align:center;cursor:pointer" onclick="window.location='/admin/user/${uid}/answerlab'">
+            <span class="badge" style="background:rgba(79,209,197,0.15);color:#4fd1c5">${al.count}</span>
+            ${al.count ? `<div style="font-size:10px;color:#666;margin-top:3px">avg ${al.avgPct}%</div>` : ""}
+          </td>
+          <td style="text-align:center;cursor:pointer" onclick="window.location='/admin/user/${uid}/projectlab'">
+            <span class="badge" style="background:rgba(246,173,85,0.15);color:#f6ad55">${pj.count}</span>
+            ${pj.count ? `<div style="font-size:10px;color:#666;margin-top:3px">${pj.completed} done</div>` : ""}
+          </td>
           <td style="text-align:center">${u?.loginCount || "—"}</td>
           <td style="font-size:12px;color:#888">${fmt(u?.firstSeen)}</td>
           <td style="font-size:12px;color:#888">${fmt(lastActive)}</td>
@@ -627,7 +648,8 @@ app.get("/admin", isAdmin, async (req, res) => {
   <div class="stat-card"><div class="stat-num">${totalUsers}</div><div class="stat-label">Total Users</div></div>
   <div class="stat-card"><div class="stat-num">${totalChats}</div><div class="stat-label">Chat Sessions</div></div>
   <div class="stat-card"><div class="stat-num">${totalPlanner}</div><div class="stat-label">Planner Items</div></div>
-  <div class="stat-card"><div class="stat-num">${totalProgress}</div><div class="stat-label">Progress Items</div></div>
+  <div class="stat-card"><div class="stat-num">${totalAnswerAttempts}</div><div class="stat-label">AnswerLab Attempts</div>${avgAnswerLabScore !== null ? `<div style="font-size:11px;color:#4fd1c5;margin-top:4px">avg ${avgAnswerLabScore}%</div>` : ""}</div>
+  <div class="stat-card"><div class="stat-num">${totalMicroProjects}</div><div class="stat-label">Micro-Projects</div></div>
   <div class="stat-card"><div class="stat-num">${totalCanvas}</div><div class="stat-label">Canvas Items</div></div>
   <div class="stat-card"><div class="stat-num">${totalLogins}</div><div class="stat-label">Total Logins</div></div>
 </div>
@@ -635,7 +657,7 @@ app.get("/admin", isAdmin, async (req, res) => {
 <div class="section">
   <div class="section-header">
     <h2>All Users (${totalUsers})</h2>
-    <span class="tz-note">All times IST · Click a row to view chats</span>
+    <span class="tz-note">All times IST · Click name for chats, AnswerLab/ProjectLab counts for details</span>
   </div>
   <div class="table-wrap">
     <table>
@@ -644,12 +666,13 @@ app.get("/admin", isAdmin, async (req, res) => {
           <th>User</th><th>Email</th>
           <th style="text-align:center">💬 Chats</th>
           <th style="text-align:center">📅 Planner</th>
-          <th style="text-align:center">📊 Progress</th>
+          <th style="text-align:center">📝 AnswerLab</th>
+          <th style="text-align:center">🚀 ProjectLab</th>
           <th style="text-align:center">🔑 Logins</th>
           <th>First Seen</th><th>Last Active</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#2a2a40;padding:40px">No users yet</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="9" style="text-align:center;color:#2a2a40;padding:40px">No users yet</td></tr>'}</tbody>
     </table>
   </div>
 </div>
@@ -958,6 +981,261 @@ function toggleChat(id) {
 </body></html>`);
   } catch (e) {
     console.error("Admin chats error:", e);
+    res.status(500).send("Error: " + e.message);
+  }
+});
+
+// ── ADMIN: PER-USER ANSWERLAB DETAIL ──
+app.get("/admin/user/:userId/answerlab", isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await UserProfile.findOne({ userId });
+    const attempts = await AnswerAttempt.find({ userId }).sort({ createdAt: -1 }).limit(100);
+
+    const fmt = d => d ? new Date(d).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata", day: "numeric", month: "short",
+      year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true
+    }) : "—";
+
+    const esc = s => (s || "").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    const avgPct = attempts.length
+      ? Math.round(attempts.reduce((a, x) => a + (x.score / (x.maxMarks || 1)) * 100, 0) / attempts.length)
+      : 0;
+
+    const cards = attempts.map(a => {
+      const pct = Math.round((a.score / (a.maxMarks || 1)) * 100);
+      const scoreColor = pct >= 60 ? "#20b882" : pct >= 40 ? "#f6ad55" : "#e55a4e";
+      return `
+        <div class="session-card" onclick="toggleChat('${a._id}')">
+          <div class="session-header">
+            <div class="session-info">
+              <div class="session-title">${esc(a.subjectName)} — ${esc(a.question.slice(0, 70))}</div>
+              <div class="session-meta">${fmt(a.createdAt)} · <span style="color:${scoreColor};font-weight:600">${a.score}/${a.maxMarks} (${pct}%)</span></div>
+            </div>
+            <span class="toggle-icon" id="icon-${a._id}">▶</span>
+          </div>
+          <div class="chat-messages hidden" id="chat-${a._id}">
+            <div class="msg-row"><div class="msg-role">📝 Question</div><div class="msg-content">${esc(a.question)}</div></div>
+            <div class="msg-row user"><div class="msg-role">👤 Student's Answer</div><div class="msg-content">${esc(a.studentAnswer)}</div></div>
+            ${a.missingKeywords?.length ? `<div class="msg-row"><div class="msg-role" style="color:#e55a4e">⚠ Missing</div><div class="msg-content">${a.missingKeywords.map(esc).join(", ")}</div></div>` : ""}
+            <div class="msg-row assistant"><div class="msg-role">🧠 Examiner Feedback</div><div class="msg-content">${esc(a.feedback)}</div></div>
+            <div class="msg-row assistant"><div class="msg-role">✓ Model Answer</div><div class="msg-content">${esc(a.modelAnswer)}</div></div>
+          </div>
+        </div>`;
+    }).join("");
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${user?.name || "User"} — AnswerLab</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh}
+  .topbar{background:#13131e;border-bottom:1px solid #1e1e30;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .topbar-left{display:flex;align-items:center;gap:12px}
+  .topbar h1{font-size:16px;font-weight:600;color:#e8e8f0}
+  .topbar a{color:#534AB7;font-size:13px;text-decoration:none;transition:color 0.2s}
+  .topbar a:hover{color:#AFA9EC}
+  .user-chip{display:flex;align-items:center;gap:8px;background:#1a1a2a;border:1px solid #1e1e30;border-radius:24px;padding:6px 14px 6px 8px}
+  .user-chip img{width:28px;height:28px;border-radius:50%}
+  .user-chip span{font-size:13px;color:#c0c0d8}
+  .user-email{font-size:11px;color:#444;margin-top:2px}
+  .content{padding:28px 28px}
+  .stat-row{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+  .stat-pill{background:#13131e;border:1px solid #1e1e30;border-radius:10px;padding:12px 20px;text-align:center}
+  .stat-pill .num{font-size:22px;font-weight:700;color:#4fd1c5}
+  .stat-pill .lbl{font-size:11px;color:#555;letter-spacing:0.06em;text-transform:uppercase;margin-top:3px}
+  .section-title{font-size:12px;font-weight:600;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px}
+  .session-card{background:#13131e;border:1px solid #1e1e30;border-radius:12px;margin-bottom:10px;overflow:hidden;transition:border-color 0.2s}
+  .session-card:hover{border-color:#2a2a45}
+  .session-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;gap:12px}
+  .session-title{font-size:13px;color:#c8c8e0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:560px}
+  .session-meta{font-size:11px;color:#444;margin-top:4px}
+  .toggle-icon{color:#444;font-size:12px;flex-shrink:0;transition:transform 0.2s}
+  .toggle-icon.open{transform:rotate(90deg);color:#534AB7}
+  .chat-messages{border-top:1px solid #1a1a28;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+  .chat-messages.hidden{display:none}
+  .msg-row{display:flex;flex-direction:column;gap:4px}
+  .msg-role{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#444}
+  .msg-row.user .msg-role{color:#AFA9EC}
+  .msg-row.assistant .msg-role{color:#20b882}
+  .msg-content{font-size:13px;line-height:1.65;color:#b8b8d0;background:#0d0d14;border-radius:8px;padding:10px 14px;border-left:2px solid #1e1e30;white-space:pre-wrap;word-break:break-word}
+  .msg-row.user .msg-content{border-left-color:#534AB7;color:#c8c8e0}
+  .msg-row.assistant .msg-content{border-left-color:#20b882}
+  .empty{text-align:center;padding:60px 20px;color:#2a2a40;font-size:14px}
+  @media(max-width:600px){.content{padding:16px}.session-title{max-width:220px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="/admin">← Dashboard</a>
+    <div class="user-chip">
+      ${user?.photo ? `<img src="${user.photo}" onerror="this.style.display='none'">` : ""}
+      <div>
+        <span>${user?.name || "Unknown User"}</span>
+        <div class="user-email">${user?.email || userId}</div>
+      </div>
+    </div>
+  </div>
+  <h1>📝 AnswerLab — ${attempts.length} attempt${attempts.length !== 1 ? "s" : ""}</h1>
+</div>
+
+<div class="content">
+  <div class="stat-row">
+    <div class="stat-pill"><div class="num">${attempts.length}</div><div class="lbl">Attempts</div></div>
+    <div class="stat-pill"><div class="num">${avgPct}%</div><div class="lbl">Average Score</div></div>
+    <div class="stat-pill"><div class="num">${new Set(attempts.map(a => a.subjectCode)).size}</div><div class="lbl">Subjects Practiced</div></div>
+  </div>
+
+  <div class="section-title">Attempts (newest first)</div>
+  ${cards || '<div class="empty">No AnswerLab attempts found for this user</div>'}
+</div>
+
+<script>
+function toggleChat(id) {
+  const msgs = document.getElementById('chat-' + id);
+  const icon = document.getElementById('icon-' + id);
+  const isHidden = msgs.classList.contains('hidden');
+  msgs.classList.toggle('hidden', !isHidden);
+  icon.classList.toggle('open', isHidden);
+}
+</script>
+</body></html>`);
+  } catch (e) {
+    console.error("Admin AnswerLab error:", e);
+    res.status(500).send("Error: " + e.message);
+  }
+});
+
+// ── ADMIN: PER-USER PROJECTLAB DETAIL ──
+app.get("/admin/user/:userId/projectlab", isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await UserProfile.findOne({ userId });
+    const projects = await MicroProject.find({ userId }).sort({ updatedAt: -1 }).limit(100);
+
+    const fmt = d => d ? new Date(d).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata", day: "numeric", month: "short",
+      year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true
+    }) : "—";
+
+    const esc = s => (s || "").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    const completedCount = projects.filter(p => p.status === "completed").length;
+
+    const cards = projects.map(p => {
+      const doneStages = p.stages.filter(s => s.understood).length;
+      const statusColor = p.status === "completed" ? "#20b882" : "#f6ad55";
+      const statusLabel = p.status === "completed" ? "Completed" : `Stage ${doneStages + 1}/4`;
+      const stagesHtml = p.stages.map(s => `
+        <div class="msg-row ${s.understood ? "assistant" : ""}">
+          <div class="msg-role">${s.understood ? "✓" : "○"} ${esc(s.title)} ${s.attempts ? `(${s.attempts} attempt${s.attempts !== 1 ? "s" : ""})` : ""}</div>
+          <div class="msg-content">${esc(s.studentExplanation) || "<em style='color:#444'>Not yet answered</em>"}</div>
+          ${s.feedback ? `<div class="msg-content" style="border-left-color:#534AB7;font-size:12px;color:#8a8ab0">Feedback: ${esc(s.feedback)}</div>` : ""}
+        </div>`).join("");
+      const vivaHtml = p.vivaQuestions?.length
+        ? `<div class="msg-row"><div class="msg-role" style="color:#f6ad55">🎓 Viva Questions (${p.vivaQuestions.filter(v=>v.answered).length}/${p.vivaQuestions.length} practiced)</div><div class="msg-content">${p.vivaQuestions.map((v,i) => `${i+1}. ${esc(v.question)} ${v.answered ? "✓" : ""}`).join("<br>")}</div></div>`
+        : "";
+      return `
+        <div class="session-card" onclick="toggleChat('${p._id}')">
+          <div class="session-header">
+            <div class="session-info">
+              <div class="session-title">${esc(p.title)}</div>
+              <div class="session-meta">${p.difficulty} ${p.techUsed ? "· " + esc(p.techUsed) : ""} · ${fmt(p.updatedAt)} · <span style="color:${statusColor};font-weight:600">${statusLabel}</span></div>
+            </div>
+            <span class="toggle-icon" id="icon-${p._id}">▶</span>
+          </div>
+          <div class="chat-messages hidden" id="chat-${p._id}">
+            ${stagesHtml}
+            ${vivaHtml}
+          </div>
+        </div>`;
+    }).join("");
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${user?.name || "User"} — ProjectLab</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d14;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh}
+  .topbar{background:#13131e;border-bottom:1px solid #1e1e30;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .topbar-left{display:flex;align-items:center;gap:12px}
+  .topbar h1{font-size:16px;font-weight:600;color:#e8e8f0}
+  .topbar a{color:#534AB7;font-size:13px;text-decoration:none;transition:color 0.2s}
+  .topbar a:hover{color:#AFA9EC}
+  .user-chip{display:flex;align-items:center;gap:8px;background:#1a1a2a;border:1px solid #1e1e30;border-radius:24px;padding:6px 14px 6px 8px}
+  .user-chip img{width:28px;height:28px;border-radius:50%}
+  .user-chip span{font-size:13px;color:#c0c0d8}
+  .user-email{font-size:11px;color:#444;margin-top:2px}
+  .content{padding:28px 28px}
+  .stat-row{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+  .stat-pill{background:#13131e;border:1px solid #1e1e30;border-radius:10px;padding:12px 20px;text-align:center}
+  .stat-pill .num{font-size:22px;font-weight:700;color:#f6ad55}
+  .stat-pill .lbl{font-size:11px;color:#555;letter-spacing:0.06em;text-transform:uppercase;margin-top:3px}
+  .section-title{font-size:12px;font-weight:600;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px}
+  .session-card{background:#13131e;border:1px solid #1e1e30;border-radius:12px;margin-bottom:10px;overflow:hidden;transition:border-color 0.2s}
+  .session-card:hover{border-color:#2a2a45}
+  .session-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;gap:12px}
+  .session-title{font-size:13px;color:#c8c8e0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:560px}
+  .session-meta{font-size:11px;color:#444;margin-top:4px}
+  .toggle-icon{color:#444;font-size:12px;flex-shrink:0;transition:transform 0.2s}
+  .toggle-icon.open{transform:rotate(90deg);color:#534AB7}
+  .chat-messages{border-top:1px solid #1a1a28;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+  .chat-messages.hidden{display:none}
+  .msg-row{display:flex;flex-direction:column;gap:4px}
+  .msg-role{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#444}
+  .msg-row.assistant .msg-role{color:#20b882}
+  .msg-content{font-size:13px;line-height:1.65;color:#b8b8d0;background:#0d0d14;border-radius:8px;padding:10px 14px;border-left:2px solid #1e1e30;white-space:pre-wrap;word-break:break-word}
+  .msg-row.assistant .msg-content{border-left-color:#20b882}
+  .empty{text-align:center;padding:60px 20px;color:#2a2a40;font-size:14px}
+  @media(max-width:600px){.content{padding:16px}.session-title{max-width:220px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="/admin">← Dashboard</a>
+    <div class="user-chip">
+      ${user?.photo ? `<img src="${user.photo}" onerror="this.style.display='none'">` : ""}
+      <div>
+        <span>${user?.name || "Unknown User"}</span>
+        <div class="user-email">${user?.email || userId}</div>
+      </div>
+    </div>
+  </div>
+  <h1>🚀 ProjectLab — ${projects.length} project${projects.length !== 1 ? "s" : ""}</h1>
+</div>
+
+<div class="content">
+  <div class="stat-row">
+    <div class="stat-pill"><div class="num">${projects.length}</div><div class="lbl">Projects</div></div>
+    <div class="stat-pill"><div class="num">${completedCount}</div><div class="lbl">Completed</div></div>
+    <div class="stat-pill"><div class="num">${projects.reduce((a,p) => a + (p.vivaQuestions?.length||0), 0)}</div><div class="lbl">Viva Questions Generated</div></div>
+  </div>
+
+  <div class="section-title">Projects (newest first)</div>
+  ${cards || '<div class="empty">No ProjectLab projects found for this user</div>'}
+</div>
+
+<script>
+function toggleChat(id) {
+  const msgs = document.getElementById('chat-' + id);
+  const icon = document.getElementById('icon-' + id);
+  const isHidden = msgs.classList.contains('hidden');
+  msgs.classList.toggle('hidden', !isHidden);
+  icon.classList.toggle('open', isHidden);
+}
+</script>
+</body></html>`);
+  } catch (e) {
+    console.error("Admin ProjectLab error:", e);
     res.status(500).send("Error: " + e.message);
   }
 });
@@ -1817,6 +2095,74 @@ app.get("/api/stats", isLoggedIn, async (req, res) => {
   } catch (e) {
     console.error("Stats error:", e.message);
     res.status(500).json({ chats: 0, flashcards: 0, notes: 0 });
+  }
+});
+
+// ── STUDY PULSE — automatic, trend-based subject risk from real AnswerLab performance ──
+// Deliberately built ONLY on AnswerLab data: it's the one structured, subject-linked signal
+// Cortex has. Planner/ProjectLab aren't reliably subject-matched, so mixing them in would
+// make this feature dishonest. A narrower, trustworthy signal beats a broader, misleading one.
+const PULSE_RECENT_ATTEMPTS = 5; // how many recent attempts per subject to average
+const PULSE_MIN_ATTEMPTS = 2;    // below this, status is "unassessed" not a color — avoids one bad answer looking like a crisis
+
+app.get("/api/study-pulse", isLoggedIn, async (req, res) => {
+  try {
+    const attempts = await AnswerAttempt.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .select("subjectCode subjectName score maxMarks createdAt")
+      .lean();
+
+    if (!attempts.length) {
+      return res.json({ hasAnyData: false, subjects: [], focus: null });
+    }
+
+    // Group by subject, keep only the most recent N per subject (already sorted desc)
+    const bySubject = {};
+    for (const a of attempts) {
+      if (!bySubject[a.subjectCode]) bySubject[a.subjectCode] = { subjectName: a.subjectName, list: [] };
+      if (bySubject[a.subjectCode].list.length < PULSE_RECENT_ATTEMPTS) {
+        bySubject[a.subjectCode].list.push(a);
+      }
+    }
+
+    const severityRank = { red: 0, yellow: 1, unassessed: 2, green: 3 };
+    const subjects = Object.entries(bySubject).map(([subjectCode, { subjectName, list }]) => {
+      const avgPercent = Math.round(
+        list.reduce((sum, a) => sum + (a.score / (a.maxMarks || 1)) * 100, 0) / list.length
+      );
+      let status;
+      if (list.length < PULSE_MIN_ATTEMPTS) status = "unassessed";
+      else if (avgPercent < 40) status = "red";
+      else if (avgPercent < 60) status = "yellow";
+      else status = "green";
+      return { subjectCode, subjectName, avgPercent, attemptCount: list.length, status };
+    }).sort((a, b) => severityRank[a.status] - severityRank[b.status] || a.avgPercent - b.avgPercent);
+
+    // Today's Focus — deterministic, never AI-improvised, always grounded in real numbers
+    const worst = subjects.find(s => s.status === "red") || subjects.find(s => s.status === "yellow");
+    let focus = null;
+    if (worst) {
+      focus = {
+        subjectCode: worst.subjectCode,
+        subjectName: worst.subjectName,
+        avgPercent: worst.avgPercent,
+        attemptCount: worst.attemptCount,
+        status: worst.status,
+        message: worst.status === "red"
+          ? `${worst.subjectName} — averaging ${worst.avgPercent}% across ${worst.attemptCount} attempts, below the MSBTE passing mark. Worth 20 minutes today before it compounds.`
+          : `${worst.subjectName} — averaging ${worst.avgPercent}% across ${worst.attemptCount} attempts. Passing, but slipping — a quick review today keeps it steady.`,
+      };
+    } else {
+      const assessed = subjects.filter(s => s.status !== "unassessed");
+      focus = assessed.length
+        ? { message: "You're on track across every subject you've attempted. Keep the streak going! 🎯" }
+        : { message: "Score a couple more answers in AnswerLab to start seeing your subject-wise trend here." };
+    }
+
+    res.json({ hasAnyData: true, subjects, focus });
+  } catch (e) {
+    console.error("Study Pulse error:", e.message);
+    res.status(500).json({ hasAnyData: false, subjects: [], focus: null });
   }
 });
 
