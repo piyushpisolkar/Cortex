@@ -1026,9 +1026,8 @@ async function uploadAndAnalyze(file, message) {
 function isMobile() { return window.innerWidth <= 768; }
 function switchTab(tab) {
   const left = document.querySelector(".left-pane"), right = document.querySelector(".right-pane");
-  const cTab = document.getElementById("chatTab"), cvTab = document.getElementById("canvasTab");
-  if (tab === "chat") { left?.classList.add("mobile-active"); right?.classList.remove("mobile-active"); cTab?.classList.add("active"); cvTab?.classList.remove("active"); }
-  else { right?.classList.add("mobile-active"); left?.classList.remove("mobile-active"); cvTab?.classList.add("active"); cTab?.classList.remove("active"); }
+  if (tab === "chat") { left?.classList.add("mobile-active"); right?.classList.remove("mobile-active"); }
+  else { right?.classList.add("mobile-active"); left?.classList.remove("mobile-active"); }
 }
 if (isMobile()) document.querySelector(".left-pane")?.classList.add("mobile-active");
 
@@ -1154,33 +1153,14 @@ function toggleTheme() {
 function setLanguage(lang) {
   selectedLanguage = lang;
   localStorage.setItem("cortex-language", lang);
-  const badge = document.getElementById("langBadge");
-  if (badge) badge.textContent = { English:"EN",Hindi:"HI",Marathi:"MR",Tamil:"TA",Telugu:"TE",Bengali:"BN",Gujarati:"GU" }[lang] || lang.substring(0,2).toUpperCase();
   const sel = document.getElementById("langSelect");
   if (sel) sel.value = lang;
 }
-function toggleLangPicker(e) { e.stopPropagation(); document.getElementById("langPickerDropdown")?.classList.toggle("open"); }
-function pickLanguage(lang, flag, btn) {
-  setLanguage(lang);
-  const label = document.getElementById("langPickerLabel"), flagEl = document.getElementById("langPickerFlag");
-  if (label) label.textContent = lang; if (flagEl) flagEl.textContent = flag;
-  document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b === btn));
-  document.getElementById("langPickerDropdown")?.classList.remove("open");
-}
-document.addEventListener("click", e => {
-  const picker = document.getElementById("langPicker");
-  if (picker && !picker.contains(e.target)) document.getElementById("langPickerDropdown")?.classList.remove("open");
-});
+// Sync the dropdown to the saved preference on load — without this, the select always
+// visually defaults to English even when another language is actively saved/applied.
 (function () {
-  const saved = localStorage.getItem("cortex-language");
-  if (saved && saved !== "English") {
-    const flags = { Hindi:"🇮🇳",Marathi:"🇮🇳",Tamil:"🇮🇳",Telugu:"🇮🇳",Bengali:"🇮🇳",Gujarati:"🇮🇳" };
-    const codes = { Hindi:"HI",Marathi:"MR",Tamil:"TA",Telugu:"TE",Bengali:"BN",Gujarati:"GU" };
-    const label = document.getElementById("langPickerLabel"), flag = document.getElementById("langPickerFlag"), badge = document.getElementById("langBadge");
-    if (label) label.textContent = saved; if (flag) flag.textContent = flags[saved] || "🌐";
-    if (badge) badge.textContent = codes[saved] || saved.substring(0,2).toUpperCase();
-    selectedLanguage = saved;
-  }
+  const sel = document.getElementById("langSelect");
+  if (sel) sel.value = selectedLanguage;
 })();
 
 // ── TOGGLE VIVA / PANIC ──

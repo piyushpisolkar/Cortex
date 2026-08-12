@@ -1563,6 +1563,12 @@ code {
 }
 
 /* ── LIBRARY TAB (History sub-panel) ── */
+.history-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 40px 12px;
+}
+
 .history-list {
   padding: 0 40px 40px;
   display: flex;
