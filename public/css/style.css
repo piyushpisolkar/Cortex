@@ -997,13 +997,6 @@ code {
   color: var(--text-muted);
 }
 
-.nav-item.active {
-  background: rgba(127, 119, 221, 0.15);
-  color: var(--accent);
-  outline: none;
-  border: none;
-}
-
 .nav-item:focus {
   outline: none;
 }
@@ -2432,16 +2425,17 @@ body.light .topbar {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 56px;
+  height: 58px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   z-index: 100;
-  padding: 0 8px;
+  padding: 0 2px;
   backdrop-filter: blur(10px);
 }
 
 .mobile-nav-item {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2450,11 +2444,17 @@ body.light .topbar {
   background: none;
   border: none;
   color: var(--text-hint);
-  font-size: 10px;
+  font-size: 9px;
   font-family: "Inter", sans-serif;
   cursor: pointer;
   transition: color 0.2s;
-  padding: 6px 0;
+  padding: 6px 2px;
+}
+
+.mobile-nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .mobile-nav-item.active {
@@ -2462,9 +2462,13 @@ body.light .topbar {
 }
 
 .mobile-nav-item span {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── CANVAS TOGGLE BUTTON (mobile only) ── */
@@ -2706,22 +2710,24 @@ body.light .topbar {
   font-weight: 500;
 }
 
-/* ── SIDEBAR ACTIVE — cleaner highlight ── */
+/* ── SIDEBAR ACTIVE — blue left-mark indicator ── */
 .nav-item.active {
   background: rgba(127, 119, 221, 0.15);
   color: var(--accent);
   position: relative;
+  overflow: visible;
 }
 .nav-item.active::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: -2px;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
+  width: 4px;
   height: 60%;
   background: var(--accent);
   border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 6px rgba(127, 119, 221, 0.5);
 }
 
 /* ── PANIC GLOW — theme-aware ── */
