@@ -431,8 +431,8 @@ async function submitAnswerForScoring() {
   const question = document.getElementById("alQuestion")?.value.trim();
   const studentAnswer = document.getElementById("alAnswer")?.value.trim();
 
-  if (!subjectCode) { alert("Subject list is still loading — try again in a moment."); return; }
-  if (!maxMarks) { document.getElementById("alMaxMarks")?.focus(); alert("Select how many marks this question is worth."); return; }
+  if (!subjectCode) { showToast("Subject list is still loading — try again in a moment."); return; }
+  if (!maxMarks) { document.getElementById("alMaxMarks")?.focus(); showToast("Select how many marks this question is worth."); return; }
   if (!question) { document.getElementById("alQuestion")?.focus(); return; }
   if (!studentAnswer) { document.getElementById("alAnswer")?.focus(); return; }
 
@@ -444,11 +444,11 @@ async function submitAnswerForScoring() {
       body: JSON.stringify({ semester, subjectCode, question, maxMarks, studentAnswer }),
     });
     const data = await res.json();
-    if (!res.ok || !data.ok) { alert(data.error || "Could not score this answer."); return; }
+    if (!res.ok || !data.ok) { showToast(data.error || "Could not score this answer."); return; }
     alRenderResult(data.attempt);
     alPrependHistory(data.attempt);
   } catch (e) {
-    alert("Network error — could not score this answer.");
+    showToast("Network error — could not score this answer.");
   } finally {
     btn.disabled = false; btn.textContent = "Score my answer";
   }
@@ -546,7 +546,7 @@ async function alLoadAttempt(id) {
 }
 
 async function alDeleteAttempt(id) {
-  if (!confirm("Delete this attempt?")) return;
+  if (!await showConfirm("Delete this attempt?")) return;
   try {
     await fetch(`/api/answer-sim/history/${id}`, { method: "DELETE" });
     document.getElementById(`al-hist-${id}`)?.remove();
@@ -612,13 +612,13 @@ async function pjStartProject() {
       body: JSON.stringify({ title, difficulty, techUsed }),
     });
     const data = await res.json();
-    if (!res.ok || !data.ok) { alert(data.error || "Could not start project."); return; }
+    if (!res.ok || !data.ok) { showToast(data.error || "Could not start project."); return; }
     document.getElementById("pjTitle").value = "";
     document.getElementById("pjTechUsed").value = "";
     pjRenderActive(data.project);
     pjLoadList();
   } catch (e) {
-    alert("Network error — could not start project.");
+    showToast("Network error — could not start project.");
   } finally {
     btn.disabled = false; btn.textContent = "Start Project";
   }
@@ -700,11 +700,11 @@ async function pjSubmitStage() {
       body: JSON.stringify({ explanation }),
     });
     const data = await res.json();
-    if (!res.ok || !data.ok) { alert(data.error || "Could not evaluate this stage."); return; }
+    if (!res.ok || !data.ok) { showToast(data.error || "Could not evaluate this stage."); return; }
     pjRenderActive(data.project);
     if (data.readyForViva) pjLoadList();
   } catch (e) {
-    alert("Network error — could not submit.");
+    showToast("Network error — could not submit.");
   } finally {
     btn.disabled = false; btn.textContent = "Submit";
   }
@@ -717,12 +717,12 @@ async function pjGenerateViva() {
   try {
     const res = await fetch(`/api/microproject/${pjCurrentProjectId}/generate-viva`, { method: "POST" });
     const data = await res.json();
-    if (!res.ok || !data.ok) { alert(data.error || "Could not generate viva questions."); return; }
+    if (!res.ok || !data.ok) { showToast(data.error || "Could not generate viva questions."); return; }
     pjRenderViva(data.project.vivaQuestions);
     btn.classList.add("hidden");
     pjLoadList();
   } catch (e) {
-    alert("Network error — could not generate viva questions.");
+    showToast("Network error — could not generate viva questions.");
   } finally {
     btn.disabled = false; btn.textContent = "Generate Viva Questions";
   }
@@ -789,7 +789,7 @@ async function pjOpenProject(id) {
 }
 
 async function pjDeleteProject(id) {
-  if (!confirm("Delete this project?")) return;
+  if (!await showConfirm("Delete this project?")) return;
   try {
     await fetch(`/api/microproject/${id}`, { method: "DELETE" });
     if (pjCurrentProjectId === id) pjBackToList();
@@ -1182,6 +1182,56 @@ function appendSystemNotice(html) {
   chatArea.appendChild(notice); scrollChat();
 }
 
+// ── TOAST NOTIFICATIONS ── (replaces native alert() — non-blocking, matches app styling)
+function showToast(message, type = "error") {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  const icon = type === "error" ? "⚠" : type === "success" ? "✓" : "ℹ";
+  toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-msg"></span>`;
+  toast.querySelector(".toast-msg").textContent = message; // textContent, not innerHTML — avoids injecting error strings as markup
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 250);
+  }, 3800);
+}
+
+// ── CUSTOM CONFIRM MODAL ── (replaces native confirm() — returns a Promise<boolean>)
+function showConfirm(message, confirmLabel = "Delete") {
+  return new Promise(resolve => {
+    let overlay = document.getElementById("confirmModalOverlay");
+    if (overlay) overlay.remove(); // clear any stale instance
+    overlay = document.createElement("div");
+    overlay.id = "confirmModalOverlay";
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal confirm-modal">
+        <div class="modal-body">
+          <p class="confirm-modal-msg"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn-secondary" id="confirmModalCancel">Cancel</button>
+          <button class="modal-btn-primary confirm-modal-danger" id="confirmModalOk">${confirmLabel}</button>
+        </div>
+      </div>`;
+    overlay.querySelector(".confirm-modal-msg").textContent = message;
+    document.body.appendChild(overlay);
+
+    const cleanup = (result) => { overlay.remove(); resolve(result); };
+    overlay.querySelector("#confirmModalCancel").onclick = () => cleanup(false);
+    overlay.querySelector("#confirmModalOk").onclick = () => cleanup(true);
+    overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
+  });
+}
+
 // ── SHARED DATE FORMATTER ── (used by chat History and AnswerLab history)
 function fmt(d) {
   if (!d) return "—";
@@ -1236,7 +1286,7 @@ async function continueSession(id) {
 }
 
 async function deleteSession(id) {
-  if (!confirm("Delete this chat session?")) return;
+  if (!await showConfirm("Delete this chat session?")) return;
   try {
     const res = await fetch(`/api/history/${id}`, { method: "DELETE" });
     const data = await res.json();
