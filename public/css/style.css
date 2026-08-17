@@ -2386,6 +2386,18 @@ code {
   border-color: var(--accent);
 }
 
+/* ── UNIFIED INTELLIGENCE HANDOFF BUTTONS (AnswerLab/ProjectLab → Chat) ── */
+.answerlab-ask-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.answerlab-ask-btn.hidden {
+  display: none;
+}
+
 /* ── TOAST NOTIFICATIONS ── */
 .toast-container {
   position: fixed;

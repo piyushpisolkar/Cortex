@@ -108,6 +108,7 @@ async function sendMessage() {
         history: chatHistory,
         mode: panicMode ? "panic" : vivaMode ? "viva" : "normal",
         language: selectedLanguage || "English",
+        snapshot: cachedStudentSnapshot,
       }),
     });
     const data = await res.json();
@@ -403,6 +404,20 @@ loadCanvasItems();
 // ── ANSWERLAB ──
 let alSubjectsCache = null;
 
+// ── UNIFIED INTELLIGENCE — STUDENT SNAPSHOT ──
+// Fetched once when Chat opens (not per-message) — quiet background context Chat can
+// naturally draw on if relevant. Cached client-side; refreshes each time Chat tab is reopened.
+let cachedStudentSnapshot = null;
+async function refreshStudentSnapshot() {
+  try {
+    const res = await fetch("/api/student-snapshot");
+    const data = await res.json();
+    cachedStudentSnapshot = data.snapshot || null;
+  } catch (e) {
+    cachedStudentSnapshot = null; // silently degrade — chat still works fine without it
+  }
+}
+
 async function alLoadSubjects() {
   if (alSubjectsCache) return alSubjectsCache;
   try {
@@ -484,7 +499,24 @@ function alRenderResult(attempt) {
 
   document.getElementById("alFeedback").textContent = attempt.feedback || "No feedback available.";
   document.getElementById("alModelAnswer").textContent = attempt.modelAnswer || "Not available.";
+
+  // Unified Intelligence handoff — only offer when there's actually something to explain
+  currentAlAttempt = attempt;
+  document.getElementById("alAskCortexBtn").classList.toggle("hidden", isFullMarks);
+
   box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ── UNIFIED INTELLIGENCE — AnswerLab → Chat handoff ──
+let currentAlAttempt = null;
+function alAskCortex() {
+  if (!currentAlAttempt) return;
+  const a = currentAlAttempt;
+  const missing = a.missingKeywords?.length ? ` It said I was missing: ${a.missingKeywords.join(", ")}.` : "";
+  const msg = `I got this wrong on AnswerLab — "${a.question}" (${a.subjectName}). I scored ${a.score}/${a.maxMarks}.${missing} Can you explain it to me properly?`;
+  switchNav("chat");
+  userInput.value = msg;
+  sendMessage();
 }
 
 // ── LIGHTWEIGHT CONFETTI BURST (full marks celebration, no external libs) ──
@@ -667,6 +699,7 @@ function pjRenderActive(project) {
       document.getElementById("pjFeedbackHeading").textContent = `${currentStage.title} — understood ✓`;
       document.getElementById("pjFeedbackText").textContent = currentStage.feedback;
     }
+    document.getElementById("pjAskCortexBtn").classList.add("hidden");
     return;
   }
 
@@ -676,14 +709,32 @@ function pjRenderActive(project) {
   document.getElementById("pjStagePrompt").textContent = currentStage.followUpQuestion || currentStage.prompt;
   document.getElementById("pjExplanation").value = "";
 
+  // Unified Intelligence handoff — same "stuck" definition the backend snapshot uses:
+  // attempts >= 2, still not understood
+  currentPjContext = { project, stage: currentStage };
+  const isStuck = (currentStage.attempts || 0) >= 2 && !currentStage.understood;
+
   if (currentStage.attempts > 0 && currentStage.feedback) {
     feedbackBlock.classList.remove("hidden");
     feedbackBlock.className = "answerlab-block projectlab-feedback not-understood";
     document.getElementById("pjFeedbackHeading").textContent = "Not quite yet — try again";
     document.getElementById("pjFeedbackText").textContent = currentStage.feedback;
+    document.getElementById("pjAskCortexBtn").classList.toggle("hidden", !isStuck);
   } else {
     feedbackBlock.classList.add("hidden");
+    document.getElementById("pjAskCortexBtn").classList.add("hidden");
   }
+}
+
+// ── UNIFIED INTELLIGENCE — ProjectLab → Chat handoff ──
+let currentPjContext = null;
+function pjAskCortex() {
+  if (!currentPjContext) return;
+  const { project, stage } = currentPjContext;
+  const msg = `I'm stuck on the "${stage.title}" stage of my micro-project "${project.title}". The question was: "${stage.prompt}". My last attempt was: "${stage.studentExplanation}" — and the feedback was: "${stage.feedback}". Can you help me actually understand this?`;
+  switchNav("chat");
+  userInput.value = msg;
+  sendMessage();
 }
 
 async function pjSubmitStage() {
@@ -1081,6 +1132,7 @@ function switchNav(tab) {
   if (tab === "library")    loadHistory();
   if (tab === "account")    loadUser();
   if (tab === "answerlab")  alLoadHistory();
+  if (tab === "chat")       refreshStudentSnapshot();
   if (tab === "projectlab") { if (!pjCurrentProjectId) pjBackToList(); pjLoadList(); }
   // Push state for Android back button
   history.pushState({ tab }, "", "#" + tab);
@@ -1104,6 +1156,7 @@ window.addEventListener("popstate", e => {
   if (tab === "library")    loadHistory();
   if (tab === "account")    loadUser();
   if (tab === "answerlab")  alLoadHistory();
+  if (tab === "chat")       refreshStudentSnapshot();
   if (tab === "projectlab") { if (!pjCurrentProjectId) pjBackToList(); pjLoadList(); }
 });
 

@@ -1372,7 +1372,7 @@ Rules:
 
 // ── CHAT API ──
 app.post("/api/chat", isLoggedIn, async (req, res) => {
-  const { message, history, mode, language } = req.body;
+  const { message, history, mode, language, snapshot } = req.body;
 
   if (!message || typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "Message is required." });
@@ -1388,6 +1388,14 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
       ? `\n\nIMPORTANT: Respond entirely in ${language}. All explanations, examples, and text must be in ${language} only.`
       : "";
 
+    // Unified Intelligence — quiet background context from Study Pulse/ProjectLab, fetched
+    // once by the client when Chat opened (not recomputed per message). Capped defensively
+    // since this rides client → server; worst case of tampering is odd phrasing in this
+    // user's own reply, never a cross-user or destructive risk.
+    const snapshotInstruction = (typeof snapshot === "string" && snapshot.trim())
+      ? `\n\nKnown context about this student (from their own AnswerLab/ProjectLab activity): ${snapshot.trim().slice(0, 400)}\nOnly bring this up if it's genuinely relevant to what they're actually asking right now. Never lead with it, never mention it unprompted, never nag. If irrelevant to their message, ignore it completely.`
+      : "";
+
     // Strip _id and MongoDB fields — Groq only accepts {role, content}
     const cleanHistory = Array.isArray(history)
       ? history
@@ -1397,7 +1405,7 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
       : [];
 
     const messages = [
-      { role: "system", content: systemPrompt + langInstruction },
+      { role: "system", content: systemPrompt + langInstruction + snapshotInstruction },
       ...cleanHistory,
       { role: "user", content: message.trim() },
     ];
@@ -2105,64 +2113,108 @@ app.get("/api/stats", isLoggedIn, async (req, res) => {
 const PULSE_RECENT_ATTEMPTS = 5; // how many recent attempts per subject to average
 const PULSE_MIN_ATTEMPTS = 2;    // below this, status is "unassessed" not a color — avoids one bad answer looking like a crisis
 
+// Shared by /api/study-pulse (Home widget) AND /api/student-snapshot (Chat's quiet context) —
+// single source of truth so the two features can never disagree about a student's risk status.
+async function computeStudyPulse(userId) {
+  const attempts = await AnswerAttempt.find({ userId })
+    .sort({ createdAt: -1 })
+    .select("subjectCode subjectName score maxMarks createdAt")
+    .lean();
+
+  if (!attempts.length) {
+    return { hasAnyData: false, subjects: [], focus: null };
+  }
+
+  const bySubject = {};
+  for (const a of attempts) {
+    if (!bySubject[a.subjectCode]) bySubject[a.subjectCode] = { subjectName: a.subjectName, list: [] };
+    if (bySubject[a.subjectCode].list.length < PULSE_RECENT_ATTEMPTS) {
+      bySubject[a.subjectCode].list.push(a);
+    }
+  }
+
+  const severityRank = { red: 0, yellow: 1, unassessed: 2, green: 3 };
+  const subjects = Object.entries(bySubject).map(([subjectCode, { subjectName, list }]) => {
+    const avgPercent = Math.round(
+      list.reduce((sum, a) => sum + (a.score / (a.maxMarks || 1)) * 100, 0) / list.length
+    );
+    let status;
+    if (list.length < PULSE_MIN_ATTEMPTS) status = "unassessed";
+    else if (avgPercent < 40) status = "red";
+    else if (avgPercent < 60) status = "yellow";
+    else status = "green";
+    return { subjectCode, subjectName, avgPercent, attemptCount: list.length, status };
+  }).sort((a, b) => severityRank[a.status] - severityRank[b.status] || a.avgPercent - b.avgPercent);
+
+  const worst = subjects.find(s => s.status === "red") || subjects.find(s => s.status === "yellow");
+  let focus = null;
+  if (worst) {
+    focus = {
+      subjectCode: worst.subjectCode,
+      subjectName: worst.subjectName,
+      avgPercent: worst.avgPercent,
+      attemptCount: worst.attemptCount,
+      status: worst.status,
+      message: worst.status === "red"
+        ? `${worst.subjectName} — averaging ${worst.avgPercent}% across ${worst.attemptCount} attempts, below the MSBTE passing mark. Worth 20 minutes today before it compounds.`
+        : `${worst.subjectName} — averaging ${worst.avgPercent}% across ${worst.attemptCount} attempts. Passing, but slipping — a quick review today keeps it steady.`,
+    };
+  } else {
+    const assessed = subjects.filter(s => s.status !== "unassessed");
+    focus = assessed.length
+      ? { message: "You're on track across every subject you've attempted. Keep the streak going! 🎯" }
+      : { message: "Score a couple more answers in AnswerLab to start seeing your subject-wise trend here." };
+  }
+
+  return { hasAnyData: true, subjects, focus };
+}
+
 app.get("/api/study-pulse", isLoggedIn, async (req, res) => {
   try {
-    const attempts = await AnswerAttempt.find({ userId: req.user.id })
-      .sort({ createdAt: -1 })
-      .select("subjectCode subjectName score maxMarks createdAt")
-      .lean();
-
-    if (!attempts.length) {
-      return res.json({ hasAnyData: false, subjects: [], focus: null });
-    }
-
-    // Group by subject, keep only the most recent N per subject (already sorted desc)
-    const bySubject = {};
-    for (const a of attempts) {
-      if (!bySubject[a.subjectCode]) bySubject[a.subjectCode] = { subjectName: a.subjectName, list: [] };
-      if (bySubject[a.subjectCode].list.length < PULSE_RECENT_ATTEMPTS) {
-        bySubject[a.subjectCode].list.push(a);
-      }
-    }
-
-    const severityRank = { red: 0, yellow: 1, unassessed: 2, green: 3 };
-    const subjects = Object.entries(bySubject).map(([subjectCode, { subjectName, list }]) => {
-      const avgPercent = Math.round(
-        list.reduce((sum, a) => sum + (a.score / (a.maxMarks || 1)) * 100, 0) / list.length
-      );
-      let status;
-      if (list.length < PULSE_MIN_ATTEMPTS) status = "unassessed";
-      else if (avgPercent < 40) status = "red";
-      else if (avgPercent < 60) status = "yellow";
-      else status = "green";
-      return { subjectCode, subjectName, avgPercent, attemptCount: list.length, status };
-    }).sort((a, b) => severityRank[a.status] - severityRank[b.status] || a.avgPercent - b.avgPercent);
-
-    // Today's Focus — deterministic, never AI-improvised, always grounded in real numbers
-    const worst = subjects.find(s => s.status === "red") || subjects.find(s => s.status === "yellow");
-    let focus = null;
-    if (worst) {
-      focus = {
-        subjectCode: worst.subjectCode,
-        subjectName: worst.subjectName,
-        avgPercent: worst.avgPercent,
-        attemptCount: worst.attemptCount,
-        status: worst.status,
-        message: worst.status === "red"
-          ? `${worst.subjectName} — averaging ${worst.avgPercent}% across ${worst.attemptCount} attempts, below the MSBTE passing mark. Worth 20 minutes today before it compounds.`
-          : `${worst.subjectName} — averaging ${worst.avgPercent}% across ${worst.attemptCount} attempts. Passing, but slipping — a quick review today keeps it steady.`,
-      };
-    } else {
-      const assessed = subjects.filter(s => s.status !== "unassessed");
-      focus = assessed.length
-        ? { message: "You're on track across every subject you've attempted. Keep the streak going! 🎯" }
-        : { message: "Score a couple more answers in AnswerLab to start seeing your subject-wise trend here." };
-    }
-
-    res.json({ hasAnyData: true, subjects, focus });
+    const result = await computeStudyPulse(req.user.id);
+    res.json(result);
   } catch (e) {
     console.error("Study Pulse error:", e.message);
     res.status(500).json({ hasAnyData: false, subjects: [], focus: null });
+  }
+});
+
+// ── UNIFIED INTELLIGENCE — STUDENT SNAPSHOT ──
+// A short, quiet background-context line for Chat, so it can naturally connect the dots
+// when relevant — never a nag banner. Reuses Study Pulse's exact risk logic (no separate
+// computation that could drift), plus checks ProjectLab for a stage the student is
+// genuinely stuck on (attempts >= 2, still not understood — an AI-assessed signal, not
+// self-reported). Priority: at-risk subject > stuck project > slipping subject > nothing.
+app.get("/api/student-snapshot", isLoggedIn, async (req, res) => {
+  try {
+    const pulse = await computeStudyPulse(req.user.id);
+
+    if (pulse.focus?.status === "red") {
+      return res.json({ snapshot: pulse.focus.message });
+    }
+
+    const stuckProject = await MicroProject.findOne({
+      userId: req.user.id,
+      status: "in_progress",
+    }).sort({ updatedAt: -1 }).lean();
+
+    if (stuckProject) {
+      const currentStage = stuckProject.stages[stuckProject.stages.length - 1];
+      if (currentStage && !currentStage.understood && (currentStage.attempts || 0) >= 2) {
+        return res.json({
+          snapshot: `Stuck on the "${currentStage.title}" stage of their micro-project "${stuckProject.title}" after ${currentStage.attempts} attempts.`,
+        });
+      }
+    }
+
+    if (pulse.focus?.status === "yellow") {
+      return res.json({ snapshot: pulse.focus.message });
+    }
+
+    res.json({ snapshot: null });
+  } catch (e) {
+    console.error("Student snapshot error:", e.message);
+    res.json({ snapshot: null }); // never block chat over this — silently degrade
   }
 });
 
