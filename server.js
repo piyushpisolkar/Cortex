@@ -84,10 +84,36 @@ const UserProfileSchema = new mongoose.Schema({
   firstSeen: { type: Date, default: Date.now },
   lastSeen:  { type: Date, default: Date.now },
   loginCount:{ type: Number, default: 1 },
+  isPremium: { type: Boolean, default: false }, // Cortex Premium — larger daily quota within the same safe free-tier pool
 });
 const UserProfile =
   mongoose.models.UserProfile ||
   mongoose.model("UserProfile", UserProfileSchema);
+
+// ── USAGE QUOTA SYSTEM — keeps the whole app safely inside Groq's free-tier limits ──
+// Two counters: per-user (for fair free/premium allocation) and org-wide per model-group
+// (the actual hard ceiling Groq enforces — shared across ALL users, not per-account).
+const DailyUsageSchema = new mongoose.Schema({
+  userId: String,
+  date: String, // "YYYY-MM-DD" in IST
+  requestCount: { type: Number, default: 0 },
+  tokenCount: { type: Number, default: 0 },
+});
+DailyUsageSchema.index({ userId: 1, date: 1 }, { unique: true });
+const DailyUsage =
+  mongoose.models.DailyUsage ||
+  mongoose.model("DailyUsage", DailyUsageSchema);
+
+const OrgDailyUsageSchema = new mongoose.Schema({
+  date: String,
+  modelGroup: String, // "text" (llama-3.3-70b-versatile) or "vision" (llama-4-maverick) — tracked separately since Groq's limits are per-model
+  requestCount: { type: Number, default: 0 },
+  tokenCount: { type: Number, default: 0 },
+});
+OrgDailyUsageSchema.index({ date: 1, modelGroup: 1 }, { unique: true });
+const OrgDailyUsage =
+  mongoose.models.OrgDailyUsage ||
+  mongoose.model("OrgDailyUsage", OrgDailyUsageSchema);
 
 // ── SCHEMAS ──
 const ChatSessionSchema = new mongoose.Schema({
@@ -284,6 +310,123 @@ passport.deserializeUser((user, done) => done(null, user));
 function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.redirect("/login");
+}
+
+// ── USAGE QUOTA SYSTEM ──
+// Groq free-tier limits (confirmed from console.groq.com/docs/rate-limits) are ORGANIZATION-
+// WIDE, not per-user: llama-3.3-70b-versatile allows 1,000 requests/day and 100,000
+// tokens/day, shared across every student using this app. This system enforces two layers:
+//   1. An org-wide daily ceiling (kept well under Groq's real limit, with a safety buffer)
+//      that blocks new AI calls for EVERYONE once reached — the actual protection against
+//      ever hitting Groq's hard limit.
+//   2. A per-user daily quota (free vs. Cortex Premium) so usage is fairly distributed and
+//      no single student can exhaust the shared pool alone.
+// "Premium" reallocates a bigger slice of this SAME safe pool — it does not, and cannot,
+// grant access to real capacity beyond Groq's free tier. See conversation notes: a genuine
+// paid-tier upgrade would need a separate Groq Developer plan + spend cap + payment
+// gateway, which was deliberately out of scope for this build.
+const QUOTA_CONFIG = {
+  free:    { dailyRequests: 8 },
+  premium: { dailyRequests: 25 },
+  // Safety buffer: stay at 70% of Groq's real free-tier ceiling, never push against the edge
+  text:   { orgDailyRequestCap: 700, orgDailyTokenCap: 70000 },  // llama-3.3-70b-versatile: real limit is 1,000 req/day, 100,000 tokens/day
+  vision: { orgDailyRequestCap: 150, orgDailyTokenCap: 20000 },  // llama-4-maverick: limits unconfirmed in public docs — kept conservative on purpose
+};
+
+function getISTDateKey() {
+  // en-CA locale formats as YYYY-MM-DD — a clean, sortable daily bucket key in IST
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
+// modelGroup: "text" | "vision" — Groq enforces limits per-model, so each group is tracked
+// against its own org-wide ceiling, while sharing one simple per-user daily quota (a student
+// shouldn't need to think about which feature uses which model under the hood).
+// Core quota check — usable directly (e.g. when the model group isn't known until runtime,
+// like /api/upload which picks text vs. vision based on the uploaded file's type) or wrapped
+// as Express middleware via quotaGate() below for routes with a fixed, known model group.
+async function checkQuota(userId, modelGroup) {
+  const dateKey = getISTDateKey();
+  const groupConfig = QUOTA_CONFIG[modelGroup];
+
+  const [orgUsage, userProfile] = await Promise.all([
+    OrgDailyUsage.findOneAndUpdate(
+      { date: dateKey, modelGroup },
+      { $setOnInsert: { requestCount: 0, tokenCount: 0 } },
+      { upsert: true, new: true }
+    ),
+    UserProfile.findOne({ userId }).select("isPremium").lean(),
+  ]);
+
+  if (orgUsage.requestCount >= groupConfig.orgDailyRequestCap || orgUsage.tokenCount >= groupConfig.orgDailyTokenCap) {
+    return { allowed: false, error: "Cortex has reached its shared daily capacity across all students. Please try again tomorrow." };
+  }
+
+  const tier = userProfile?.isPremium ? "premium" : "free";
+  const userLimit = QUOTA_CONFIG[tier].dailyRequests;
+
+  const userUsage = await DailyUsage.findOneAndUpdate(
+    { userId, date: dateKey },
+    { $setOnInsert: { requestCount: 0, tokenCount: 0 } },
+    { upsert: true, new: true }
+  );
+
+  if (userUsage.requestCount >= userLimit) {
+    return {
+      allowed: false,
+      error: tier === "premium"
+        ? `You've used all ${userLimit} Cortex Premium requests for today. Resets at midnight IST.`
+        : `You've used all ${userLimit} free requests for today. Upgrade to Cortex Premium for more, or come back tomorrow.`,
+      tier,
+    };
+  }
+
+  return { allowed: true, dateKey, modelGroup, tier, remaining: userLimit - userUsage.requestCount - 1 };
+}
+
+function quotaGate(modelGroup) {
+  return async (req, res, next) => {
+    try {
+      const result = await checkQuota(req.user.id, modelGroup);
+      if (!result.allowed) {
+        return res.status(429).json({ error: result.error, quotaExceeded: true, tier: result.tier });
+      }
+      req.quotaDateKey = result.dateKey;
+      req.quotaModelGroup = result.modelGroup;
+      req.quotaTier = result.tier;
+      req.quotaRemaining = result.remaining;
+      next();
+    } catch (e) {
+      console.error("Quota gate error:", e.message);
+      next(); // fail open — a transient DB hiccup shouldn't take down every AI feature; the
+              // per-minute rateLimit() below still provides a baseline safety net regardless
+    }
+  };
+}
+
+// Call after a successful Groq response — logs the REAL token count from Groq's own
+// response.usage field, not an estimate, so quotas are always measured against ground truth.
+// Accepts either a request object (with req.quotaDateKey set by quotaGate middleware) or
+// explicit {userId, dateKey, modelGroup} for routes that called checkQuota() manually.
+async function recordUsage(reqOrContext, groqResponse) {
+  const userId = reqOrContext.user?.id || reqOrContext.userId;
+  const dateKey = reqOrContext.quotaDateKey || reqOrContext.dateKey;
+  const modelGroup = reqOrContext.quotaModelGroup || reqOrContext.modelGroup;
+  if (!dateKey) return; // quota check failed open or wasn't run — nothing to record against
+  try {
+    const tokens = groqResponse?.usage?.total_tokens || 0;
+    await Promise.all([
+      DailyUsage.updateOne(
+        { userId, date: dateKey },
+        { $inc: { requestCount: 1, tokenCount: tokens } }
+      ),
+      OrgDailyUsage.updateOne(
+        { date: dateKey, modelGroup },
+        { $inc: { requestCount: 1, tokenCount: tokens } }
+      ),
+    ]);
+  } catch (e) {
+    console.error("Record usage error:", e.message);
+  }
 }
 
 // ── SIMPLE RATE LIMITING ──
@@ -542,6 +685,17 @@ app.get("/admin", isAdmin, async (req, res) => {
     const answerLabMap   = Object.fromEntries(answerLabCounts.map(x => [x._id, { count: x.count, avgPct: Math.round(x.avgPct || 0) }]));
     const microProjectMap = Object.fromEntries(microProjectCounts.map(x => [x._id, { count: x.count, completed: x.completed }]));
 
+    // Usage quota system — today's per-user usage + org-wide capacity gauge
+    const todayKey = getISTDateKey();
+    const [todayUsageDocs, orgTextUsage, orgVisionUsage] = await Promise.all([
+      DailyUsage.find({ date: todayKey }).lean(),
+      OrgDailyUsage.findOne({ date: todayKey, modelGroup: "text" }).lean(),
+      OrgDailyUsage.findOne({ date: todayKey, modelGroup: "vision" }).lean(),
+    ]);
+    const todayUsageMap = Object.fromEntries(todayUsageDocs.map(d => [d.userId, d]));
+    const orgText = orgTextUsage || { requestCount: 0, tokenCount: 0 };
+    const orgVision = orgVisionUsage || { requestCount: 0, tokenCount: 0 };
+
     // Format date in IST
     const fmt = d => {
       if (!d) return "—";
@@ -558,6 +712,10 @@ app.get("/admin", isAdmin, async (req, res) => {
       const al = answerLabMap[uid] || { count: 0, avgPct: 0 };
       const pj = microProjectMap[uid] || { count: 0, completed: 0 };
       const lastActive = u?.lastSeen || chatMap[uid]?.lastChat;
+      const todayUsage = todayUsageMap[uid];
+      const isPremium = !!u?.isPremium;
+      const dailyLimit = isPremium ? QUOTA_CONFIG.premium.dailyRequests : QUOTA_CONFIG.free.dailyRequests;
+      const usedToday = todayUsage?.requestCount || 0;
       return `
         <tr>
           <td style="cursor:pointer" onclick="window.location='/admin/user/${uid}/chats'" title="Click to view chats">
@@ -574,6 +732,12 @@ app.get("/admin", isAdmin, async (req, res) => {
           <td style="text-align:center;cursor:pointer" onclick="window.location='/admin/user/${uid}/projectlab'">
             <span class="badge" style="background:rgba(246,173,85,0.15);color:#f6ad55">${pj.count}</span>
             ${pj.count ? `<div style="font-size:10px;color:#666;margin-top:3px">${pj.completed} done</div>` : ""}
+          </td>
+          <td style="text-align:center">
+            <div style="font-size:12px;color:${usedToday >= dailyLimit ? '#e55a4e' : '#888'}">${usedToday}/${dailyLimit}</div>
+          </td>
+          <td style="text-align:center">
+            <button onclick="togglePremium('${uid}', this)" style="background:${isPremium ? 'rgba(246,173,85,0.15)' : '#1a1a2a'};color:${isPremium ? '#f6ad55' : '#666'};border:1px solid ${isPremium ? '#f6ad55' : '#2a2a45'};border-radius:14px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:600">${isPremium ? '⭐ Premium' : 'Free'}</button>
           </td>
           <td style="text-align:center">${u?.loginCount || "—"}</td>
           <td style="font-size:12px;color:#888">${fmt(u?.firstSeen)}</td>
@@ -656,8 +820,32 @@ app.get("/admin", isAdmin, async (req, res) => {
 
 <div class="section">
   <div class="section-header">
+    <h2>⚡ Groq Capacity — Today (${todayKey})</h2>
+    <span class="tz-note">Safe ceiling is 70% of Groq's real free-tier limit — the actual protection against ever exceeding it</span>
+  </div>
+  <div class="stats" style="padding:0 32px 24px">
+    <div class="stat-card" style="text-align:left;padding:16px 20px">
+      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Text Model (llama-3.3-70b) Requests</div>
+      <div style="font-size:20px;font-weight:700;color:${orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap ? '#e55a4e' : orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'}">${orgText.requestCount} / ${QUOTA_CONFIG.text.orgDailyRequestCap}</div>
+      <div style="background:#1a1a2a;border-radius:6px;height:6px;margin-top:8px;overflow:hidden"><div style="background:${orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap ? '#e55a4e' : orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'};height:100%;width:${Math.min(100, (orgText.requestCount/QUOTA_CONFIG.text.orgDailyRequestCap)*100)}%"></div></div>
+    </div>
+    <div class="stat-card" style="text-align:left;padding:16px 20px">
+      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Text Model Tokens</div>
+      <div style="font-size:20px;font-weight:700;color:${orgText.tokenCount >= QUOTA_CONFIG.text.orgDailyTokenCap ? '#e55a4e' : orgText.tokenCount >= QUOTA_CONFIG.text.orgDailyTokenCap * 0.7 ? '#f6ad55' : '#20b882'}">${orgText.tokenCount.toLocaleString()} / ${QUOTA_CONFIG.text.orgDailyTokenCap.toLocaleString()}</div>
+      <div style="background:#1a1a2a;border-radius:6px;height:6px;margin-top:8px;overflow:hidden"><div style="background:${orgText.tokenCount >= QUOTA_CONFIG.text.orgDailyTokenCap ? '#e55a4e' : orgText.tokenCount >= QUOTA_CONFIG.text.orgDailyTokenCap * 0.7 ? '#f6ad55' : '#20b882'};height:100%;width:${Math.min(100, (orgText.tokenCount/QUOTA_CONFIG.text.orgDailyTokenCap)*100)}%"></div></div>
+    </div>
+    <div class="stat-card" style="text-align:left;padding:16px 20px">
+      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Vision Model (llama-4-maverick) Requests</div>
+      <div style="font-size:20px;font-weight:700;color:${orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap ? '#e55a4e' : orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'}">${orgVision.requestCount} / ${QUOTA_CONFIG.vision.orgDailyRequestCap}</div>
+      <div style="background:#1a1a2a;border-radius:6px;height:6px;margin-top:8px;overflow:hidden"><div style="background:${orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap ? '#e55a4e' : orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'};height:100%;width:${Math.min(100, (orgVision.requestCount/QUOTA_CONFIG.vision.orgDailyRequestCap)*100)}%"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-header">
     <h2>All Users (${totalUsers})</h2>
-    <span class="tz-note">All times IST · Click name for chats, AnswerLab/ProjectLab counts for details</span>
+    <span class="tz-note">All times IST · Click name for chats, AnswerLab/ProjectLab counts for details · Click Free/Premium badge to toggle</span>
   </div>
   <div class="table-wrap">
     <table>
@@ -668,15 +856,28 @@ app.get("/admin", isAdmin, async (req, res) => {
           <th style="text-align:center">📅 Planner</th>
           <th style="text-align:center">📝 AnswerLab</th>
           <th style="text-align:center">🚀 ProjectLab</th>
+          <th style="text-align:center">📊 Today</th>
+          <th style="text-align:center">Tier</th>
           <th style="text-align:center">🔑 Logins</th>
           <th>First Seen</th><th>Last Active</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="9" style="text-align:center;color:#2a2a40;padding:40px">No users yet</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#2a2a40;padding:40px">No users yet</td></tr>'}</tbody>
     </table>
   </div>
 </div>
 <div class="footer">Cortex Admin · All times IST · ${nowIST}</div>
+<script>
+async function togglePremium(userId, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch('/admin/user/' + userId + '/toggle-premium', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) location.reload();
+    else { alert('Could not update — try again.'); btn.disabled = false; }
+  } catch (e) { alert('Network error.'); btn.disabled = false; }
+}
+</script>
 </body></html>`);
   } catch (e) {
     console.error("Admin dashboard error:", e);
@@ -741,6 +942,20 @@ async function backfillUserProfiles() {
 // Run backfill automatically on every startup — fills in any missing profiles
 mongoose.connection.once("open", () => {
   setTimeout(backfillUserProfiles, 3000); // wait 3s for models to register
+});
+
+// ── ADMIN: TOGGLE USER PREMIUM STATUS ──
+app.post("/admin/user/:userId/toggle-premium", isAdmin, async (req, res) => {
+  try {
+    const user = await UserProfile.findOne({ userId: req.params.userId });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    user.isPremium = !user.isPremium;
+    await user.save();
+    res.json({ ok: true, isPremium: user.isPremium });
+  } catch (e) {
+    console.error("Toggle premium error:", e.message);
+    res.status(500).json({ ok: false });
+  }
 });
 
 // ── ADMIN: BACKFILL USER PROFILES FROM SESSION DATA ──
@@ -1328,6 +1543,24 @@ app.get("/api/user", isLoggedIn, (req, res) => {
   });
 });
 
+// ── USAGE STATS — powers the Account tab quota meter ──
+app.get("/api/usage-stats", isLoggedIn, async (req, res) => {
+  try {
+    const dateKey = getISTDateKey();
+    const [userProfile, usage] = await Promise.all([
+      UserProfile.findOne({ userId: req.user.id }).select("isPremium").lean(),
+      DailyUsage.findOne({ userId: req.user.id, date: dateKey }).lean(),
+    ]);
+    const tier = userProfile?.isPremium ? "premium" : "free";
+    const limit = QUOTA_CONFIG[tier].dailyRequests;
+    const used = usage?.requestCount || 0;
+    res.json({ tier, used, limit, remaining: Math.max(0, limit - used) });
+  } catch (e) {
+    console.error("Usage stats error:", e.message);
+    res.status(500).json({ tier: "free", used: 0, limit: QUOTA_CONFIG.free.dailyRequests, remaining: QUOTA_CONFIG.free.dailyRequests });
+  }
+});
+
 // ── SYSTEM PROMPTS ──
 const SYSTEM_PROMPT = `You are Cortex, an elite AI study assistant built exclusively for MSBTE (Maharashtra State Board of Technical Education) diploma engineering students in India.
 
@@ -1371,7 +1604,7 @@ Rules:
 - Be strict but fair — exactly like a real MSBTE K-Scheme examiner`;
 
 // ── CHAT API ──
-app.post("/api/chat", isLoggedIn, async (req, res) => {
+app.post("/api/chat", isLoggedIn, quotaGate("text"), async (req, res) => {
   const { message, history, mode, language, snapshot } = req.body;
 
   if (!message || typeof message !== "string" || !message.trim()) {
@@ -1420,6 +1653,7 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
     const reply = response.choices?.[0]?.message?.content;
     if (!reply) throw new Error("Empty response from Groq");
 
+    await recordUsage(req, response);
     res.json({ reply });
   } catch (error) {
     console.error("Groq chat error:", error?.message || error);
@@ -1435,7 +1669,7 @@ app.post("/api/chat", isLoggedIn, async (req, res) => {
 });
 
 // ── FLASHCARD API ──
-app.post("/api/flashcard", isLoggedIn, async (req, res) => {
+app.post("/api/flashcard", isLoggedIn, quotaGate("text"), async (req, res) => {
   const { text } = req.body;
   try {
     const response = await groq.chat.completions.create({
@@ -1459,6 +1693,7 @@ app.post("/api/flashcard", isLoggedIn, async (req, res) => {
     const raw = response.choices[0].message.content;
     const clean = raw.replace(/```json|```/g, "").trim();
     const flashcards = JSON.parse(clean);
+    await recordUsage(req, response);
     res.json({ flashcards });
   } catch (error) {
     console.error("Flashcard error:", error);
@@ -1467,7 +1702,7 @@ app.post("/api/flashcard", isLoggedIn, async (req, res) => {
 });
 
 // ── SUMMARIZE API ──
-app.post("/api/summarize", isLoggedIn, async (req, res) => {
+app.post("/api/summarize", isLoggedIn, quotaGate("text"), async (req, res) => {
   const { text, type } = req.body;
   try {
     const instruction =
@@ -1484,6 +1719,7 @@ app.post("/api/summarize", isLoggedIn, async (req, res) => {
       max_tokens: 1024,
     });
 
+    await recordUsage(req, response);
     res.json({ reply: response.choices[0].message.content });
   } catch (error) {
     console.error("Summarize error:", error);
@@ -1555,7 +1791,7 @@ You must respond with ONLY valid JSON, nothing else, no markdown fences, in exac
   "modelAnswer": "<a model answer matching the exact length/depth target for this mark value from Rule 1, using subject-appropriate terminology from Rule 3>"
 }`;
 
-app.post("/api/answer-sim/score", isLoggedIn, async (req, res) => {
+app.post("/api/answer-sim/score", isLoggedIn, quotaGate("text"), async (req, res) => {
   const { semester, subjectCode, question, maxMarks, studentAnswer } = req.body;
 
   if (!semester || !subjectCode || !question || !studentAnswer || typeof studentAnswer !== "string" || !studentAnswer.trim()) {
@@ -1609,6 +1845,8 @@ app.post("/api/answer-sim/score", isLoggedIn, async (req, res) => {
       feedback,
       modelAnswer,
     });
+
+    await recordUsage(req, response);
 
     res.json({ ok: true, attempt });
   } catch (error) {
@@ -1737,7 +1975,7 @@ app.get("/api/microproject/:id", isLoggedIn, async (req, res) => {
   }
 });
 
-app.post("/api/microproject/:id/stage", isLoggedIn, async (req, res) => {
+app.post("/api/microproject/:id/stage", isLoggedIn, quotaGate("text"), async (req, res) => {
   const { explanation } = req.body;
   if (!explanation || typeof explanation !== "string" || !explanation.trim()) {
     return res.status(400).json({ error: "Explanation is required." });
@@ -1797,6 +2035,7 @@ app.post("/api/microproject/:id/stage", isLoggedIn, async (req, res) => {
     project.updatedAt = new Date();
     await project.save();
 
+    await recordUsage(req, response);
     res.json({ ok: true, project, readyForViva });
   } catch (error) {
     console.error("ProjectLab stage error:", error?.message || error);
@@ -1804,7 +2043,7 @@ app.post("/api/microproject/:id/stage", isLoggedIn, async (req, res) => {
   }
 });
 
-app.post("/api/microproject/:id/generate-viva", isLoggedIn, async (req, res) => {
+app.post("/api/microproject/:id/generate-viva", isLoggedIn, quotaGate("text"), async (req, res) => {
   try {
     const project = await MicroProject.findOne({ _id: req.params.id, userId: req.user.id });
     if (!project) return res.status(404).json({ error: "Not found" });
@@ -1844,6 +2083,7 @@ app.post("/api/microproject/:id/generate-viva", isLoggedIn, async (req, res) => 
     project.updatedAt = new Date();
     await project.save();
 
+    await recordUsage(req, response);
     res.json({ ok: true, project });
   } catch (error) {
     console.error("ProjectLab viva generation error:", error?.message || error);
@@ -1922,6 +2162,14 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     // Clean up temp file
     fs.unlinkSync(filePath);
 
+    // Quota check — model group only known now (depends on file type), so this can't be
+    // static route middleware like the other Groq-calling routes.
+    const quota = await checkQuota(req.user.id, isImage ? "vision" : "text");
+    if (!quota.allowed) {
+      return res.status(429).json({ error: quota.error, quotaExceeded: true });
+    }
+    const quotaCtx = { userId: req.user.id, dateKey: quota.dateKey, modelGroup: quota.modelGroup };
+
     if (isImage) {
       // Use Groq vision for images
       const response = await groq.chat.completions.create({
@@ -1943,6 +2191,7 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
         ],
         max_tokens: 1024,
       });
+      await recordUsage(quotaCtx, response);
       return res.json({
         reply: response.choices[0].message.content,
         type: "image",
@@ -1964,6 +2213,7 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
         ],
         max_tokens: 1024,
       });
+      await recordUsage(quotaCtx, response);
       return res.json({
         reply: response.choices[0].message.content,
         type: "pdf",

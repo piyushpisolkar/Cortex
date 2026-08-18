@@ -278,7 +278,10 @@ async function summarize(btn, type) {
     });
     const data = await res.json();
     if (data.reply) pushToCanvas(data.reply);
-  } catch (e) {}
+    else showToast(data.error || "Could not summarize right now.");
+  } catch (e) {
+    showToast("Network error — could not summarize.");
+  }
   btn.textContent = type === "shorter" ? "Shorter" : "More detail";
   btn.disabled = false;
 }
@@ -295,7 +298,10 @@ async function makeFlashcard(btn) {
     });
     const data = await res.json();
     if (data.flashcards) await pushFlashcardsToCanvas(data.flashcards);
-  } catch (e) {}
+    else showToast(data.error || "Could not generate flashcards right now.");
+  } catch (e) {
+    showToast("Network error — could not generate flashcards.");
+  }
   btn.innerHTML = origHTML; btn.disabled = false;
 }
 
@@ -311,7 +317,12 @@ async function pinNote(btn) {
       body: JSON.stringify({ text, type: "shorter" }),
     });
     const data = await res.json();
-    await saveNoteToCanvas(data.reply || text);
+    if (data.reply) {
+      await saveNoteToCanvas(data.reply);
+    } else {
+      showToast(data.error || "Could not pin this note — saving as-is instead.", "info");
+      await saveNoteToCanvas(text); // graceful fallback: still pin the raw text so the action isn't a total dead end
+    }
   } catch (e) { await saveNoteToCanvas(text); }
   btn.innerHTML = origHTML; btn.disabled = false;
 }
@@ -1106,6 +1117,28 @@ async function loadUser() {
     currentUserName = user.name.split(" ")[0];
     updateGreeting();
   } catch (err) { window.location.href = "/login"; }
+  loadUsageStats();
+}
+
+// ── USAGE METER — Account tab ──
+async function loadUsageStats() {
+  const fill = document.getElementById("usageMeterFill");
+  const count = document.getElementById("usageMeterCount");
+  const tierEl = document.getElementById("usageMeterTier");
+  if (!fill || !count || !tierEl) return;
+  try {
+    const res = await fetch("/api/usage-stats");
+    const data = await res.json();
+    const pct = data.limit ? Math.min(100, Math.round((data.used / data.limit) * 100)) : 0;
+    fill.style.width = pct + "%";
+    fill.classList.toggle("near-limit", pct >= 75 && pct < 100);
+    fill.classList.toggle("at-limit", pct >= 100);
+    count.textContent = `${data.used} of ${data.limit} requests used today`;
+    tierEl.textContent = data.tier === "premium" ? "⭐ Premium" : "Free";
+    tierEl.classList.toggle("premium", data.tier === "premium");
+  } catch (e) {
+    count.textContent = "Usage data unavailable";
+  }
 }
 loadUser();
 initVoice();
