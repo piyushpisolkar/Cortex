@@ -106,7 +106,7 @@ const DailyUsage =
 
 const OrgDailyUsageSchema = new mongoose.Schema({
   date: String,
-  modelGroup: String, // "text" (llama-3.3-70b-versatile) or "vision" (llama-4-maverick) — tracked separately since Groq's limits are per-model
+  modelGroup: String, // "text" (openai/gpt-oss-120b) or "vision" (qwen/qwen3.6-27b) — tracked separately since Groq's limits are per-model
   requestCount: { type: Number, default: 0 },
   tokenCount: { type: Number, default: 0 },
 });
@@ -313,9 +313,12 @@ function isLoggedIn(req, res, next) {
 }
 
 // ── USAGE QUOTA SYSTEM ──
-// Groq free-tier limits (confirmed from console.groq.com/docs/rate-limits) are ORGANIZATION-
-// WIDE, not per-user: llama-3.3-70b-versatile allows 1,000 requests/day and 100,000
-// tokens/day, shared across every student using this app. This system enforces two layers:
+// Groq free-tier limits (confirmed from console.groq.com/docs) are ORGANIZATION-WIDE, not
+// per-user: openai/gpt-oss-120b (text) and qwen/qwen3.6-27b (vision) each allow 1,000
+// requests/day and 200,000 tokens/day — shared across every student using this app.
+// [Note: this build originally used llama-3.3-70b-versatile and llama-4-maverick, which
+// Groq deprecated/shut down in August 2026. Migrated to the current recommended models.]
+// This system enforces two layers:
 //   1. An org-wide daily ceiling (kept well under Groq's real limit, with a safety buffer)
 //      that blocks new AI calls for EVERYONE once reached — the actual protection against
 //      ever hitting Groq's hard limit.
@@ -329,8 +332,8 @@ const QUOTA_CONFIG = {
   free:    { dailyRequests: 8 },
   premium: { dailyRequests: 25 },
   // Safety buffer: stay at 70% of Groq's real free-tier ceiling, never push against the edge
-  text:   { orgDailyRequestCap: 700, orgDailyTokenCap: 70000 },  // llama-3.3-70b-versatile: real limit is 1,000 req/day, 100,000 tokens/day
-  vision: { orgDailyRequestCap: 150, orgDailyTokenCap: 20000 },  // llama-4-maverick: limits unconfirmed in public docs — kept conservative on purpose
+  text:   { orgDailyRequestCap: 700, orgDailyTokenCap: 140000 },  // openai/gpt-oss-120b: real limit is 1,000 req/day, 200,000 tokens/day
+  vision: { orgDailyRequestCap: 700, orgDailyTokenCap: 140000 },  // qwen/qwen3.6-27b: real limit is 1,000 req/day, 200,000 tokens/day
 };
 
 function getISTDateKey() {
@@ -825,7 +828,7 @@ app.get("/admin", isAdmin, async (req, res) => {
   </div>
   <div class="stats" style="padding:0 32px 24px">
     <div class="stat-card" style="text-align:left;padding:16px 20px">
-      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Text Model (llama-3.3-70b) Requests</div>
+      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Text Model (gpt-oss-120b) Requests</div>
       <div style="font-size:20px;font-weight:700;color:${orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap ? '#e55a4e' : orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'}">${orgText.requestCount} / ${QUOTA_CONFIG.text.orgDailyRequestCap}</div>
       <div style="background:#1a1a2a;border-radius:6px;height:6px;margin-top:8px;overflow:hidden"><div style="background:${orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap ? '#e55a4e' : orgText.requestCount >= QUOTA_CONFIG.text.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'};height:100%;width:${Math.min(100, (orgText.requestCount/QUOTA_CONFIG.text.orgDailyRequestCap)*100)}%"></div></div>
     </div>
@@ -835,7 +838,7 @@ app.get("/admin", isAdmin, async (req, res) => {
       <div style="background:#1a1a2a;border-radius:6px;height:6px;margin-top:8px;overflow:hidden"><div style="background:${orgText.tokenCount >= QUOTA_CONFIG.text.orgDailyTokenCap ? '#e55a4e' : orgText.tokenCount >= QUOTA_CONFIG.text.orgDailyTokenCap * 0.7 ? '#f6ad55' : '#20b882'};height:100%;width:${Math.min(100, (orgText.tokenCount/QUOTA_CONFIG.text.orgDailyTokenCap)*100)}%"></div></div>
     </div>
     <div class="stat-card" style="text-align:left;padding:16px 20px">
-      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Vision Model (llama-4-maverick) Requests</div>
+      <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Vision Model (qwen3.6-27b) Requests</div>
       <div style="font-size:20px;font-weight:700;color:${orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap ? '#e55a4e' : orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'}">${orgVision.requestCount} / ${QUOTA_CONFIG.vision.orgDailyRequestCap}</div>
       <div style="background:#1a1a2a;border-radius:6px;height:6px;margin-top:8px;overflow:hidden"><div style="background:${orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap ? '#e55a4e' : orgVision.requestCount >= QUOTA_CONFIG.vision.orgDailyRequestCap * 0.7 ? '#f6ad55' : '#20b882'};height:100%;width:${Math.min(100, (orgVision.requestCount/QUOTA_CONFIG.vision.orgDailyRequestCap)*100)}%"></div></div>
     </div>
@@ -1644,7 +1647,7 @@ app.post("/api/chat", isLoggedIn, quotaGate("text"), async (req, res) => {
     ];
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages,
       max_tokens: 1500,
       temperature: 0.7,
@@ -1673,7 +1676,7 @@ app.post("/api/flashcard", isLoggedIn, quotaGate("text"), async (req, res) => {
   const { text } = req.body;
   try {
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         {
           role: "system",
@@ -1711,7 +1714,7 @@ app.post("/api/summarize", isLoggedIn, quotaGate("text"), async (req, res) => {
         : "Expand this into a detailed technical explanation with examples.";
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: instruction },
         { role: "user", content: text },
@@ -1804,7 +1807,7 @@ app.post("/api/answer-sim/score", isLoggedIn, quotaGate("text"), async (req, res
 
   try {
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: ANSWER_SCORING_PROMPT },
         {
@@ -1991,7 +1994,7 @@ app.post("/api/microproject/:id/stage", isLoggedIn, quotaGate("text"), async (re
     }
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: STAGE_EVAL_PROMPT },
         {
@@ -2056,7 +2059,7 @@ app.post("/api/microproject/:id/generate-viva", isLoggedIn, quotaGate("text"), a
       .join("\n\n");
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: VIVA_GEN_PROMPT },
         {
@@ -2173,7 +2176,7 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     if (isImage) {
       // Use Groq vision for images
       const response = await groq.chat.completions.create({
-        model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+        model: "qwen/qwen3.6-27b",
         messages: [
           {
             role: "user",
@@ -2200,7 +2203,7 @@ app.post("/api/upload", isLoggedIn, upload.single("file"), async (req, res) => {
     } else {
       // Use text model for PDFs and text files
       const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [
           {
             role: "system",
